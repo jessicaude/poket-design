@@ -1,0 +1,86 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Raw } from "@/components/ui/Raw";
+import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP } from "@/lib/icons";
+
+export type WalletTab = "home" | "card" | "activity";
+
+const TABS: { id: WalletTab; btnId: string; label: string }[] = [
+  { id: "home", btnId: "tabHome", label: "Wallet" },
+  { id: "card", btnId: "tabCard", label: "Card" },
+  { id: "activity", btnId: "tabActivity", label: "Activity" },
+];
+
+type Props = {
+  /** styles/wallet.css (+ overrides) as text. Get it on the server with getWalletCss() from ./walletCss. */
+  css: string;
+  /** Selected tab. null renders the empty tab bar, as the reference does on onboarding screens. */
+  tab?: WalletTab | null;
+  onTab?: (tab: WalletTab) => void;
+  onSettings?: () => void;
+  /** Contents of the scrollable body (#panelBody). */
+  children?: React.ReactNode;
+};
+
+/**
+ * The wallet panel frame: markup from <template id="tplWallet"> and renderTabbar() in reference/poket-unified.html.
+ * Like the reference's mountEngine(), it renders into a shadow root so the wallet stylesheet stays isolated
+ * from prototype.css (they share class names such as .panel, .tabbar and .toast).
+ */
+export function WalletShell({ css, tab = "home", onTab, onSettings, children }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [root, setRoot] = useState<ShadowRoot | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current!;
+    setRoot(host.shadowRoot ?? host.attachShadow({ mode: "open" }));
+  }, []);
+
+  return (
+    <div ref={hostRef} id="walletHost">
+      {root &&
+        createPortal(
+          <>
+            <style>{css}</style>
+            <div className="app-root">
+              <div className="stage">
+                <div className="panel-slot">
+                  <div className="panel">
+                    <div className="panel-head">
+                      <div className="panel-brand">
+                        <Raw html={WALLET_LOCKUP} />
+                      </div>
+                      <div className="panel-actions" id="panelActions">
+                        <span className="panel-settings-btn" id="openNotifHeader" style={{ position: "relative", display: "none" }} aria-label="Notifications">
+                          <Raw html={BELL_ICON} />
+                          <span className="notif-dot" id="notifDot" style={{ display: "none" }} />
+                        </span>
+                        <span className="panel-settings-btn" id="openSettingsHeader" aria-label="Settings" onClick={onSettings}>
+                          <Raw html={SETTINGS_ICON} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="panel-body" id="panelBody">
+                      {children}
+                    </div>
+                    <div className="tabbar" id="tabbar">
+                      {tab !== null &&
+                        TABS.map((t) => (
+                          <button key={t.id} className={`tab-item ${tab === t.id ? "on" : ""}`} id={t.btnId} onClick={() => onTab?.(t.id)}>
+                            <Raw html={TAB_ICON[t.id]} />
+                            {t.label}
+                          </button>
+                        ))}
+                    </div>
+                    <div className="toast-wrap" id="toastWrap" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>,
+          root as unknown as Element,
+        )}
+    </div>
+  );
+}
