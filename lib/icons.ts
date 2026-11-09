@@ -82,3 +82,22 @@ export const TAB_ICON = {
   card: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"2\" y=\"5\" width=\"20\" height=\"15\" rx=\"3\" stroke=\"currentColor\" stroke-width=\"1.8\"/><path d=\"M2 10h20\" stroke=\"currentColor\" stroke-width=\"1.8\"/></svg>",
   activity: "<svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M3 12h4l2 7 4-14 2 7h6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
 };
+
+/* Wallet engine icons (reference/poket-unified.html: const icons = {...} and CV_ICON in the WALLET ENGINE). */
+export const WICON = {
+  back: "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\"><path d=\"M8 2.5 4.5 6 8 9.5\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  bank: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M12 3l9 5H3l9-5Z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/><path d=\"M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  convert: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M7 4 3.5 7.5 7 11M3.5 7.5H17M17 13l3.5 3.5L17 20M20.5 16.5H7\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  check: "<svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M20 6 9 17l-5-5\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  info: "<svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\"><circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M12 8.3h.01\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M11.3 11.3h1v5.4\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  alert: "<svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M12 9v4M12 17h.01\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><circle cx=\"12\" cy=\"12\" r=\"9\" stroke=\"currentColor\" stroke-width=\"1.8\"/></svg>",
+  user: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><circle cx=\"12\" cy=\"8\" r=\"4\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  percent: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><circle cx=\"7\" cy=\"7\" r=\"3\" stroke=\"currentColor\" stroke-width=\"1.6\"/><circle cx=\"17\" cy=\"17\" r=\"3\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M19 5L5 19\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  closeIc: "<svg width=\"26\" height=\"26\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M6 6l12 12M18 6 6 18\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/></svg>",
+  lockIc: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"5\" y=\"10\" width=\"14\" height=\"10\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M8 10V7a4 4 0 0 1 8 0v3\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg>",
+  chevron: "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M9 6l6 6-6 6\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  ngFlag: "<svg viewBox=\"0 0 32 32\"><defs><clipPath id=\"ngFlagClip\"><circle cx=\"16\" cy=\"16\" r=\"16\"/></clipPath></defs><g clip-path=\"url(#ngFlagClip)\"><rect width=\"32\" height=\"32\" fill=\"#fff\"/><rect width=\"10.67\" height=\"32\" fill=\"#008751\"/><rect x=\"21.33\" width=\"10.67\" height=\"32\" fill=\"#008751\"/></g></svg>",
+};
+
+/** The reference's extIc(svg, size): resize an icon by rewriting its width and height. */
+export const sizedIcon = (svg: string, size: number) => svg.replace(/<svg([^>]*?)\swidth="[^"]*"\s+height="[^"]*"/, `<svg$1 width="${size}" height="${size}"`);

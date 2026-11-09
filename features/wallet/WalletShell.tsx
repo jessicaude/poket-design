@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Raw } from "@/components/ui/Raw";
-import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP } from "@/lib/icons";
+import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP, WICON } from "@/lib/icons";
+import { NgnBody } from "./ngn/NgnBody";
+import { useWalletToast } from "./useWalletToast";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -19,7 +21,7 @@ type Props = {
   tab?: WalletTab | null;
   onTab?: (tab: WalletTab) => void;
   onSettings?: () => void;
-  /** Contents of the scrollable body (#panelBody). */
+  /** Contents of #panelBody. Defaults to the current NGN screen (useNgn), empty when none is open. */
   children?: React.ReactNode;
 };
 
@@ -62,7 +64,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       </div>
                     </div>
                     <div className="panel-body" id="panelBody">
-                      {children}
+                      {children ?? <NgnBody />}
                     </div>
                     <div className="tabbar" id="tabbar">
                       {tab !== null &&
@@ -73,7 +75,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                           </button>
                         ))}
                     </div>
-                    <div className="toast-wrap" id="toastWrap" />
+                    <ToastWrap />
                   </div>
                 </div>
               </div>
@@ -81,6 +83,25 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
           </>,
           root as unknown as Element,
         )}
+    </div>
+  );
+}
+
+/** #toastWrap with the current toast (showToast / showNotice markup from the reference). */
+function ToastWrap() {
+  const { toast, shown } = useWalletToast();
+  return (
+    <div className={`toast-wrap${toast?.top ? " top" : ""}`} id="toastWrap">
+      {toast && (
+        <div key={toast.id} className={`toast${toast.variant ? " " + toast.variant : ""}${shown ? " show" : ""}`} id="toastEl" role="status" aria-live="polite">
+          {toast.variant === "notice" ? (
+            <>
+              <span className="notice-ic"><Raw html={WICON.alert} /></span>
+              <span><div className="notice-title">{toast.title}</div><div className="notice-body">{toast.body}</div></span>
+            </>
+          ) : toast.text}
+        </div>
+      )}
     </div>
   );
 }
