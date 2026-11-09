@@ -1,0 +1,7 @@
+/* Overrides on top of the prototype stylesheet. Keep this small. */
+
+/* Fonts come from next/font (the geist package), so point the prototype's font tokens at them. */
+:root {
+  --sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: var(--font-geist-mono), "SF Mono", Consolas, monospace;
+}

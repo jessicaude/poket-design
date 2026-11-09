@@ -1,0 +1,33 @@
+---
+description: Poket design rules. Apply to every change in this repo.
+alwaysApply: true
+---
+
+# Poket design repo
+
+A **design environment** for the Poket widgets (Checkout, Payout, Wallets, Conversion). It continues the HTML prototypes in `reference/`: the look, copy and behaviour must match them.
+
+## How the look works (important)
+- `styles/prototype.css` is the prototype's own stylesheet, copied verbatim. **It is the source of truth for the look.**
+- Screens use the **prototype's markup and class names** (`wg`, `title`, `sub`, `field`, `lbl`, `btn`, `btn outline`, `btn ghost`, `methods`, `method`, `sumbox`, `line`, `steps`, `badge`, `check`, `otp` ...). Reuse these classes; don't restyle with Tailwind.
+- Icons, logos and card marks come from `lib/icons.ts` (taken from the prototype). Render them with `<Raw html={...} />`.
+- Colour tokens are the prototype's CSS variables (`--brand`, `--brand-600`, `--txt2`, `--bdr` ...). Note: `--brand-600` is the DARKER green.
+- The CentryOS theme is `data-theme="centry"` on `<html>`. Check changes in both themes.
+- Tailwind is available for new layout work (classes like `bg-brand`, `text-txt2`), without its reset. Prefer prototype classes inside widgets.
+- Small fixes to shared styles go in `styles/overrides.css`, not in components.
+
+## Where things go
+- One component per screen in `features/<widget>/screens/`. Flow logic in `features/<widget>/use<Widget>.ts`.
+- Demo merchant sites in `app/demo/<merchant>/page.tsx`. Demo-only controls in `components/demo/`.
+- The fake backend is `lib/mock-api.ts`.
+
+## Copy rules
+- Copy text exactly from the prototype. No em dashes.
+- No subtitles that repeat the title, descriptions of obvious fields, or filler. Keep errors, legal lines, amounts, fees and deadlines.
+
+## Product rules
+- Follow `docs/decisions.md`. If a request conflicts with it, say so instead of silently changing behaviour.
+
+## Before saying a change is done
+- Run `npm run test:e2e`, and `npm run build` with the dev server stopped (they share the .next folder).
+- Compare the screen with the same screen in the prototype (open the reference HTML in a browser).

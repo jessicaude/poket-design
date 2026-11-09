@@ -1,0 +1,27 @@
+/* Tailwind without its reset ("preflight"), so the prototype's styles render exactly as designed. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* The prototype's stylesheet is the source of truth for the look. */
+@import "../styles/prototype.css";
+@import "../styles/overrides.css";
+
+/* Tailwind classes mapped to the prototype's tokens, for new work:
+   bg-brand, text-txt2, border-bdr, rounded-wg, font-mono ... */
+@theme inline {
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-600);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-400: var(--brand-400);
+  --color-txt: var(--txt);
+  --color-txt2: var(--txt2);
+  --color-txt3: var(--txt3);
+  --color-bdr: var(--bdr);
+  --color-ok: var(--ok);
+  --color-err: var(--err);
+  --color-warn: var(--warn);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+}

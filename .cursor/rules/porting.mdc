@@ -1,0 +1,15 @@
+---
+description: How to port a screen from the HTML prototype into React
+globs: features/**
+alwaysApply: false
+---
+
+# Porting a screen
+
+1. Find `SCREENS['<name>']` in `reference/poket-widgets.html`. `render` is the markup and copy; `bind` is the behaviour (buttons, validation, events).
+2. Create `features/<widget>/screens/<Name>Screen.tsx`. Convert the `render` HTML to JSX **keeping every class name** (`class` becomes `className`, `for` becomes `htmlFor`, inline `style` strings become objects).
+3. SVGs and icons: use the matching export from `lib/icons.ts`. If one is missing, add it there, copied from the prototype.
+4. Behaviour from `bind` goes in the component (input formatting, validation) or the flow store (navigation, payments).
+5. Events (`emit(...)`) go through `useEvents().emit` with the same names and fields.
+6. Copy text and error messages exactly.
+7. Add a Playwright test for the happy path and one error case, then compare against the prototype in a browser.

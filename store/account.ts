@@ -1,0 +1,37 @@
+import { create } from "zustand";
+import type { BrandKey } from "@/lib/card";
+import type { Cents } from "@/lib/money";
+
+/** A saved way to pay. `name` and `sub` are display text, as in the prototype ("Visa ••• 4242", "Debit · Expires 12/2028"). */
+export type PaymentMethod = {
+  id: string;
+  kind: "card" | "bank";
+  brand?: BrandKey;
+  last4: string;
+  name: string;
+  sub: string;
+  oneTime?: boolean; // "Save this card for next time" was unticked
+};
+export type Payment = { id: string; merchant: string; amount: Cents; method: string; at: string; status: "paid" };
+export type Account = {
+  email: string;
+  first: string;
+  last: string;
+  tier: 0 | 1 | 2;  // Checkout payments under $500 need no ID check
+  methods: PaymentMethod[];
+  payments: Payment[];
+};
+
+type AccountState = {
+  account: Account | null;
+  signIn: (a: Account) => void;
+  signOut: () => void;
+  update: (fn: (a: Account) => Account) => void;
+};
+
+export const useAccount = create<AccountState>((set) => ({
+  account: null,
+  signIn: (account) => set({ account }),
+  signOut: () => set({ account: null }),
+  update: (fn) => set((s) => (s.account ? { account: fn(s.account) } : s)),
+}));
