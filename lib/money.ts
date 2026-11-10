@@ -12,9 +12,14 @@ export type Kobo = number;
  * Screens show the code grey by wrapping it in <span className="cur-code">, as the reference does after rendering.
  */
 export function formatNaira(kobo: Kobo): string {
-  if (!Number.isInteger(kobo)) throw new Error(`formatNaira expects integer kobo, got ${kobo}`);
-  const abs = Math.abs(kobo);
-  const naira = Math.floor(abs / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const k = String(abs % 100).padStart(2, "0");
-  return `${kobo < 0 ? "-" : ""}₦${naira}.${k} NGN`;
+  return formatMinor(kobo, "₦", "NGN");
+}
+
+/** The reference's fmtCurrency(cents, cur) for any currency: symbol, grouped units, two decimals, then the code. Integer maths only. */
+export function formatMinor(minor: number, symbol: string, code: string): string {
+  if (!Number.isInteger(minor)) throw new Error(`formatMinor expects integer minor units, got ${minor}`);
+  const abs = Math.abs(minor);
+  const units = Math.floor(abs / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const sub = String(abs % 100).padStart(2, "0");
+  return `${minor < 0 ? "-" : ""}${symbol}${units}.${sub} ${code}`;
 }

@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Raw } from "@/components/ui/Raw";
 import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP, WICON } from "@/lib/icons";
-import { NgnBody } from "./ngn/NgnBody";
+import { WalletBody } from "./WalletBody";
 import { useWalletToast } from "./useWalletToast";
+import { useNotifications } from "./useNotifications";
+import { useWalletNav } from "./useWalletNav";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -21,7 +23,7 @@ type Props = {
   tab?: WalletTab | null;
   onTab?: (tab: WalletTab) => void;
   onSettings?: () => void;
-  /** Contents of #panelBody. Defaults to the current NGN screen (useNgn), empty when none is open. */
+  /** Contents of #panelBody. Defaults to WalletBody: the open payout or NGN screen, else the NGN balance entry. */
   children?: React.ReactNode;
 };
 
@@ -33,6 +35,8 @@ type Props = {
 export function WalletShell({ css, tab = "home", onTab, onSettings, children }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [root, setRoot] = useState<ShadowRoot | null>(null);
+  const notifs = useNotifications((s) => s.list);
+  const unread = notifs.some((n) => !n.read);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -54,9 +58,12 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                         <Raw html={WALLET_LOCKUP} />
                       </div>
                       <div className="panel-actions" id="panelActions">
-                        <span className="panel-settings-btn" id="openNotifHeader" style={{ position: "relative", display: "none" }} aria-label="Notifications">
+                        {/* The bell shows once there are notifications, with a dot while any are unread (as in the reference). */}
+                        <span className="panel-settings-btn" id="openNotifHeader" role="button" tabIndex={0} aria-label="Notifications"
+                          style={{ position: "relative", display: notifs.length ? undefined : "none" }}
+                          onClick={() => useWalletNav.getState().push({ name: "notifications" })}>
                           <Raw html={BELL_ICON} />
-                          <span className="notif-dot" id="notifDot" style={{ display: "none" }} />
+                          <span className="notif-dot" id="notifDot" style={{ display: unread ? undefined : "none" }} />
                         </span>
                         <span className="panel-settings-btn" id="openSettingsHeader" aria-label="Settings" onClick={onSettings}>
                           <Raw html={SETTINGS_ICON} />
@@ -64,7 +71,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       </div>
                     </div>
                     <div className="panel-body" id="panelBody">
-                      {children ?? <NgnBody />}
+                      {children ?? <WalletBody />}
                     </div>
                     <div className="tabbar" id="tabbar">
                       {tab !== null &&

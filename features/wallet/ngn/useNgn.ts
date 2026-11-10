@@ -47,6 +47,10 @@ export const NGN_MIN_TOPUP: Kobo = 10000;
 type State = {
   tier: Tier;
   ngnBalance: Kobo;
+  /** NGN taken out of ngnBalance for payouts not yet sent (approved with the PIN, or held for [hold]). */
+  ngnReserved: Kobo;
+  /** NGN a merchant holds for the user (e.g. store credit). It can be converted but not sent to a bank. */
+  ngnMerchantBalance: Kobo;
   eligibility: Eligibility;
   ngnId: NgnId | null;
   /** Failed ID matches, shared with Veriff. */
@@ -68,7 +72,7 @@ type State = {
   confirmClose: boolean;
 
   /** Demo controls (the prototype bar). */
-  set: (patch: Partial<Pick<State, "tier" | "ngnBalance" | "eligibility" | "ngnId" | "attempts" | "dedicated">>) => void;
+  set: (patch: Partial<Pick<State, "tier" | "ngnBalance" | "ngnReserved" | "ngnMerchantBalance" | "eligibility" | "ngnId" | "attempts" | "dedicated">>) => void;
   reset: () => void;
 
   open: (stage?: NgnStage) => void;
@@ -100,7 +104,7 @@ type State = {
 };
 
 const INITIAL = {
-  tier: 0 as Tier, ngnBalance: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
+  tier: 0 as Tier, ngnBalance: 5000000, ngnReserved: 0, ngnMerchantBalance: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
   stage: null, entry: null, temp: null, tempCents: 0, route: null, mismatch: false, idNum: "", confirmClose: false,
 };
 

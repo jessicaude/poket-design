@@ -31,7 +31,7 @@ test("Tier 0 tops up through a temporary account for one exact amount", async ()
 
   await ngn().transferArrives();
   expect(ngn().stage).toBe("tempDone");
-  expect(ngn().ngnBalance).toBe(2500000);
+  expect(ngn().ngnBalance).toBe(5000000 + 2500000); // the reference opens with ₦50,000.00
 });
 
 test("an expired temporary account can be replaced; Back follows the reference", async () => {
