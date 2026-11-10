@@ -6,29 +6,31 @@ import {
 import { usePayout } from "../payout/usePayout";
 import { useNgn } from "../ngn/useNgn";
 import { showNotPorted } from "../useWalletToast";
-import { handleKind, initialsOf, routingBank, usSpeeds, validAddress, wireAddressOk } from "./sendMath";
+import { handleKind, initialsOf, routingBank, sortBank, usSpeeds, validAddress, wireAddressOk } from "./sendMath";
 
 /**
  * Send (docs/decisions.md: Send replaces the wallet's Transfer and Payout actions). Recipient-first: the recipients
  * screen, then the amount. Flow and copy from reference/poket-wallet-explore.html (savedPage, toScreen, the pickers);
  * the look is the wallet's. "+ New recipient" asks where to send:
- *   - Bank account: currency first. NGN continues in the existing bank step (bank picker, name enquiry); USD uses the
- *     explore prototype's US bank fields.
+ *   - Bank account: currency first. NGN continues in the existing bank step (bank picker, name enquiry); USD and GBP
+ *     use the explore prototype's US and UK bank fields.
  *   - Poket user: @handle, email or phone, with a name lookup; recent: the reference Transfer's contacts.
  *   - Stablecoin wallet (Tier 2, as decided): coin and network, address (validated, start and end highlighted),
  *     optional nickname.
  * Every new recipient can be saved ("Save recipient", on by default). Only NGN to a Nigerian bank has an amount
  * screen so far; the others are saved and the send itself shows "Not in the prototype yet".
  */
-export type SendStage = "recipients" | "new" | "bankCurrency" | "usBank" | "poketUser" | "wallet" | "coinPicker" | "tier2";
+export type SendStage = "recipients" | "new" | "bankCurrency" | "usBank" | "ukBank" | "poketUser" | "wallet" | "coinPicker" | "tier2";
 export const isSendStage = (s: unknown): s is SendStage =>
-  ["recipients", "new", "bankCurrency", "usBank", "poketUser", "wallet", "coinPicker", "tier2"].includes(s as string);
+  ["recipients", "new", "bankCurrency", "usBank", "ukBank", "poketUser", "wallet", "coinPicker", "tier2"].includes(s as string);
 
 export type UsDraft = { routing: string; acct: string; name: string; nick: string; speed: string; street: string; city: string; state: string; zip: string; save: boolean };
+export type UkDraft = { sort: string; acct: string; name: string; nick: string; save: boolean };
 export type PoketDraft = { query: string; lookup: { status: "idle" | "resolving" | "found" | "notFound"; user?: PoketUser }; nick: string; save: boolean };
 export type WalletDraft = { asset: "USDC" | "USDT"; net: WalletNetwork; address: string; nick: string; save: boolean };
 
 const EMPTY_US: UsDraft = { routing: "", acct: "", name: "", nick: "", speed: "", street: "", city: "", state: "", zip: "", save: true };
+const EMPTY_UK: UkDraft = { sort: "", acct: "", name: "", nick: "", save: true };
 const EMPTY_POKET: PoketDraft = { query: "", lookup: { status: "idle" }, nick: "", save: true };
 const EMPTY_WALLET: WalletDraft = { asset: "USDC", net: "Base", address: "", nick: "", save: true };
 
@@ -37,6 +39,7 @@ type State = {
   search: string;
   recipients: SendRecipient[];
   us: UsDraft;
+  uk: UkDraft;
   poket: PoketDraft;
   wallet: WalletDraft;
   open: () => void;
@@ -47,9 +50,11 @@ type State = {
   choose: (r: SendRecipient) => void;
   newRecipient: () => void;
   addKind: (kind: "bank" | "poket" | "wallet") => void;
-  pickCurrency: (cur: "NGN" | "USD") => void;
+  pickCurrency: (cur: "NGN" | "USD" | "GBP") => void;
   editUs: (p: Partial<UsDraft>) => void;
   continueUs: () => Promise<void>;
+  editUk: (p: Partial<UkDraft>) => void;
+  continueUk: () => Promise<void>;
   setPoketQuery: (q: string) => void;
   pickRecent: (u: PoketUser) => void;
   editPoket: (p: Partial<Pick<PoketDraft, "nick" | "save">>) => void;
@@ -68,6 +73,9 @@ export function usReady(d: UsDraft): boolean {
   return !!rb && /^\d{6,17}$/.test(d.acct) && d.name.trim().length > 1 && (d.speed !== "wire" || wireAddressOk(d));
 }
 
+/** The UK bank form is complete (the explore prototype's ok): a known sort code, 8 digits, a holder name. */
+export const ukReady = (d: UkDraft) => !!sortBank(d.sort) && /^\d{8}$/.test(d.acct) && d.name.trim().length > 1;
+
 export const useSend = create<State>((set, get) => {
   let lookupId = 0;
   /** After saving a recipient the prototype can't send to yet: back to the list, with the not-ported notice. */
@@ -78,6 +86,7 @@ export const useSend = create<State>((set, get) => {
     search: "",
     recipients: [],
     us: EMPTY_US,
+    uk: EMPTY_UK,
     poket: EMPTY_POKET,
     wallet: EMPTY_WALLET,
 
@@ -85,7 +94,7 @@ export const useSend = create<State>((set, get) => {
     close: () => set({ stage: null, search: "" }),
     back: () => {
       const prev: Record<SendStage, SendStage | null> = {
-        recipients: null, new: "recipients", bankCurrency: "new", usBank: "bankCurrency", poketUser: "new", wallet: "new", coinPicker: "wallet", tier2: "new",
+        recipients: null, new: "recipients", bankCurrency: "new", usBank: "bankCurrency", ukBank: "bankCurrency", poketUser: "new", wallet: "new", coinPicker: "wallet", tier2: "new",
       };
       const to = get().stage ? prev[get().stage!] : null;
       if (to === null) return get().close();
@@ -113,6 +122,7 @@ export const useSend = create<State>((set, get) => {
 
     pickCurrency: (cur) => {
       if (cur === "NGN") { get().close(); usePayout.getState().sendToNewBank(); return; }
+      if (cur === "GBP") return set({ stage: "ukBank", uk: EMPTY_UK });
       set({ stage: "usBank", us: EMPTY_US });
     },
     editUs: (p) => set((s) => {
@@ -133,6 +143,17 @@ export const useSend = create<State>((set, get) => {
         saved: d.save,
       });
       savedButNotPorted("Sending USD to a bank account");
+    },
+
+    editUk: (p) => set((s) => ({ uk: { ...s.uk, ...p } })),
+    continueUk: async () => {
+      const d = get().uk, sb = sortBank(d.sort);
+      if (!sb || !ukReady(d)) return;
+      await savePayoutRecipient({
+        isSelf: false, name: d.nick.trim() || d.name.trim(), holderName: d.name.trim(), currency: "GBP", methodType: "bank",
+        bankName: sb.short, bankFullName: sb.full, accountNumber: d.acct, routingNumber: d.sort, saved: d.save,
+      });
+      savedButNotPorted("Sending GBP to a bank account");
     },
 
     setPoketQuery: (query) => {

@@ -2,7 +2,8 @@ import type { WalletNetwork } from "@/lib/mock-api";
 
 /**
  * New-recipient helpers, ported from reference/poket-wallet-explore.html: ROUTING / MORE_BANKS / abaValid / routingBank
- * (US bank fields), speedsFor (US speeds), the stablecoin address check and hl() (start and end highlighted).
+ * (US bank fields), speedsFor (US speeds), sortBank (UK bank fields), the stablecoin address check and hl() (start
+ * and end highlighted).
  */
 
 const ROUTING: Record<string, [string, string, boolean]> = {
@@ -24,6 +25,16 @@ export function routingBank(r: string): { short: string; full: string; instant: 
   const b = ROUTING[r] || MORE_BANKS[[...r].reduce((s, c) => s + Number(c), 0) % MORE_BANKS.length];
   return { short: b[0], full: b[1], instant: b[2] };
 }
+
+/** sortBank(sort): the bank for a 6-digit UK sort code, by its prefix (made up, as in the prototype). */
+export function sortBank(sort: string): { short: string; full: string } | null {
+  const d = sort.replace(/\D/g, "");
+  if (d.length !== 6) return null;
+  const m = d.startsWith("040004") ? "Monzo" : /^20/.test(d) ? "Barclays" : /^40/.test(d) ? "HSBC" : /^(30|77)/.test(d) ? "Lloyds" : /^(60|50)/.test(d) ? "NatWest" : "UK bank";
+  return { short: m, full: m };
+}
+/** A sort code as typed: digits only, shown 00-00-00. */
+export const formatSortCode = (v: string) => (v.replace(/\D/g, "").slice(0, 6).match(/.{1,2}/g) || []).join("-");
 
 export type UsSpeed = { id: "rtp" | "ach" | "wire"; label: string; eta: string; fee: number };
 /** speedsFor(bank): Instant (if the bank supports RTP), Standard, Wire. Fees in US cents. */

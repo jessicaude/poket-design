@@ -6,8 +6,8 @@ import { fmtCurrency, payoutMethodSub } from "../payout/payoutMath";
 import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { useNgn } from "../ngn/useNgn";
 import { showNotPorted } from "../useWalletToast";
-import { addressParts, routingBank, usSpeeds, validAddress } from "./sendMath";
-import { usReady, useSend, type SendStage } from "./useSend";
+import { addressParts, formatSortCode, routingBank, sortBank, usSpeeds, validAddress } from "./sendMath";
+import { ukReady, usReady, useSend, type SendStage } from "./useSend";
 
 /** The explore prototype's shortAddr: "0x3Fa9cE…D58e12". */
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
@@ -115,9 +115,11 @@ function SaveRecipient({ checked, onChange }: { checked: boolean; onChange: (v: 
   );
 }
 
-const CURRENCIES: { cur: "USD" | "NGN"; name: string; flag: "usFlag" | "ngFlag" }[] = [
+/** RCP_COUNTRIES' currencies, in the explore prototype's order. */
+const CURRENCIES: { cur: "USD" | "NGN" | "GBP"; name: string; flag: "usFlag" | "ngFlag" | "gbFlag" }[] = [
   { cur: "USD", name: "US Dollar", flag: "usFlag" },
   { cur: "NGN", name: "Nigerian Naira", flag: "ngFlag" },
+  { cur: "GBP", name: "British Pound", flag: "gbFlag" },
 ];
 
 /** New bank account, step 1: the currency (the explore prototype's currency picker: flag, code, name). */
@@ -190,6 +192,38 @@ export function SendUsBankScreen() {
       )}
       <SaveRecipient checked={d.save} onChange={(v) => editUs({ save: v })} />
       <SpinButton id="usBankContinue" disabled={!usReady(d)} delay={400} onClick={continueUs}>Continue</SpinButton>
+    </>
+  );
+}
+
+/** New bank account in GBP: the explore prototype's UK fields (sort code with the bank's name, account number, holder, nickname). */
+export function SendUkBankScreen() {
+  const { uk: d, back, editUk, continueUk } = useSend();
+  const sb = sortBank(d.sort);
+  return (
+    <>
+      <BackRow id="backFromUkBank" onClick={back} />
+      <div className="step-title">New bank account</div>
+      <div className="select-row sel" id="sendCurRow" role="button" tabIndex={0} onClick={back}>
+        <div className="badge" dangerouslySetInnerHTML={{ __html: WICON.gbFlag }} />
+        <div className="meta"><div className="t1">GBP</div><div className="t2">British Pound</div></div>
+        <span className="va-chev">{"\u203a"}</span>
+      </div>
+      <label className="field-label" htmlFor="ukSort" style={{ marginTop: "14px" }}>Sort code</label>
+      <input className="field-input mono" id="ukSort" inputMode="numeric" maxLength={8} placeholder="00-00-00" autoComplete="off" value={d.sort} onChange={(e) => editUk({ sort: formatSortCode(e.target.value) })} />
+      {sb && (
+        <p id="ukBankName" style={{ margin: "-8px 0 14px", fontSize: "12.5px", color: "var(--ok-600)", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span className="badge" style={{ width: "24px", height: "24px", background: "var(--ok-50)" }}><span style={{ display: "inline-flex", color: "var(--ok-600)" }}><Raw html={WICON.bank} /></span></span><b>{sb.full}</b>
+        </p>
+      )}
+      <label className="field-label" htmlFor="ukAcct">Account number</label>
+      <input className="field-input mono" id="ukAcct" inputMode="numeric" maxLength={8} autoComplete="off" value={d.acct} onChange={(e) => editUk({ acct: e.target.value.replace(/\D/g, "").slice(0, 8) })} />
+      <label className="field-label" htmlFor="ukName">Account holder name</label>
+      <input className="field-input" id="ukName" autoComplete="off" value={d.name} onChange={(e) => editUk({ name: e.target.value })} />
+      <label className="field-label" htmlFor="ukNick">Nickname (optional)</label>
+      <input className="field-input" id="ukNick" autoComplete="off" value={d.nick} onChange={(e) => editUk({ nick: e.target.value })} />
+      <SaveRecipient checked={d.save} onChange={(v) => editUk({ save: v })} />
+      <SpinButton id="ukBankContinue" disabled={!ukReady(d)} delay={400} onClick={continueUk}>Continue</SpinButton>
     </>
   );
 }
@@ -328,7 +362,7 @@ export function SendTier2Screen() {
 }
 
 const STAGE_SCREEN: Record<SendStage, () => React.ReactElement> = {
-  recipients: SendRecipientsScreen, new: SendNewRecipientScreen, bankCurrency: SendBankCurrencyScreen, usBank: SendUsBankScreen,
+  recipients: SendRecipientsScreen, new: SendNewRecipientScreen, bankCurrency: SendBankCurrencyScreen, usBank: SendUsBankScreen, ukBank: SendUkBankScreen,
   poketUser: SendPoketUserScreen, wallet: SendWalletScreen, coinPicker: SendCoinPickerScreen, tier2: SendTier2Screen,
 };
 

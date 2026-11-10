@@ -48,8 +48,9 @@ test("+ New recipient asks where to send; Bank account asks the currency first",
   await expect(page.locator("#panelBody [data-newkind] .t1")).toHaveText(["Bank account", "Poket user", "Stablecoin wallet"]);
   await page.locator('[data-newkind="bank"]').click();
   await expect(title(page)).toHaveText("Currency");
-  await expect(page.locator("#panelBody [data-sendcur] .t1")).toHaveText(["USD", "NGN"]);
-  await expect(page.locator("#panelBody [data-sendcur] .t2")).toHaveText(["US Dollar", "Nigerian Naira"]);
+  await expect(page.locator("#panelBody [data-sendcur] .t1")).toHaveText(["USD", "NGN", "GBP"]);
+  await expect(page.locator("#panelBody [data-sendcur] .t2")).toHaveText(["US Dollar", "Nigerian Naira", "British Pound"]);
+  await expect(page.locator("#panelBody [data-sendcur] .badge svg")).toHaveCount(3); // flags
   await page.locator("#backFromBankCurrency").click();
   await expect(title(page)).toHaveText("New recipient");
   await page.locator("#backToSendRecipients").click();
@@ -126,6 +127,43 @@ test("USD bank account: routing number and bank, account, holder, nickname, spee
   await expect(title(page)).toHaveText("Send");
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Rent" });
   await expect(saved.locator(".t2")).toHaveText("Chase · •••• 6789");
+});
+
+test("GBP bank account: sort code with the bank's name, 8-digit account number, holder, nickname; saved", async ({ page }) => {
+  await page.goto("/demo/wallet?send=bankCurrency");
+  await page.locator('[data-sendcur="GBP"]').click();
+  await expect(title(page)).toHaveText("New bank account");
+  await expect(page.locator("#sendCurRow .t1")).toHaveText("GBP");
+  await expect(page.locator("#panelBody .field-label")).toHaveText(["Sort code", "Account number", "Account holder name", "Nickname (optional)"]);
+  await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0); // no speed choice for UK accounts
+  const go = page.locator("#ukBankContinue");
+  await page.locator("#ukSort").fill("2000");
+  await expect(page.locator("#ukSort")).toHaveValue("20-00");
+  await expect(page.locator("#ukBankName")).toHaveCount(0);
+  await page.locator("#ukSort").fill("200000");
+  await expect(page.locator("#ukSort")).toHaveValue("20-00-00");
+  await expect(page.locator("#ukBankName")).toHaveText("Barclays");
+  await page.locator("#ukSort").fill("04-00-04");
+  await expect(page.locator("#ukBankName")).toHaveText("Monzo");
+  await page.locator("#ukAcct").fill("1234567");
+  await page.locator("#ukName").fill("Amara Okoye");
+  await expect(go).toBeDisabled(); // 7 digits
+  await page.locator("#ukAcct").fill("12a3");
+  await expect(page.locator("#ukAcct")).toHaveValue("123"); // digits only
+  await page.locator("#ukAcct").fill("12345678");
+  await expect(go).toBeEnabled();
+  await go.click();
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending GBP to a bank account isn't ported yet.");
+  const saved = page.locator("#panelBody [data-sendrecipient]").filter({ has: page.locator(".t1", { hasText: /^Amara Okoye$/ }) });
+  await expect(saved.locator(".t2")).toHaveText("Monzo · •••• 5678");
+  await expect(saved.locator(".badge svg")).toHaveCount(1); // the UK flag
+
+  // Back from the form returns to the currency choice
+  await page.locator("#newRecipient").click();
+  await page.locator('[data-newkind="bank"]').click();
+  await page.locator('[data-sendcur="GBP"]').click();
+  await page.locator("#backFromUkBank").click();
+  await expect(title(page)).toHaveText("Currency");
 });
 
 test("Poket user: @handle, email or phone with a name lookup; recent contacts; not found", async ({ page }) => {
