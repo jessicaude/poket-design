@@ -123,6 +123,10 @@ export const WICON = {
   // Transaction detail (detailRowHtml / referenceRowHtml)
   activity: "<svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M3 12h4l2 7 4-14 2 7h6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
   copy: "<svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"8\" y=\"8\" width=\"13\" height=\"13\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.7\"/><path d=\"M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3\" stroke=\"currentColor\" stroke-width=\"1.7\"/></svg>",
+  // Wallet home and transaction detail
+  eyeOpen: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z\" stroke=\"currentColor\" stroke-width=\"1.6\"/><circle cx=\"12\" cy=\"12\" r=\"3\" stroke=\"currentColor\" stroke-width=\"1.6\"/></svg>",
+  eyeClosed: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a13.6 13.6 0 0 1-3.1 4M6.6 6.6C4.4 8 3 12 3 12s3.5 7 10 7c1.3 0 2.5-.3 3.6-.7\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  store: "<svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M4 4h16l1.5 5.5a2.5 2.5 0 0 1-5 .5 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5-.5L4 4Z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/><path d=\"M5 10.5V20h14v-9.5\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/><path d=\"M9.5 20v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
 };
 
 /** The reference's extIc(svg, size): resize an icon by rewriting its width and height. */
@@ -136,3 +140,6 @@ export const CHECKOUT_TICK_MARK = "<svg width=\"22\" height=\"22\" viewBox=\"0 0
 export const CV_FLIP = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M8 4v16M8 20l-3.5-3.5M8 20l3.5-3.5M16 20V4M16 4l-3.5 3.5M16 4l3.5 3.5\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>";
 export const CV_CHEV = "<svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\"><path d=\"M3 4.5 6 7.5 9 4.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>";
 export const CV_RATE_SWAP = "<svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><path d=\"M3 5.5h10M10.5 3 13 5.5 10.5 8M13 10.5H3M5.5 8 3 10.5 5.5 13\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>";
+
+/** The asset filter icon on the wallet home (tWalletHome #assetSettingsGear), verbatim. */
+export const FILTER_ICON = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"M4 6h16M7 12h10M10 18h4\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>";

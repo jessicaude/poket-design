@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { Holding } from "./home/WalletHome";
 
 /** Wallet screens outside the payout and NGN flows. An empty stack is the home screen. */
 export type WalletScreen =
@@ -6,7 +7,10 @@ export type WalletScreen =
   | { name: "on-hold" }
   | { name: "withdrawal"; id: string }
   | { name: "conversion"; id: string }
-  | { name: "notifications" };
+  | { name: "notifications" }
+  | { name: "assets-all" }
+  | { name: "holding"; holding: Holding }
+  | { name: "tx"; id: string };
 
 type State = {
   stack: WalletScreen[];

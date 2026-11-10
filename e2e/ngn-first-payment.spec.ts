@@ -16,7 +16,7 @@ const ngn = (page: Page) => page.evaluate(() => {
 async function toAmount(page: Page, recipient: string) {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set"); // demo PIN 1234
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator(`[data-payoutrecipient="${recipient}"]`).click();
   await page.locator("#payoutRecipientContinue").click();
   await expect(page.locator(".keypad")).toBeVisible();
@@ -61,10 +61,11 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
   await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated deliveryAfter [hold]");
   expect(await ngn(page)).toEqual({ balance: 4500000, reserved: 500000 }); // still reserved while held
   await page.locator("#payoutDone").click();
-  await expect(page.locator('#panelBody [data-holdbucket="open"] .tx-amt')).toHaveText("₦45,000.00 NGN");
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦45,000.00 NGN");
 
   // The account has now been paid: no notice next time
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator('[data-payoutrecipient="other:r6"]').click();
   await page.locator("#payoutRecipientContinue").click();
   await expect(page.locator(".keypad")).toBeVisible();
@@ -86,7 +87,7 @@ test("account paid before: no notice; reserved at the PIN and still while Sendin
 
 test("a newly added account gets the notice", async ({ page }) => {
   await page.goto("/demo/wallet");
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator("#addPayoutOtherBtn").click();
   await page.locator("#ngnBankRow").click();
   await page.locator("[data-ngnbank]", { hasText: "Zenith Bank" }).click();
