@@ -7,7 +7,7 @@ import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { useNgn } from "../ngn/useNgn";
 import { showNotPorted } from "../useWalletToast";
 import { addressParts, formatSortCode, routingBank, sortBank, usSpeeds, validAddress } from "./sendMath";
-import { ukReady, usReady, useSend, type SendStage } from "./useSend";
+import { sourceName, ukReady, usReady, useSend, type SendStage } from "./useSend";
 
 /** The explore prototype's shortAddr: "0x3Fa9cE…D58e12". */
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
@@ -58,7 +58,8 @@ function NewRow({ id, label, onClick }: { id: string; label: string; onClick: ()
 
 /** Send: "+ New recipient", your own bank accounts, then saved recipients; search once there are more than 5. */
 export function SendRecipientsScreen() {
-  const { recipients, search, setSearch, back, newRecipient } = useSend();
+  const { recipients, search, setSearch, back, newRecipient, source } = useSend();
+  const bucket = source?.split(":")[2];
   const yours = recipients.filter((r) => r.kind === "bank" && r.self);
   const saved = recipients.filter((r) => !(r.kind === "bank" && r.self));
   const q = search.trim().toLowerCase();
@@ -68,6 +69,13 @@ export function SendRecipientsScreen() {
     <>
       <BackRow id="backFromSend" label="Wallet" onClick={back} />
       <div className="step-title">Send</div>
+      {/* Opened from a balance screen: that balance is the source. NEW copy. */}
+      {source && (
+        <p className="step-sub" id="sendFrom">From {sourceName(source)}
+          {bucket === "fiat" && <span className="fiat-tag">FIAT-ONLY</span>}
+          {bucket === "merchant" && <span className="fiat-tag">MERCHANT-HELD</span>}
+        </p>
+      )}
       {saved.length >= SEARCH_FROM && (
         <div className="field-icon-wrap">
           <span className="field-icon"><Raw html={WICON.search} /></span>

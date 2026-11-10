@@ -27,7 +27,7 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: WICON.bank }} />
       </div>
       <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{fmtCurrency(w.amount, w.currency)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>Payout to {w.recipientName}</p>
+      <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>To {w.recipientName}</p>
       <div style={{ textAlign: "center" }} id="withdrawalStatus"><StatusChip status={w.status} /></div>
       {message && <p className="step-sub" id="withdrawalStatusMsg" style={{ textAlign: "center", margin: "8px 0 14px" }}>{message}</p>}
       <div className="info-card" style={{ marginTop: message ? 0 : "14px" }}>

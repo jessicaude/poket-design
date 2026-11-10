@@ -36,13 +36,18 @@ const EMPTY_WALLET: WalletDraft = { asset: "USDC", net: "Base", address: "", nic
 
 type State = {
   stage: SendStage | null;
+  /**
+   * The balance Send was opened from (a cvKey such as "cash:NGN:open", "cash:NGN:merchant", "cash:USD:fiat",
+   * "coin:USDC:Base"), or null from the home (the NGN balance, the only one that can send so far).
+   */
+  source: string | null;
   search: string;
   recipients: SendRecipient[];
   us: UsDraft;
   uk: UkDraft;
   poket: PoketDraft;
   wallet: WalletDraft;
-  open: () => void;
+  open: (source?: string | null) => void;
   close: () => void;
   back: () => void;
   setSearch: (q: string) => void;
@@ -67,6 +72,26 @@ type State = {
 /** Sending naira to a Nigerian bank account is the only send with an amount screen so far. */
 export const canSendTo = (r: SendRecipient) => r.kind === "bank" && r.bank.currency === "NGN";
 
+/**
+ * What the source balance allows. Merchant-held naira can't be sent to a bank: the "not available" screen (with
+ * Convert). Only the NGN balance has an amount screen; from another balance, sending isn't ported yet.
+ * Returns the action to take instead of continuing, or null to continue.
+ */
+export function sourceBlock(source: string | null, r?: SendRecipient): (() => void) | null {
+  if (!source || source === "cash:NGN:open") return null;
+  if (source === "cash:NGN:merchant") {
+    if (r && r.kind !== "bank") return null; // other kinds aren't ported either way
+    return () => { useSend.getState().close(); usePayout.getState().open("NGN", "merchant"); };
+  }
+  return () => showNotPorted(`Sending from ${sourceName(source)} isn't ported yet.`);
+}
+/** "US Dollar", "USDC on Base". */
+export function sourceName(source: string): string {
+  const [k, a, b] = source.split(":");
+  if (k === "coin") return `${a} on ${b}`;
+  return ({ USD: "US Dollar", NGN: "Nigerian Naira", EUR: "Euro", GBP: "British Pound", GHS: "Ghanaian Cedi" } as Record<string, string>)[a] ?? a;
+}
+
 /** The US bank form is complete (the explore prototype's ok). */
 export function usReady(d: UsDraft): boolean {
   const rb = routingBank(d.routing);
@@ -79,10 +104,11 @@ export const ukReady = (d: UkDraft) => !!sortBank(d.sort) && /^\d{8}$/.test(d.ac
 export const useSend = create<State>((set, get) => {
   let lookupId = 0;
   /** After saving a recipient the prototype can't send to yet: back to the list, with the not-ported notice. */
-  const savedButNotPorted = (what: string) => { get().open(); showNotPorted(`${what} isn't ported yet.`); };
+  const savedButNotPorted = (what: string) => { get().open(get().source); showNotPorted(`${what} isn't ported yet.`); };
 
   return {
     stage: null,
+    source: null,
     search: "",
     recipients: [],
     us: EMPTY_US,
@@ -90,8 +116,8 @@ export const useSend = create<State>((set, get) => {
     poket: EMPTY_POKET,
     wallet: EMPTY_WALLET,
 
-    open: () => set({ stage: "recipients", search: "", recipients: listSendRecipients() }),
-    close: () => set({ stage: null, search: "" }),
+    open: (source = null) => set({ stage: "recipients", search: "", recipients: listSendRecipients(), source }),
+    close: () => set({ stage: null, search: "", source: null }),
     back: () => {
       const prev: Record<SendStage, SendStage | null> = {
         recipients: null, new: "recipients", bankCurrency: "new", usBank: "bankCurrency", ukBank: "bankCurrency", poketUser: "new", wallet: "new", coinPicker: "wallet", tier2: "new",
@@ -103,11 +129,13 @@ export const useSend = create<State>((set, get) => {
     setSearch: (search) => set({ search }),
 
     choose: (r) => {
+      const block = sourceBlock(get().source, r);
+      if (block) return block();
       if (!canSendTo(r) || r.kind !== "bank") {
         const what = r.kind === "poket" ? "Sending to a Poket user" : r.kind === "wallet" ? "Sending to a stablecoin wallet" : `Sending ${r.bank.currency} to a bank account`;
         return showNotPorted(`${what} isn't ported yet.`);
       }
-      get().close();
+      set({ stage: null }); // keep the source: Back and "Change" return to Send with it
       usePayout.getState().sendTo(r.bank);
     },
 
@@ -121,7 +149,7 @@ export const useSend = create<State>((set, get) => {
     },
 
     pickCurrency: (cur) => {
-      if (cur === "NGN") { get().close(); usePayout.getState().sendToNewBank(); return; }
+      if (cur === "NGN") { set({ stage: null }); usePayout.getState().sendToNewBank(); return; }
       if (cur === "GBP") return set({ stage: "ukBank", uk: EMPTY_UK });
       set({ stage: "usBank", us: EMPTY_US });
     },

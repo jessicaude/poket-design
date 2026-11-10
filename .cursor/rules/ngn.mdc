@@ -41,6 +41,12 @@ usePayout, createPayout, payoutFee, withdrawals.ts); read them as "send to a ban
 - Code: features/wallet/payout/ (usePayout.ts: stages are the reference's tPayout stages plus the checkout's PIN
   screens pin, pinLocked, pinResetOtp, moneyDone; payoutMath.ts: fees, FX, formatting; screens/). WalletBody picks the
   open flow, else the wallet home. Preview at /demo/wallet?payout=<stage>.
+- Entry is Send (features/wallet/send/): the wallet home and every balance screen have Send instead of Transfer and
+  Payout. A balance screen passes itself as the source (useSend.open(source)): NGN sends to Nigerian banks as below;
+  merchant-held naira choosing a bank shows the "not available" screen with Convert; other balances say sending from
+  them isn't ported yet. A saved Nigerian bank account goes straight to the amount; Back and "Change" return to Send.
+- Copy: the button is "Send", processing is "Sending…", activity and status read "To {name}", and a reversal's
+  notification is "Transfer reversed". Don't reintroduce "Payout" in this flow's copy.
 - Sending is approved with the checkout's 4-digit PIN (tPin), not the reference's 6-digit passcode 'authorize' stage.
 - Nigerian banks only: sending from an NGN balance lists only Nigerian bank accounts (recipientsFor). No international
   recipients, and no exchange rate or "Recipient gets" conversion (isCrossBorder is never true for NGN).

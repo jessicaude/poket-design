@@ -115,7 +115,7 @@ export function ReviewScreen() {
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
         <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&apos;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
       </label>
-      <SpinButton id="confirmPayout" disabled={!ack} delay={500} onClick={confirm}>Payout</SpinButton>
+      <SpinButton id="confirmPayout" disabled={!ack} delay={500} onClick={confirm}>Send</SpinButton>
     </>
   );
 }

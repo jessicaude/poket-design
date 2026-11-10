@@ -6,10 +6,9 @@ const title = (page: Page) => page.locator("#panelBody .step-title").first();
 
 async function toAmount(page: Page, recipient: string) {
   await page.goto("/demo/wallet");
-  await page.locator("#actPayout").click();
-  await expect(title(page)).toHaveText("Recipient");
-  await page.locator(`[data-payoutrecipient="${recipient}"]`).click();
-  await page.locator("#payoutRecipientContinue").click();
+  await page.locator("#actSend").click();
+  await expect(title(page)).toHaveText("Send");
+  await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
   await expect(page.locator(".keypad")).toBeVisible();
 }
 async function typeAmount(page: Page, digits: string) {
@@ -26,16 +25,16 @@ async function typePin(page: Page, pin: string) {
   await page.keyboard.type(pin);
 }
 
-test("home Payout opens the NGN payout's recipients", async ({ page }) => {
-  await page.goto("/demo/wallet");
-  await page.locator("#actPayout").click();
+// The send-to-bank flow's own recipient list (no longer reached from the wallet, which uses Send; kept for ?payout= previews).
+test("send-to-bank recipient list (preview): Nigerian bank accounts only", async ({ page }) => {
+  await page.goto("/demo/wallet?payout=recipient");
   const body = page.locator("#panelBody");
   await expect(body.locator(".step-sub")).toHaveText("Pay out Nigerian Naira to your own account or someone else's.");
   await expect(body.locator(".select-row .t1")).toHaveText(["Naira account", "Ngozi Eze"]); // NGN: Nigerian bank accounts only
   await expect(body.locator(".select-row .t2")).toHaveText(["GTBank · •••• 6789", "GTBank · •••• 6789"]);
   await expect(page.locator("#payoutRecipientContinue")).toBeDisabled();
   await page.locator("#backToPayoutCurrency").click();
-  await expect(page.locator("#actPayout")).toBeVisible();
+  await expect(page.locator("#actSend")).toBeVisible();
 });
 
 test("to your own account: amount, review, create the PIN, done", async ({ page }) => {
@@ -72,7 +71,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(title(page)).toHaveText("Confirm your PIN");
   await typePin(page, "1234");
 
-  await expect(title(page)).toHaveText("Sending payout…");
+  await expect(title(page)).toHaveText("Sending…");
   await expect(title(page)).toHaveText("₦12,500.00 NGN");
   await expect(body.locator(".step-sub")).toHaveText("On its way to Naira account");
   await expect(body.locator(".receipt-row .r-value").first()).toHaveText(/^TXN-\d{6}$/);
@@ -122,7 +121,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(title(page)).toHaveText("PIN updated");
   await expect(body.locator(".step-sub")).toHaveText("Your new PIN is set. Use it next time you withdraw.");
   await page.locator("#doneToWallet").click();
-  await expect(page.locator("#actPayout")).toBeVisible();
+  await expect(page.locator("#actSend")).toBeVisible();
   // Balance untouched: the payout wasn't sent
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦50,000.00 NGN");
@@ -140,7 +139,7 @@ test("Cancel on the locked PIN returns to the wallet", async ({ page }) => {
   await typePin(page, "9876");
   await expect(title(page)).toHaveText("Too many attempts");
   await page.locator("#pinLockedClose").click();
-  await expect(page.locator("#actPayout")).toBeVisible();
+  await expect(page.locator("#actSend")).toBeVisible();
 });
 
 // The reference's Link a payout method form, used for non-NGN methods. NGN bank accounts use the name-enquiry step instead.
@@ -186,8 +185,7 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await page.locator("#backToPayoutAmount").click();
   await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
   await page.locator("#backToPayoutRecipient2").click();
-  await expect(title(page)).toHaveText("Recipient");
-  await expect(body.locator(".select-row.sel .t1")).toHaveText("Ngozi Eze");
+  await expect(title(page)).toHaveText("Send"); // back to Send's recipients
 });
 
 test("other currencies keep international recipients and Standard / Instant", async ({ page }) => {

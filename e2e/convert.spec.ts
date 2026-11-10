@@ -233,7 +233,8 @@ test("merchant-held naira converts to USD or USDC; the merchant-held Convert but
   await page.getByLabel("Merchant-held balance").selectOption("yes");
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await page.locator('#panelBody [data-holdbucket="merchant"]').click();
-  await page.locator("#detailPayout").click(); // the "not available" screen
+  await page.locator("#detailSend").click();
+  await page.locator('[data-sendrecipient="bank:r6"]').click(); // a bank: the "not available" screen
   await page.locator("#withdrawUseConvert").click();
   await expect(title(page)).toHaveText("Convert");
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");

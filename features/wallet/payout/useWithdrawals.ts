@@ -33,8 +33,8 @@ export const useWithdrawals = create<State>((set, get) => ({
     get().refresh();
     if (to === "reversed") {
       const desc = `${fmtCurrency(after.amount, after.currency)} to ${after.recipientName}. Funds returned to your balance.`;
-      useNotifications.getState().add({ type: "payout", title: "Payout reversed", desc });
-      useWalletToast.getState().showNotice("Payout reversed", desc, 3200);
+      useNotifications.getState().add({ type: "payout", title: "Transfer reversed", desc });
+      useWalletToast.getState().showNotice("Transfer reversed", desc, 3200);
     }
   },
 

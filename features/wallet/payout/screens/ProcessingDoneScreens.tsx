@@ -12,7 +12,7 @@ export function ProcessingScreen() {
   return (
     <div className="center-col" style={{ paddingTop: "50px" }}>
       <div className="sending-dots"><span /><span /><span /></div>
-      <div className="step-title" style={{ marginTop: "18px" }}>Sending payout&hellip;</div>
+      <div className="step-title" style={{ marginTop: "18px" }}>Sending&hellip;</div>
       <p className="step-sub"><Grey>{`${fmtCurrency(cents, currency)} to ${recipient?.name ?? ""}`}</Grey></p>
     </div>
   );

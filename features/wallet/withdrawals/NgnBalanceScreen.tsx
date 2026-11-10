@@ -4,10 +4,10 @@ import { WICON } from "@/lib/icons";
 import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
-import { usePayout } from "../payout/usePayout";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { useWalletNav } from "../useWalletNav";
 import { useConvert } from "../convert/useConvert";
+import { useSend } from "../send/useSend";
 import { OnHoldLink, WithdrawalRow } from "./parts";
 import { ConversionRow } from "./ConversionRow";
 
@@ -19,7 +19,6 @@ export function NgnBalanceScreen() {
   const balance = useNgn((s) => s.ngnBalance);
   const reserved = useNgn((s) => s.ngnReserved);
   const openDeposit = useNgn((s) => s.open);
-  const openPayout = usePayout((s) => s.open);
   const back = useWalletNav((s) => s.back);
   const withdrawals = useWithdrawals((s) => s.list).filter((w) => w.currency === "NGN");
   // Conversions from or to naira (including merchant-held naira), newest first with the withdrawals.
@@ -42,8 +41,8 @@ export function NgnBalanceScreen() {
       <div className="action-row" style={{ marginTop: "14px" }}>
         <button className="action-btn" id="detailDeposit" onClick={() => openDeposit("deposit-method")}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
         {/* TODO: Transfer opens its flow once ported. */}
-        <button className="action-btn" id="detailTransfer"><span className="ic"><Raw html={WICON.transfer} /></span>Transfer</button>
-        <button className="action-btn" id="detailPayout" onClick={() => openPayout("NGN")}><span className="ic"><Raw html={WICON.bank} /></span>Withdraw</button>
+        {/* Send replaces Transfer and Withdraw (docs/decisions.md), with the NGN balance as the source. */}
+        <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open("cash:NGN:open")}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: "cash:NGN:open" })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
       <div className="section-title">Transaction history</div>

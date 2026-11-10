@@ -5,7 +5,7 @@ import {
   type BalanceSource, type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
 } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
-import { useSend } from "../send/useSend";
+import { sourceBlock, useSend } from "../send/useSend";
 import { holderName, useNgn } from "../ngn/useNgn";
 import { holderMatches, maxPayout, methodReady, needsStepUp, payoutFee, payoutMethodSub, type Draft, type Speed } from "./payoutMath";
 
@@ -188,7 +188,7 @@ export const usePayout = create<State>((set, get) => {
     changeRecipient: () => {
       if (!get().fromSend) return set({ stage: "recipient" });
       get().close();
-      useSend.getState().open();
+      useSend.getState().open(useSend.getState().source);
     },
 
     back: () => {
@@ -196,7 +196,7 @@ export const usePayout = create<State>((set, get) => {
       // From Send, the first step's Back returns to Send (its recipients, or "New recipient").
       if (fromSend && (stage === "amount" || stage === "ngn-account")) {
         get().close();
-        useSend.getState().open();
+        useSend.getState().open(useSend.getState().source);
         if (stage === "ngn-account") useSend.setState({ stage: "bankCurrency" });
         return;
       }
@@ -321,6 +321,13 @@ export const usePayout = create<State>((set, get) => {
         // From Send, "Save recipient" unticked keeps it for this send only.
         ...(get().fromSend && !save ? { saved: false } : {}),
       });
+      // From Send with a source that can't send to a bank (merchant-held, or a balance without an amount screen yet):
+      // the recipient is saved, then the source decides what happens (sourceBlock).
+      if (get().fromSend) {
+        const src = useSend.getState().source;
+        const block = sourceBlock(src);
+        if (block) { set({ ...TRANSIENT }); useSend.getState().open(src); block(); return; }
+      }
       set((s) => ({
         recipients: existing ? s.recipients : [...s.recipients, saved], recipient: saved, account: EMPTY_ACCOUNT,
         // From Send, a new recipient goes straight on to the amount (the explore prototype's Continue).

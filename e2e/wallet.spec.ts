@@ -8,7 +8,7 @@ test("wallet shell renders the reference frame and switches tabs", async ({ page
   await expect(page.locator("#openSettingsHeader")).toBeVisible();
   await expect(page.locator("#openNotifHeader")).toBeHidden();
   // No flow open: the body is the home entry (NGN balance + Withdraw)
-  await expect(page.locator("#panelBody #actPayout")).toBeVisible();
+  await expect(page.locator("#panelBody #actSend")).toBeVisible();
 
   const tabs = page.locator("#tabbar .tab-item");
   await expect(tabs).toHaveText(["Wallet", "Card", "Activity"]);
@@ -37,7 +37,7 @@ test("NGN screens render in #panelBody: Deposit NGN offers bank transfer and con
   // Back leaves the NGN flow, back to the wallet home
   await body.locator("#backToDepositSelect").click();
   await expect(body.locator(".step-title")).toHaveCount(0);
-  await expect(body.locator("#actPayout")).toBeVisible();
+  await expect(body.locator("#actSend")).toBeVisible();
 });
 
 test("Deposit NGN: the bank row says so when the dedicated NGN account is ready", async ({ page }) => {

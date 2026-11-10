@@ -6,9 +6,9 @@ import { useAccount } from "@/store/account";
 import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
-import { usePayout } from "../payout/usePayout";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { useConvert } from "../convert/useConvert";
+import { useSend } from "../send/useSend";
 import { fmtAsset } from "../convert/convertMath";
 import { useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { showNotPorted, useWalletToast } from "../useWalletToast";
@@ -176,10 +176,9 @@ export function WalletHome() {
       </div>
       <div className="action-row">
         <button className="action-btn" id="actDeposit" onClick={() => showNotPorted("Use Deposit on the Nigerian Naira balance.")}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
-        <button className="action-btn" id="actTransfer" onClick={() => showNotPorted("Transfer isn't ported yet.")}><span className="ic"><Raw html={WICON.transfer} /></span>Transfer</button>
+        {/* Send replaces the reference's Transfer and Payout actions (docs/decisions.md). */}
+        <button className="action-btn" id="actSend" onClick={() => useSend.getState().open()}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="actConvert" onClick={() => useConvert.getState().start()}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
-        {/* The reference opens Payout on its currency picker, which isn't ported: only NGN payouts are. */}
-        <button className="action-btn" id="actPayout" onClick={() => usePayout.getState().open("NGN")}><span className="ic"><Raw html={WICON.bank} /></span>Payout</button>
       </div>
       <div className="seg">
         <div className={`seg-opt ${isCash ? "" : "sel"}`} data-wallettab="assets" role="tab" aria-selected={!isCash} onClick={() => set({ walletTab: "assets" })}>Stablecoins</div>
@@ -279,13 +278,13 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
         {h.k === "cash" ? (
           <>
             <button className="action-btn" id="detailDeposit" onClick={() => showNotPorted(`Depositing ${h.cur} isn't ported yet.`)}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
-            <button className="action-btn" id="detailTransfer" onClick={() => showNotPorted("Transfer isn't ported yet.")}><span className="ic"><Raw html={WICON.transfer} /></span>Transfer</button>
-            <button className="action-btn" id="detailPayout" onClick={() => h.cur === "NGN" && h.bucket === "merchant" ? usePayout.getState().open("NGN", "merchant") : showNotPorted(`${h.cur} payouts aren't ported yet.`)}><span className="ic"><Raw html={WICON.bank} /></span>Payout</button>
+            {/* Send replaces Transfer and Payout, with this balance as the source. */}
+            <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(fromKey)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
             <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: fromKey })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
           </>
         ) : (
           <>
-            <button className="action-btn" id="detailPayoutCrypto" onClick={() => showNotPorted("Stablecoin payouts aren't ported yet.")}><span className="ic"><Raw html={WICON.bank} /></span>Payout</button>
+            <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(fromKey)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
             <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ to: fromKey })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
           </>
         )}

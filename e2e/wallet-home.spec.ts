@@ -25,18 +25,17 @@ test("balance card: total in USD, the eye hides it, the email chip", async ({ pa
   await expect(page.locator("#totalBalance")).toHaveText("$47.86 USD");
 });
 
-test("actions: Convert and Payout open their flows; Deposit and Transfer aren't ported", async ({ page }) => {
-  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Transfer", "Convert", "Payout"]);
+test("actions: Send and Convert open their flows; Deposit isn't ported", async ({ page }) => {
+  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Send", "Convert"]); // Send replaces Transfer and Payout
   await page.locator("#actDeposit").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");
   await expect(page.locator("#toastEl .notice-body")).toHaveText("Use Deposit on the Nigerian Naira balance.");
-  await page.locator("#actTransfer").click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Transfer isn't ported yet.");
   await page.locator("#actConvert").click();
   await expect(body(page).locator(".step-title").first()).toHaveText("Convert");
   await page.locator("#backHome").click();
-  await page.locator("#actPayout").click();
-  await expect(body(page).locator(".step-title").first()).toHaveText("Recipient");
+  await page.locator("#actSend").click();
+  await expect(body(page).locator(".step-title").first()).toHaveText("Send");
+  await expect(page.locator("#sendFrom")).toHaveCount(0); // from the home: no source preselected
 });
 
 test("Stablecoins tab: coins by network, sorted by balance, with the day's drift on held coins", async ({ page }) => {
@@ -103,7 +102,12 @@ test("rows open their balance screens: USD (with account details card and histor
   await expect(page.locator("#backFromDetail")).toHaveText("Cash");
   await expect(body(page).locator(".step-sub").first()).toHaveText("US DollarFIAT-ONLY");
   await expect(page.locator("#holdingAmount")).toHaveText("$15.60 USD");
-  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Transfer", "Payout", "Convert"]);
+  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Send", "Convert"]);
+  await page.locator("#detailSend").click();
+  await expect(page.locator("#sendFrom")).toHaveText("From US DollarFIAT-ONLY"); // this balance is the source
+  await page.locator('[data-sendrecipient="bank:r6"]').click();
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending from US Dollar isn't ported yet.");
+  await page.locator("#backFromSend").click();
   await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. Free to receive.›");
   await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242"]);
   await page.locator("#detailConvert").click();
@@ -129,7 +133,10 @@ test("rows open their balance screens: USD (with account details card and histor
   await expect(page.locator("#backFromDetail")).toHaveText("Stablecoins");
   await expect(body(page).locator(".step-sub").first()).toHaveText("USD Coin · Base");
   await expect(page.locator("#holdingAmount")).toHaveText("$0.00 USD");
-  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Payout", "Convert"]);
+  await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Send", "Convert"]);
+  await page.locator("#detailSend").click();
+  await expect(page.locator("#sendFrom")).toHaveText("From USDC on Base");
+  await page.locator("#backFromSend").click();
   await expect(body(page)).toContainText("No USDC on Base activity yet.");
 });
 
