@@ -2,7 +2,7 @@
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { TIERS, tierName } from "./limits";
-import { BackRow } from "./payout/parts";
+import { BackRow, Grey } from "./payout/parts";
 
 /**
  * The reference's tStepupIntro: "Additional verification needed", listing what each tier up to `target` needs.
@@ -17,7 +17,7 @@ export function StepUpIntro({ current, target, limit, onCancel, onContinue }: {
   return (
     <>
       <BackRow id="stepupCancel" label="Cancel" onClick={onCancel} />
-      <div className="alert warn"><Raw html={WICON.alert} /><span>This is above what {tierName(current)} allows (up to {limit} per transaction). A quick additional step is needed to continue.</span></div>
+      <div className="alert warn"><Raw html={WICON.alert} /><span>This is above what {tierName(current)} allows (up to <Grey>{limit}</Grey> per transaction). A quick additional step is needed to continue.</span></div>
       <div className="step-title">Additional verification needed</div>
       <p className="step-sub">To reach {TIERS[t].name}, you&apos;ll need to provide:</p>
       <div className="info-card">{need.map((n) => <div className="info-row" key={n}><span>{TIERS[n].name}</span><span>{TIERS[n].need}</span></div>)}</div>

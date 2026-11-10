@@ -1,20 +1,19 @@
 "use client";
 import { WICON } from "@/lib/icons";
 import { BackRow, Grey } from "../payout/parts";
+import { cvParse } from "../convert/convertMath";
 import { conversionTitle, useConvert } from "../convert/useConvert";
 import { useWalletNav } from "../useWalletNav";
+import { DetailRow, ReferenceRow, formatTxDate } from "./TxDetail";
 
-const fmtDate = (ts: number) => {
-  const d = new Date(ts);
-  return `${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - ${d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
-};
+/** " on Base" after a stablecoin amount, as the reference's conversion details have it. */
+const onNetwork = (key: string) => { const o = cvParse(key); return o.k === "coin" ? ` on ${o.net}` : ""; };
 
-/** A conversion's receipt: the reference's tTxDetail for a 'convert' transaction (Status, Date, From, To, Rate, fee, Reference). */
+/** A conversion's receipt: the reference's tTxDetail for a 'convert' transaction. */
 export function ConversionReceiptScreen({ id }: { id: string }) {
   const c = useConvert((s) => s.conversions.find((x) => x.id === id));
   const back = useWalletNav((s) => s.back);
   if (!c) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
-  const row = (k: string, v: React.ReactNode) => <div className="info-row"><span>{k}</span><span>{v}</span></div>;
   return (
     <>
       <BackRow id="backFromTxDetail" onClick={back} />
@@ -24,13 +23,13 @@ export function ConversionReceiptScreen({ id }: { id: string }) {
       <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{c.receivedText}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{conversionTitle(c)}</p>
       <div className="info-card" id="cvReceipt">
-        {row("Status", "Completed")}
-        {row("Date", fmtDate(c.createdAt))}
-        {row("From", <Grey>{c.paidText}</Grey>)}
-        {row("To", <Grey>{c.receivedText}</Grey>)}
-        {row("Rate", <Grey>{c.rateText}</Grey>)}
-        {row(c.feeLabel, <Grey>{c.feeText}</Grey>)}
-        {row("Reference", <span className="mono">{c.ref}</span>)}
+        <DetailRow label="Status" value="Completed" />
+        <DetailRow label="Date" value={formatTxDate(c.createdAt)} />
+        <DetailRow label="From" value={c.paidText + onNetwork(c.from)} />
+        <DetailRow label="To" value={c.receivedText + onNetwork(c.to)} />
+        <DetailRow label="Rate" value={c.rateText} />
+        <DetailRow label={c.feeLabel} value={c.feeText} />
+        <ReferenceRow refText={c.ref} />
       </div>
     </>
   );

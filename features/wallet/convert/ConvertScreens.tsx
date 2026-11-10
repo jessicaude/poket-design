@@ -5,7 +5,7 @@ import { CHECK_DRAW, CV_CHEV, CV_FLIP, CV_RATE_SWAP, WICON } from "@/lib/icons";
 import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
 import { cashAmount, cashBuckets } from "../useHoldings";
 import {
-  CV_QUOTE_SECONDS, LIMIT_PLACEHOLDER, NETWORK, cvAvail, cvBadgeHtml, cvBlockReason, cvFeeLabel, cvFeeText, cvFmt, cvKey, cvName,
+  CV_QUOTE_SECONDS, LIMIT_PLACEHOLDER, MIN_PLACEHOLDER, NETWORK, belowMinimum, cvAvail, cvBadgeHtml, cvBlockReason, cvFeeLabel, cvFeeText, cvFmt, cvKey, cvName,
   cvOptions, cvParse, cvQuote, cvRateText, cvShort, cvType, cvUnit, cvUsdPer, fmtAsset, fmtPlain, involvesNgn, isNgnToStablecoin,
   overNgnLimit, type Side,
 } from "./convertMath";
@@ -49,13 +49,13 @@ export function ConvertFormScreen() {
   const { from, to, cents, jitter, ngnCoinsBlocked, close, openPicker, flip, max, key, review, useUsd } = useConvert();
   const q = cvQuote(from, to, cents, jitter);
   const over = q.amt > q.avail;
-  const belowMin = q.amt > 0 && q.usd < 100;
+  const belowMin = !q.noTarget && belowMinimum(q);
   const overLimit = overNgnLimit(q);
   const coinsBlocked = !q.noTarget && ngnCoinsBlocked && isNgnToStablecoin(q.f, q.to);
   const hint = q.noTarget ? ""
     : !q.type ? "Choose a different balance to convert to."
     : over ? `Exceeds available ${cvFmt(q.avail, q.f)}`
-    : belowMin ? `Minimum is ${q.f.k === "cash" ? fmtCurrency(Math.ceil(100 / cvUsdPer(q.f)), q.f.cur) : fmtAsset(100, q.f.asset)}`
+    : belowMin ? `Minimum is ${involvesNgn(q.f, q.to) ? MIN_PLACEHOLDER : q.f.k === "cash" ? fmtCurrency(Math.ceil(100 / cvUsdPer(q.f)), q.f.cur) : fmtAsset(100, q.f.asset)}`
     : overLimit ? `Over your limit of ${LIMIT_PLACEHOLDER} per conversion`
     : "";
   return (
@@ -74,7 +74,7 @@ export function ConvertFormScreen() {
           <span className={`cv-amt mono ${over ? "err" : ""}`} id="cvFromAmt">{fmtPlain(q.amt)}</span>
         </div>
       </div>
-      <div className="cv-flip-wrap"><button type="button" className="cv-flip" id="cvFlip" aria-label="Swap from and to" onClick={flip} dangerouslySetInnerHTML={{ __html: CV_FLIP }} /></div>
+      <div className="cv-flip-wrap"><button type="button" className="cv-flip" id="cvFlip" aria-label="Swap from and to" disabled={!!q.noTarget} onClick={flip} dangerouslySetInnerHTML={{ __html: CV_FLIP }} /></div>
       <div className="cv-box">
         <div className="cv-box-top"><span>To</span><span>{q.noTarget ? "" : q.to.k === "coin" ? `Arrives ${NETWORK[q.to.net].eta}` : "Arrives instantly"}</span></div>
         <div className="cv-box-row">

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { cvBlockReason, cvBlockedPair, cvDefaultFrom, cvFeeLabel, cvFeeText, cvFixTo, cvParse, cvQuote, cvRateText, cvSourceFor, cvType, overNgnLimit } from "@/features/wallet/convert/convertMath";
+import { belowMinimum, cvBlockReason, cvBlockedPair, cvDefaultFrom, cvFeeLabel, cvFeeText, cvFixTo, cvParse, cvQuote, cvRateText, cvSourceFor, cvType, overNgnLimit } from "@/features/wallet/convert/convertMath";
 import { evaluateLimit, useSpend } from "@/features/wallet/limits";
 import { useHoldings } from "@/features/wallet/useHoldings";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
@@ -102,4 +102,20 @@ test("mock API refuses the blocked conversions", async () => {
   await expect(createConversion({ ...base, from: "cash:NGN:merchant", to: "coin:USDC:Polygon" })).rejects.toThrow("ngn_to_stablecoins_unavailable");
   setNgnToStablecoinsAllowed(true);
   expect((await createConversion({ ...base, from: "cash:NGN:merchant", to: "cash:USD:open" })).ref).toMatch(/^TXN-\d{6}$/);
+});
+
+test("₦[minimum]: the naira side of a naira conversion (demo value ₦1,550.00); other pairs keep $1.00", async () => {
+  expect(belowMinimum(cvQuote("cash:NGN:open", "coin:USDC:Base", 154999, 1))).toBe(true);
+  expect(belowMinimum(cvQuote("cash:NGN:open", "coin:USDC:Base", 155000, 1))).toBe(false);
+  expect(belowMinimum(cvQuote("coin:USDC:Base", "cash:NGN:open", 99, 1))).toBe(true); // receives ₦1,534.50
+  expect(belowMinimum(cvQuote("cash:USD:open", "cash:EUR:open", 99, 1))).toBe(true);
+  expect(belowMinimum(cvQuote("cash:USD:open", "cash:EUR:open", 100, 1))).toBe(false);
+  expect(belowMinimum(cvQuote("cash:NGN:open", "coin:USDC:Base", 0, 1))).toBe(false); // nothing typed yet
+});
+
+test("fmtCurrency formats naira with formatNaira", async () => {
+  const { fmtCurrency } = await import("@/features/wallet/payout/payoutMath");
+  const { formatNaira } = await import("@/lib/money");
+  for (const k of [0, 1, 155000, 123456789, -2500]) expect(fmtCurrency(k, "NGN")).toBe(formatNaira(k));
+  expect(fmtCurrency(1560, "USD")).toBe("$15.60 USD");
 });

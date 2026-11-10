@@ -19,3 +19,8 @@
 @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 /* The checkout's .btn-primary has margin-top:16px; the wallet's has none, so give it back on these screens. */
 .center-state .btn-primary{margin-top:16px}
+
+/* Convert's Swap is disabled while To shows "Choose a currency". The wallet has no disabled style for it, so it
+   takes the muted neutral .btn-primary:disabled uses (--n-300), with no hover. */
+.cv-flip:disabled{color:var(--n-300);cursor:not-allowed}
+.cv-flip:disabled:hover{color:var(--n-300);border-color:var(--bdr)}

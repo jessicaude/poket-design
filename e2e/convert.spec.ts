@@ -42,7 +42,7 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(page.locator("#cvReview")).toBeEnabled();
 
   await page.locator('[data-cvkey="back"]').click();
-  await expect(page.locator("#cvHint")).toHaveText("Minimum is ₦1,550.00 NGN");
+  await expect(page.locator("#cvHint")).toHaveText("Minimum is ₦[minimum]"); // the demo minimum (₦1,550.00) never shows
   await expect(page.locator("#cvReview")).toBeDisabled();
 
   // ₦[limit] per conversion (demo value ₦40,000.00, never shown)
@@ -86,8 +86,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
   await expect(page.locator("#cvHint")).toHaveText("");
   await page.locator("#cvMax").click();
   await expect(page.locator("#cvReview")).toBeDisabled();
-  await page.locator("#cvFlip").click(); // nothing to swap with yet
-  await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USDFIAT-ONLY");
+  await expect(page.locator("#cvFlip")).toBeDisabled(); // nothing to swap with yet
 
   await page.locator("#cvPickTo").click();
   await expect(page.locator("#panelBody .select-row.sel")).toHaveCount(0);
@@ -102,6 +101,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
   await expect(page.locator('[data-cvopt="cash:GBP:open"] .t2')).toHaveText("Balance £0.00 GBP");
   await page.locator('[data-cvopt="cash:EUR:open"]').click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("EUR");
+  await expect(page.locator("#cvFlip")).toBeEnabled();
   await expect(page.locator(".cv-meta")).toHaveText("1 EUR ≈ 1.08 USDExchange fee (1%): $0.16 USD"); // not naira: the reference's fee
   await reviewAndConvert(page);
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your Euro balance");
@@ -214,6 +214,7 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
   await keys(page, "300000"); // $3,000.00
   await reviewAndConvert(page);
   await expect(page.locator("#panelBody .alert.warn")).toHaveText("This is above what Tier 1: Basic allows (up to $2,000.00 USD per transaction). A quick additional step is needed to continue.");
+  await expect(page.locator("#panelBody .alert.warn .cur-code")).toHaveText("USD"); // the code is grey
   await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 2: Standard, you'll need to provide:");
   await page.locator("#stepupCancel").click();
   await page.locator("#cvBackToForm").click();
@@ -253,7 +254,8 @@ test("merchant-held naira converts to USD or USDC; the merchant-held Convert but
   expect(await state(page)).toMatchObject({ merchant: 200000, ngn: 5000000, usdcBase: 645 });
 });
 
-test("conversions in the NGN balance history; View transaction opens the receipt", async ({ page }) => {
+test("conversions in the NGN balance history; View transaction opens the receipt", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await open(page, "1");
   await keys(page, "1000000");
   await reviewAndConvert(page);
@@ -261,7 +263,23 @@ test("conversions in the NGN balance history; View transaction opens the receipt
   const body = page.locator("#panelBody");
   await expect(title(page)).toHaveText("6.45 USDC");
   await expect(body.locator(".step-sub")).toHaveText("Converted NGN to USDC");
-  await expect(body.locator("#cvReceipt .info-row")).toContainText(["StatusCompleted", "Date", "From₦10,000.00 NGN", "To6.45 USDC", "Rate1 USDC ≈ 1,550.00 NGN", "Fee₦[fee]", "Reference"]);
+  // The reference's transaction detail: an icon before each label, monospace right-aligned values
+  const rows = body.locator("#cvReceipt .info-row");
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Rate", "Fee", "Reference"]);
+  await expect(rows.locator(".detail-ic")).toHaveCount(7);
+  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/, "₦10,000.00 NGN", "6.45 USDC on Base", "1 USDC ≈ 1,550.00 NGN", "₦[fee]", /^TXN-\d{6}\s*$/]);
+  const status = rows.filter({ hasText: "Completed" }).locator("> span:last-child");
+  await expect(status).toHaveClass(/\bmono\b/);
+  await expect(status).toHaveCSS("text-align", "right");
+  await expect(status).toHaveCSS("color", "rgb(13, 145, 71)"); // --ok-600
+  await expect(status).toHaveCSS("font-weight", "600");
+  await expect(rows.filter({ hasText: "Date" }).locator("em")).toHaveCount(1); // the part after " - " in italics
+  // The Reference chip copies
+  const chip = page.locator("#copyRefBtn");
+  const ref = (await chip.textContent())!.trim();
+  await chip.click();
+  await expect(page.locator("#toastEl")).toHaveText("Reference copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(ref);
   await page.locator("#backFromTxDetail").click();
 
   await page.locator('[data-holdbucket="open"] .tx-title').click();

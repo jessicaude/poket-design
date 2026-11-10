@@ -112,6 +112,15 @@ export const NGN_CONVERT_LIMIT_DEMO_KOBO = 4000000;
 /** The naira side of a conversion: what leaves NGN, or what arrives in it. */
 export const ngnAmount = (q: Quote) => (q.f.k === "cash" && q.f.cur === "NGN" ? q.amt : q.to.k === "cash" && q.to.cur === "NGN" ? q.receive : 0);
 export const overNgnLimit = (q: Quote) => ngnAmount(q) > NGN_CONVERT_LIMIT_DEMO_KOBO;
+
+/**
+ * Naira conversion minimum: ₦[minimum] on screen. NGN_CONVERT_MIN_DEMO_KOBO (₦1,550.00, the reference's $1.00) is a
+ * demo value only; it never shows. Checked on the naira side of the conversion.
+ */
+export const MIN_PLACEHOLDER = "\u20a6[minimum]";
+export const NGN_CONVERT_MIN_DEMO_KOBO = 155000;
+/** Below the minimum: for naira conversions the naira side, otherwise the reference's $1.00 equivalent. */
+export const belowMinimum = (q: Quote) => q.amt > 0 && (involvesNgn(q.f, q.to) ? ngnAmount(q) < NGN_CONVERT_MIN_DEMO_KOBO : q.usd < 100);
 /** Conversions between cash and a stablecoin count toward tier limits. */
 export const cvCounts = (type: CvType | null) => type === "onramp" || type === "offramp";
 /** cvRate: units of `to` per unit of `from`. FX carries the quote's small jitter. */
