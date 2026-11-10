@@ -142,6 +142,11 @@ export type PayoutRecipient = {
   address?: string; city?: string; state?: string; zip?: string; country?: string;
   /** Has received a payout before. A first NGN payment to an account is held for [hold] before it sends. */
   paidBefore?: boolean;
+  /** false: added for one send without saving it ("Save recipient" unticked); kept off Send's saved list. */
+  saved?: boolean;
+  /** US bank accounts: the bank's full name and transfer speed (Send's new-recipient form). */
+  bankFullName?: string;
+  speed?: string;
 };
 
 const PAYOUT_SEED: PayoutRecipient[] = [
@@ -382,3 +387,73 @@ export async function createConversion(p: Omit<Conversion, "id" | "ref" | "creat
 /** GET /v1/conversions, newest first. */
 export function listConversions(): Conversion[] { return conversionServer.list.map((c) => ({ ...c })); }
 export function resetConversionServer() { conversionServer.list = []; conversionServer.ngnToCoins = true; }
+
+/* ---------- Send: saved recipients ----------
+   Send is recipient-first (docs/decisions.md). Bank accounts are the payout recipients above (your own and saved);
+   Poket users and stablecoin wallets are seeded from reference/poket-wallet-explore.html (DIRECTORY, SAVED.external). */
+
+export type PoketUser = { id: string; name: string; handle: string; initials: string };
+export type WalletNetwork = "Base" | "Polygon" | "Solana" | "Ethereum";
+export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork };
+export type SendRecipient =
+  | { kind: "bank"; id: string; self: boolean; bank: PayoutRecipient }
+  | { kind: "poket"; id: string; user: PoketUser }
+  | { kind: "wallet"; id: string; wallet: StablecoinWallet };
+
+const POKET_USERS: PoketUser[] = [
+  { id: "pu1", name: "Tobi Bello", handle: "tobi@lagos.ng", initials: "TB" },
+  { id: "pu2", name: "Ngozi Okafor", handle: "+2348031234567", initials: "NO" },
+  { id: "pu3", name: "Kemi Adeyemi", handle: "kemi.a@gmail.com", initials: "KA" },
+];
+const STABLECOIN_WALLETS: StablecoinWallet[] = [
+  { id: "sw1", name: "Ledger", address: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC", network: "Base" },
+];
+
+/** GET /v1/send/recipients: your own bank accounts, then saved bank accounts, Poket users and stablecoin wallets. */
+export function listSendRecipients(): SendRecipient[] {
+  const banks = payoutServer.recipients.filter((r) => r.methodType === "bank" && r.saved !== false);
+  return [
+    ...banks.filter((r) => r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: true, bank: { ...r } })),
+    ...banks.filter((r) => !r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: false, bank: { ...r } })),
+    ...POKET_USERS.map((u) => ({ kind: "poket" as const, id: `poket:${u.id}`, user: { ...u } })),
+    ...STABLECOIN_WALLETS.map((w) => ({ kind: "wallet" as const, id: `wallet:${w.id}`, wallet: { ...w } })),
+  ];
+}
+
+/**
+ * The Poket directory for name lookup: the reference Transfer's contacts (w2wContacts, by @handle) and the explore
+ * prototype's DIRECTORY (by email or phone). Saved Poket users are found too.
+ */
+const POKET_DIRECTORY: PoketUser[] = [
+  { id: "pd1", name: "Amara Okafor", handle: "@amara", initials: "AO" },
+  { id: "pd2", name: "Daniel Cho", handle: "@dcho", initials: "DC" },
+  { id: "pd3", name: "Priya Nair", handle: "@priya", initials: "PN" },
+  ...POKET_USERS.map((u) => ({ ...u, id: "pd-" + u.id })),
+];
+/** The reference Transfer's contacts, shown as recent recipients when adding a Poket user. */
+export const RECENT_POKET_CONTACTS = POKET_DIRECTORY.slice(0, 3).map((u) => ({ ...u }));
+
+const normHandle = (q: string) => (q.trim().startsWith("@") || q.includes("@") ? q.trim().toLowerCase() : q.replace(/[^\d+]/g, ""));
+/** POST /v1/poket-users/lookup: the Poket user behind an @handle, email or phone number, or null. */
+export async function lookupPoketUser(query: string): Promise<PoketUser | null> {
+  await wait(700);
+  const q = normHandle(query);
+  const u = POKET_DIRECTORY.find((x) => normHandle(x.handle) === q);
+  return u ? { ...u } : null;
+}
+
+/** POST /v1/send/recipients: save a Poket user or a stablecoin wallet (bank accounts use savePayoutRecipient). */
+export async function savePoketUser(u: Omit<PoketUser, "id">): Promise<PoketUser> {
+  await wait(400);
+  const existing = POKET_USERS.find((x) => x.handle === u.handle);
+  if (existing) return { ...existing };
+  const saved = { ...u, id: "pu" + Date.now() };
+  POKET_USERS.push(saved);
+  return { ...saved };
+}
+export async function saveStablecoinWallet(w: Omit<StablecoinWallet, "id">): Promise<StablecoinWallet> {
+  await wait(400);
+  const saved = { ...w, id: "sw" + Date.now() };
+  STABLECOIN_WALLETS.push(saved);
+  return { ...saved };
+}

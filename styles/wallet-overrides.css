@@ -24,3 +24,7 @@
    takes the muted neutral .btn-primary:disabled uses (--n-300), with no hover. */
 .cv-flip:disabled{color:var(--n-300);cursor:not-allowed}
 .cv-flip:disabled:hover{color:var(--n-300);border-color:var(--bdr)}
+
+/* Send's new stablecoin wallet: the address shows in full with its first 6 and last 4 characters highlighted
+   (the explore prototype's hl()), in the wallet's darker brand green. */
+.addr-row em{font-style:normal;color:var(--brand-600)}

@@ -5,6 +5,7 @@ import {
   type BalanceSource, type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
 } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
+import { useSend } from "../send/useSend";
 import { holderName, useNgn } from "../ngn/useNgn";
 import { holderMatches, maxPayout, methodReady, needsStepUp, payoutFee, payoutMethodSub, type Draft, type Speed } from "./payoutMath";
 
@@ -36,8 +37,8 @@ export type Enquiry =
   | { status: "idle" } | { status: "resolving" } | { status: "not_found" } | { status: "unavailable" }
   | { status: "matched"; name: string } | { status: "other"; name: string };
 /** ngn-account's fields. */
-export type NgnAccountDraft = { bank: NgBank | null; number: string; enquiry: Enquiry; thirdPartyOk: boolean };
-const EMPTY_ACCOUNT: NgnAccountDraft = { bank: null, number: "", enquiry: { status: "idle" }, thirdPartyOk: false };
+export type NgnAccountDraft = { bank: NgBank | null; number: string; enquiry: Enquiry; thirdPartyOk: boolean; /** "Save recipient" (from Send). */ save: boolean };
+const EMPTY_ACCOUNT: NgnAccountDraft = { bank: null, number: "", enquiry: { status: "idle" }, thirdPartyOk: false, save: true };
 
 /** Same person: case, spacing and word order don't matter ("OSUN ADA" is "Ada Osun"). */
 export const sameName = (a: string, b: string) => {
@@ -79,7 +80,15 @@ type State = {
   account: NgnAccountDraft;
   /** Name enquiry is down (demo bar). */
   enquiryDown: boolean;
+  /** Opened from Send: Back and "Change" return to Send's recipients, and a new bank account goes on to the amount. */
+  fromSend: boolean;
 
+  /** Send: a saved Nigerian bank account, straight to the amount. */
+  sendTo: (r: PayoutRecipient) => void;
+  /** Send's "+ New recipient" → Bank account: the bank-account step, then the amount. */
+  sendToNewBank: () => void;
+  /** The amount screen's "Change": back to the recipients (Send's, when opened from Send). */
+  changeRecipient: () => void;
   /** A merchant-held balance opens on "unavailable" instead. */
   open: (currency?: PayoutCurrency, source?: BalanceSource) => void;
   close: () => void;
@@ -106,6 +115,7 @@ type State = {
   /** Run the name enquiry for the current bank and number (also "Try again"). */
   lookUpName: () => Promise<void>;
   setThirdPartyOk: (ok: boolean) => void;
+  setAccountSave: (save: boolean) => void;
   saveNgnAccount: () => Promise<void>;
   setEnquiryDown: (down: boolean) => void;
 
@@ -117,7 +127,7 @@ type State = {
 const TRANSIENT = {
   stage: null, recipient: null, cents: 0, speed: "standard" as Speed, draft: {}, addingSelf: false, ack: false, lastRef: null, sent: null,
   pinStage: "create" as PinStage, pinPurpose: "payout" as const, pinDraft: null, pinError: "", otpError: "",
-  source: "open" as BalanceSource, account: EMPTY_ACCOUNT,
+  source: "open" as BalanceSource, account: EMPTY_ACCOUNT, fromSend: false,
 };
 
 /** Balance of the payout currency. Only NGN is wired to a balance (useNgn.ngnBalance) in this design repo. */
@@ -170,8 +180,26 @@ export const usePayout = create<State>((set, get) => {
     close: () => set({ ...TRANSIENT }),
     go: (stage) => set({ stage }),
 
+    sendTo: (r) => set({
+      ...TRANSIENT, currency: "NGN", recipients: listPayoutRecipients(), recipient: r, fromSend: true, stage: "amount",
+      ...(r.isSelf ? { speed: r.methodType === "card" ? "instant" as Speed : "standard" as Speed } : {}),
+    }),
+    sendToNewBank: () => set({ ...TRANSIENT, currency: "NGN", recipients: listPayoutRecipients(), fromSend: true, account: EMPTY_ACCOUNT, stage: "ngn-account" }),
+    changeRecipient: () => {
+      if (!get().fromSend) return set({ stage: "recipient" });
+      get().close();
+      useSend.getState().open();
+    },
+
     back: () => {
-      const { stage } = get();
+      const { stage, fromSend } = get();
+      // From Send, the first step's Back returns to Send (its recipients, or "New recipient").
+      if (fromSend && (stage === "amount" || stage === "ngn-account")) {
+        get().close();
+        useSend.getState().open();
+        if (stage === "ngn-account") useSend.setState({ stage: "bankCurrency" });
+        return;
+      }
       const prev: Partial<Record<PayoutStage, PayoutStage | null>> = {
         // The reference goes back to its currency picker, which this flow skips (it opens from the NGN balance).
         recipient: null,
@@ -280,18 +308,23 @@ export const usePayout = create<State>((set, get) => {
       }
     },
     setThirdPartyOk: (ok) => set((s) => ({ account: { ...s.account, thirdPartyOk: ok } })),
+    setAccountSave: (save) => set((s) => ({ account: { ...s.account, save } })),
 
     /** Saves the account as yours (matched) or as a third-party recipient (other, once confirmed), selects it and returns to the list. */
     saveNgnAccount: async () => {
-      const { bank, number, enquiry, thirdPartyOk } = get().account;
+      const { bank, number, enquiry, thirdPartyOk, save } = get().account;
       if (!bank || !(enquiry.status === "matched" || (enquiry.status === "other" && thirdPartyOk))) return;
       const isSelf = enquiry.status === "matched";
       const existing = get().recipients.find((r) => r.currency === "NGN" && r.bankName === bank.name && r.accountNumber === number);
       const saved = existing ?? await savePayoutRecipient({
         isSelf, name: enquiry.name, holderName: enquiry.name, currency: "NGN", methodType: "bank", bankName: bank.name, accountNumber: number, routingNumber: "",
+        // From Send, "Save recipient" unticked keeps it for this send only.
+        ...(get().fromSend && !save ? { saved: false } : {}),
       });
       set((s) => ({
-        recipients: existing ? s.recipients : [...s.recipients, saved], recipient: saved, stage: "recipient", account: EMPTY_ACCOUNT,
+        recipients: existing ? s.recipients : [...s.recipients, saved], recipient: saved, account: EMPTY_ACCOUNT,
+        // From Send, a new recipient goes straight on to the amount (the explore prototype's Continue).
+        ...(s.fromSend ? { stage: "amount" as const, cents: 0 } : { stage: "recipient" as const }),
         ...(saved.isSelf ? { speed: "standard" as Speed } : {}),
       }));
     },

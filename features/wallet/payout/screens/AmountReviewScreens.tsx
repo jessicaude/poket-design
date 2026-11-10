@@ -41,7 +41,7 @@ export function AmountScreen() {
       <BackRow id="backToPayoutRecipient2" onClick={back} />
       <CurrencyBadge />
       <p className="step-sub" style={{ textAlign: "center", marginBottom: 0 }}>
-        To: <span className="mono">{r?.name ?? ""}</span> <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.setState({ stage: "recipient" })}>Change</span>
+        To: <span className="mono">{r?.name ?? ""}</span> <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
       <div className="amount-display" style={{ padding: "20px 0 4px" }}><span className="amount-value"><Grey>{fmt(cents)}</Grey></span></div>
       {!hasSpeeds(currency) ? (
