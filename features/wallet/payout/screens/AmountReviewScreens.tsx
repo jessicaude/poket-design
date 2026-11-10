@@ -47,7 +47,7 @@ export function AmountScreen() {
       {!hasSpeeds(currency) ? (
         // NGN: one speed, no Standard / Instant
         <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>
-          <span className="status-pill" id="payoutSpeedPill"><Raw html={WICON.percent} /> {`${NGN_VA.arrives} · ${FEE_PLACEHOLDER} fee`}</span>
+          <span className="status-pill" id="payoutSpeedPill"><Raw html={WICON.percent} /> {`${isFirstPayment(currency, r) ? `After ${HOLD_PLACEHOLDER}` : NGN_VA.arrives} · ${FEE_PLACEHOLDER} fee`}</span>
         </p>
       ) : r?.isSelf && (
         <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>

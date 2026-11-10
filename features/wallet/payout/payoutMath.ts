@@ -64,6 +64,14 @@ export const payoutEta = (cur: PayoutCurrency, r: PayoutRecipient, speed: Speed)
 /** NGN pays out only to Nigerian bank accounts, so there's no conversion; other currencies list every recipient. */
 export const recipientsFor = (list: PayoutRecipient[], cur: PayoutCurrency) =>
   cur === "NGN" ? list.filter((r) => r.currency === "NGN" && r.methodType === "bank") : list;
+/**
+ * Amounts over ₦[step-up] need step-up verification before the PIN. The limit isn't decided, so screens show the
+ * placeholder; STEP_UP_DEMO_KOBO (₦20,000.00) is only a demo value so the step can be reached from a ₦50,000 balance.
+ */
+export const STEP_UP_PLACEHOLDER = "\u20a6[step-up]";
+export const STEP_UP_DEMO_KOBO = 2000000;
+export const needsStepUp = (cur: PayoutCurrency, amount: number) => cur === "NGN" && amount > STEP_UP_DEMO_KOBO;
+
 /** How long a first NGN payment to a new account is held before it sends: not decided, so a placeholder (ngn.mdc). */
 export const HOLD_PLACEHOLDER = "[hold]";
 /** A first NGN payment to this account: it's held for [hold] before it sends. */

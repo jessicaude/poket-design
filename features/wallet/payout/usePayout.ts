@@ -2,10 +2,11 @@ import { create } from "zustand";
 import {
   createPayout, hasPin, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
-  type BalanceSource, type NgBank, type PayoutCurrency, type PayoutRecipient,
+  type BalanceSource, type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
 } from "@/lib/mock-api";
+import { useWithdrawals } from "./useWithdrawals";
 import { holderName, useNgn } from "../ngn/useNgn";
-import { holderMatches, maxPayout, methodReady, payoutFee, type Draft, type Speed } from "./payoutMath";
+import { holderMatches, maxPayout, methodReady, needsStepUp, payoutFee, payoutMethodSub, type Draft, type Speed } from "./payoutMath";
 
 /**
  * Payout flow controller, rendered by PayoutBody inside WalletShell's #panelBody.
@@ -13,13 +14,14 @@ import { holderMatches, maxPayout, methodReady, payoutFee, type Draft, type Spee
  * (tPin, pinComplete, tPinLocked, tPinResetOtp, tMoneyDone) in place of the wallet's passcode 'authorize' stage.
  * Stage names are the reference's: S.payoutStage values, then the checkout's wScreen names for the PIN screens.
  * Not in the reference: ngn-account and ngn-bank (an NGN bank account with name enquiry, replacing the add-recipient
- * forms for NGN) and unavailable (a merchant-held balance can't be sent to a bank).
+ * forms for NGN), unavailable (a merchant-held balance can't be sent to a bank), and stepup (the reference's
+ * tStepupIntro, shown before the PIN for amounts over ₦[step-up]).
  */
 export const PAYOUT_STAGES = [
   "recipient", "add-recipient", "add-recipient-details", "add-recipient-method", "amount", "review",
   "pin", "pinLocked", "pinResetOtp", "moneyDone",
   "processing", "done",
-  "ngn-account", "ngn-bank", "unavailable",
+  "ngn-account", "ngn-bank", "unavailable", "stepup",
 ] as const;
 export type PayoutStage = (typeof PAYOUT_STAGES)[number];
 export const isPayoutStage = (s: unknown): s is PayoutStage => PAYOUT_STAGES.includes(s as PayoutStage);
@@ -62,8 +64,8 @@ type State = {
   addingSelf: boolean;
   ack: boolean;
   lastRef: string | null;
-  /** The amount and fee of the payout just made, and whether it sent or is held for [hold] (a first payment). */
-  sent: { amount: number; fee: number; status: "sent" | "held" } | null;
+  /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
+  sent: { id: string; amount: number; fee: number; status: WithdrawalStatus } | null;
   pinStage: PinStage;
   /** "reset" after Reset PIN with passcode (S.pinPurpose). */
   pinPurpose: "payout" | "reset";
@@ -93,6 +95,8 @@ type State = {
   setAck: (ack: boolean) => void;
   /** confirmPayout: on to the PIN (create it the first time). */
   confirm: () => void;
+  /** On to the PIN (after review, or Continue on the step-up placeholder). */
+  toPin: () => void;
   pinComplete: (pin: string) => Promise<void>;
   startPinReset: () => void;
   pinResetCode: (code: string) => Promise<void>;
@@ -129,8 +133,8 @@ export const usePayout = create<State>((set, get) => {
 
   /**
    * executeWithdraw, called once the PIN is accepted: reserve the amount from the balance, then create the payout.
-   * Sent: the reservation settles. Held (first payment to a new NGN account): it stays reserved until [hold] passes.
-   * Failed: the reservation is released back to the balance.
+   * The withdrawal starts Scheduled (first payment to an account) or Sending; its reservation is cleared when it's
+   * paid and released when it fails (useWithdrawals). If the payout can't be created, the reservation is released.
    */
   const execute = async () => {
     const { currency, recipient: r, cents, speed, source } = get();
@@ -142,9 +146,10 @@ export const usePayout = create<State>((set, get) => {
     const rsv = await reservePayout({ currency, amount: total, source });
     if (isNgn) moveReserved(total, total);
     try {
-      const { ref, status } = await createPayout({ currency, amount: cents, fee, recipientId: r.id, reservationId: rsv.id });
-      if (isNgn && status === "sent") moveReserved(-total, 0);
-      set({ stage: "done", lastRef: ref, sent: { amount: cents, fee, status }, recipients: listPayoutRecipients() });
+      // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
+      const w = await createPayout({ currency, amount: cents, fee, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r) });
+      useWithdrawals.getState().refresh();
+      set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee, status: w.status }, recipients: listPayoutRecipients() });
     } catch {
       await releaseReservation(rsv.id);
       if (isNgn) moveReserved(-total, -total);
@@ -171,7 +176,7 @@ export const usePayout = create<State>((set, get) => {
         // The reference goes back to its currency picker, which this flow skips (it opens from the NGN balance).
         recipient: null,
         "add-recipient": "recipient", "add-recipient-details": "recipient", "add-recipient-method": "add-recipient-details",
-        amount: "recipient", review: "amount", pin: "review",
+        amount: "recipient", review: "amount", pin: "review", stepup: "review",
         "ngn-account": "recipient", "ngn-bank": "ngn-account", unavailable: null,
       };
       if (!stage || !(stage in prev)) return;
@@ -218,6 +223,10 @@ export const usePayout = create<State>((set, get) => {
 
     confirm: () => {
       if (!get().ack) return;
+      if (get().stage === "review" && needsStepUp(get().currency, get().cents)) return set({ stage: "stepup" });
+      get().toPin();
+    },
+    toPin: () => {
       resetPinAttempts(); // wdGo: S.pinAttempts = 0
       set({ stage: "pin", pinStage: hasPin() ? "entry" : "create", pinPurpose: "payout", pinDraft: null, pinError: "" });
     },

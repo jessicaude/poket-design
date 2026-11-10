@@ -4,6 +4,7 @@ import { listPayoutRecipients } from "@/lib/mock-api";
 import { setPin, verifyPin, verifyPinResetCode, hasPin, resetPayoutServer, type PayoutRecipient } from "@/lib/mock-api";
 import { usePayout } from "@/features/wallet/payout/usePayout";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
+import { reservationEffect, isOnHold } from "@/features/wallet/payout/withdrawals";
 
 /** Payout maths and PIN logic, without a browser. Values follow the reference's sendFee / withdrawFee / fxToUSD. */
 test.beforeEach(() => { resetPayoutServer(); usePayout.getState().reset(); useNgn.getState().reset(); });
@@ -57,7 +58,7 @@ test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
   await expect(setPin("12a4")).rejects.toThrow();
 });
 
-test("store: the PIN reserves the amount; a first payment to an account stays reserved (held)", async () => {
+test("store: the PIN reserves the amount; a first payment to an account is Scheduled", async () => {
   const p = () => usePayout.getState();
   p().seedPin("1234");
   p().open("NGN");
@@ -69,7 +70,7 @@ test("store: the PIN reserves the amount; a first payment to an account stays re
   await p().pinComplete("1234");
   expect(p().stage).toBe("done");
   expect(p().lastRef).toMatch(/^TXN-\d{6}$/);
-  expect(p().sent?.status).toBe("held"); // Ngozi Eze has never been paid
+  expect(p().sent?.status).toBe("scheduled"); // Ngozi Eze has never been paid
   expect(useNgn.getState().ngnBalance).toBe(5000000 - 500000);
   expect(useNgn.getState().ngnReserved).toBe(500000);
   expect(p().recipients.find((r) => r.id === "r6")?.paidBefore).toBe(true);
@@ -102,18 +103,40 @@ test("NGN: one speed, Nigerian bank accounts only, no conversion", () => {
   expect(isCrossBorder("GBP", usd)).toBe(true);
 });
 
-test("reservations: sent settles, a first NGN payment is held, a mismatched reservation is refused", async () => {
+test("reservations: a first NGN payment is Scheduled, others Sending; a used or mismatched reservation is refused", async () => {
   const { reservePayout, createPayout, releaseReservation } = await import("@/lib/mock-api");
   const a = await reservePayout({ currency: "NGN", amount: 100000 });
   expect(a.status).toBe("reserved");
-  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "lb2", reservationId: a.id })).status).toBe("sent"); // paid before
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "lb2", reservationId: a.id })).status).toBe("sending"); // paid before
   const b = await reservePayout({ currency: "NGN", amount: 100000 });
-  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: b.id })).status).toBe("held"); // first payment
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: b.id })).status).toBe("scheduled"); // first payment
   const c = await reservePayout({ currency: "NGN", amount: 100000 });
-  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: c.id })).status).toBe("sent"); // paid now
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: c.id })).status).toBe("sending"); // paid now
   await expect(createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: c.id })).rejects.toThrow("invalid_reservation"); // used
   const d = await reservePayout({ currency: "NGN", amount: 100000 });
   await expect(createPayout({ currency: "NGN", amount: 99999, fee: 0, recipientId: "r6", reservationId: d.id })).rejects.toThrow("invalid_reservation");
   await releaseReservation(d.id);
   await expect(createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: d.id })).rejects.toThrow("invalid_reservation");
+});
+
+test("reservation effect of each status change", () => {
+  const t = 500000;
+  expect(reservationEffect("scheduled", "sending", t)).toEqual({ balance: 0, reserved: 0 });
+  expect(reservationEffect("sending", "review", t)).toEqual({ balance: 0, reserved: 0 });
+  expect(reservationEffect("review", "paid", t)).toEqual({ balance: 0, reserved: -t }); // paid clears it
+  expect(reservationEffect("scheduled", "failed", t)).toEqual({ balance: t, reserved: -t }); // failed releases it
+  expect(reservationEffect("paid", "reversed", t)).toEqual({ balance: t, reserved: 0 }); // reversed returns the money
+  expect(["scheduled", "review", "sending"].every((s) => isOnHold(s as never))).toBe(true);
+  expect(["paid", "failed", "reversed"].some((s) => isOnHold(s as never))).toBe(false);
+});
+
+test("mock: only allowed status changes", async () => {
+  const { reservePayout, createPayout, setWithdrawalStatus } = await import("@/lib/mock-api");
+  const r = await reservePayout({ currency: "NGN", amount: 100000 });
+  const w = await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "lb2", reservationId: r.id });
+  await expect(setWithdrawalStatus(w.id, "reversed")).rejects.toThrow("cannot_sending_to_reversed");
+  expect((await setWithdrawalStatus(w.id, "paid")).status).toBe("paid");
+  await expect(setWithdrawalStatus(w.id, "failed")).rejects.toThrow("cannot_paid_to_failed");
+  expect((await setWithdrawalStatus(w.id, "reversed")).status).toBe("reversed");
+  await expect(setWithdrawalStatus(w.id, "paid")).rejects.toThrow();
 });

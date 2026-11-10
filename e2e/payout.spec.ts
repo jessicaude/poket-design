@@ -30,7 +30,7 @@ test("home: NGN balance row and Withdraw", async ({ page }) => {
   await page.goto("/demo/wallet");
   const row = page.locator('#panelBody [data-holdcur="NGN"]');
   await expect(row.locator(".tx-title")).toHaveText("Nigerian Naira");
-  await expect(row.locator(".tx-sub")).toHaveText("50,000 NGN");
+  await expect(row.locator(".tx-sub")).toHaveText("₦50,000.00 NGN");
   await expect(row.locator(".tx-amt")).toHaveText("₦50,000.00 NGN");
   await expect(row.locator(".tx-amt .cur-code")).toHaveText("NGN");
   await page.locator("#ngnWithdraw").click();
@@ -175,7 +175,7 @@ test("link your own method (non-NGN form): the holder must match the verified na
 test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is the whole balance; Back steps back", async ({ page }) => {
   await toAmount(page, "other:r6");
   const body = page.locator("#panelBody");
-  await expect(page.locator("#payoutSpeedPill")).toHaveText("Usually within seconds · ₦[fee] fee");
+  await expect(page.locator("#payoutSpeedPill")).toHaveText("After [hold] · ₦[fee] fee"); // first payment to Ngozi Eze
   await page.locator("#payoutMaxAmt").click();
   await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
   await expect(page.locator("#payoutAmtHint")).toHaveText("Available ₦50,000.00 NGN · fee ₦[fee] · Max");

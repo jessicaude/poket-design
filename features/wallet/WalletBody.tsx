@@ -4,12 +4,30 @@ import { useNgn } from "./ngn/useNgn";
 import { NgnBalanceEntry } from "./payout/NgnBalanceEntry";
 import { PayoutBody } from "./payout/PayoutBody";
 import { usePayout } from "./payout/usePayout";
+import { NotificationsScreen } from "./NotificationsScreen";
+import { currentScreen, useWalletNav } from "./useWalletNav";
+import { NgnBalanceScreen } from "./withdrawals/NgnBalanceScreen";
+import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
+import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
 
-/** WalletShell's default #panelBody: the open payout or NGN flow, else the home entry (NGN balance + Withdraw). */
+/**
+ * WalletShell's default #panelBody: an open payout or NGN flow first, then the current wallet screen
+ * (NGN balance, on hold, withdrawal status, notifications), else the home entry (NGN balance + Withdraw).
+ */
 export function WalletBody() {
   const payout = usePayout((s) => s.stage);
   const ngn = useNgn((s) => s.stage);
+  const screen = currentScreen(useWalletNav((s) => s.stack));
   if (payout) return <PayoutBody />;
   if (ngn) return <NgnBody />;
-  return <NgnBalanceEntry />;
+  if (!screen) return <NgnBalanceEntry />;
+  const key = screen.name + ("id" in screen ? screen.id : "");
+  return (
+    <div className="screen-fade" key={key}>
+      {screen.name === "ngn-balance" && <NgnBalanceScreen />}
+      {screen.name === "on-hold" && <OnHoldScreen />}
+      {screen.name === "withdrawal" && <WithdrawalStatusScreen id={screen.id} />}
+      {screen.name === "notifications" && <NotificationsScreen />}
+    </div>
+  );
 }

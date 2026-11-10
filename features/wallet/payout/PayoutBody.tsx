@@ -8,6 +8,7 @@ import { PinLockedScreen, PinResetOtpScreen, PinScreen, PinUpdatedScreen } from 
 import { DoneScreen, ProcessingScreen } from "./screens/ProcessingDoneScreens";
 import { NgnAccountScreen, NgnBankScreen } from "./screens/NgnAccountScreens";
 import { WithdrawUnavailableScreen } from "./screens/WithdrawUnavailableScreen";
+import { StepUpScreen } from "./screens/StepUpScreen";
 
 /** One component per payout stage. */
 const SCREENS: Record<PayoutStage, ComponentType> = {
@@ -26,6 +27,7 @@ const SCREENS: Record<PayoutStage, ComponentType> = {
   "ngn-account": NgnAccountScreen,
   "ngn-bank": NgnBankScreen,
   unavailable: WithdrawUnavailableScreen,
+  stepup: StepUpScreen,
 };
 
 /** The current payout stage, for WalletShell's #panelBody, with the reference's .screen-fade entry. */

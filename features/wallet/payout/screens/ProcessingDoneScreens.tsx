@@ -4,6 +4,7 @@ import { WICON } from "@/lib/icons";
 import { CURRENCY_INFO, HOLD_PLACEHOLDER, convertAmount, fmtCurrency, isCrossBorder, payoutEta } from "../payoutMath";
 import { Grey } from "../parts";
 import { usePayout } from "../usePayout";
+import { useWalletNav } from "../../useWalletNav";
 
 /** tPayout stage 'processing' (cash). */
 export function ProcessingScreen() {
@@ -24,7 +25,7 @@ export function DoneScreen() {
   const isSelf = r.isSelf;
   const crossBorder = isCrossBorder(currency, r);
   const recv = crossBorder ? convertAmount(Math.max(0, sent.amount - sent.fee), currency, r.currency) : sent.amount;
-  const held = sent.status === "held";
+  const held = sent.status === "scheduled";
   const eta = held ? `After ${HOLD_PLACEHOLDER}` : payoutEta(currency, r, speed);
   const icon = CURRENCY_INFO[currency].icon;
   return (
@@ -37,8 +38,8 @@ export function DoneScreen() {
         <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{fmtCurrency(sent.amount, currency)}</Grey></div>
         {/* Held (first payment to a new account): NEW copy, not in the reference */}
         <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : `${isSelf ? "On its way to" : "Sent to"} ${r.name}`}</p>
-        {/* TODO: opens the transaction (tx-detail) once Activity is ported. */}
-        <span className="btn-ghost" id="viewPayoutTx" role="button">View transaction</span>
+        <span className="btn-ghost" id="viewPayoutTx" role="button" tabIndex={0}
+          onClick={() => { close(); useWalletNav.getState().push({ name: "withdrawal", id: sent.id }); }}>View transaction</span>
       </div>
       <div className="receipt-card" style={{ marginTop: "16px" }}>
         <div className="receipt-row"><span className="r-ic"><Raw html={WICON.hash} /></span><span className="r-label">Confirmation</span><span className="r-value mono">{lastRef}</span></div>

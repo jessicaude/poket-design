@@ -4,6 +4,8 @@ import { WalletShell, type WalletTab } from "@/features/wallet/WalletShell";
 import { NgnDemoBar } from "@/components/demo/NgnDemoBar";
 import { isNgnStage, useNgn } from "@/features/wallet/ngn/useNgn";
 import { isPayoutStage, usePayout } from "@/features/wallet/payout/usePayout";
+import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
+import { useWalletNav } from "@/features/wallet/useWalletNav";
 
 /**
  * The body is the open payout or NGN screen, else the NGN balance with Withdraw (WalletBody).
@@ -14,7 +16,7 @@ export function WalletDemo({ css }: { css: string }) {
   const open = useNgn((s) => s.open);
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout });
+    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), p = q.get("payout");
     if (isNgnStage(s)) open(s);

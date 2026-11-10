@@ -47,6 +47,13 @@ alwaysApply: true
 - Withdrawing from an NGN balance lists only Nigerian bank recipients (recipientsFor): no international recipients,
   and no exchange rate or "Recipient gets" conversion for NGN (isCrossBorder is never true for NGN).
 - A first NGN payment to an account (recipient.paidBefore false) shows "First payment to a new account sends after
-  [hold]" on amount and review, and its delivery is "After [hold]". The amount (plus fee) is reserved from the balance
-  when the PIN is accepted (reservePayout → ngnReserved); it settles when sent, stays reserved while held, and is
-  released if the payout fails.
+  [hold]" on amount and review (including the amount screen's speed tag), and its delivery is "After [hold]".
+- The amount (plus fee) is reserved from the balance when the PIN is accepted (reservePayout → ngnReserved), and stays
+  reserved while the withdrawal is Scheduled, Held for review or Sending. Paid clears the reservation; Failed releases
+  it back to the balance; Reversed (after Paid) returns the money and adds a notification. Rules: reservationEffect in
+  features/wallet/payout/withdrawals.ts. Show reserved money as "₦X on hold" (NGN balance screen, home NGN row).
+- Withdrawal statuses and chips (STATUS_META): Scheduled "Sends after [hold]", Held for review "We're checking this
+  payment. We'll let you know.", Sending "Usually within seconds", Paid, Failed / Reversed "Funds returned to your
+  balance". Chips use the wallet's .va-status tones; no new colours.
+- NGN amounts over ₦[step-up] show the reference's step-up screen (tStepupIntro) before the PIN. The limit stays the
+  ₦[step-up] placeholder on screen; STEP_UP_DEMO_KOBO is a demo value only.

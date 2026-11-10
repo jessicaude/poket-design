@@ -5,14 +5,19 @@ import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "./payoutMath";
 import { Grey } from "./parts";
 import { usePayout } from "./usePayout";
+import { useWalletNav } from "../useWalletNav";
+import { OnHoldLink } from "../withdrawals/parts";
 
 /**
  * Demo entry point on the wallet home, from tWalletHome(): a Withdraw action (the reference's Payout action) and the
- * Cash list with the NGN rows (cashRowHtml). Withdraw, or tapping a row, opens the payout flow in NGN, as detailPayout does.
+ * Cash list with the NGN rows (cashRowHtml). Withdraw opens the payout flow in NGN, as detailPayout does. Tapping the
+ * NGN row opens its balance screen (tHoldingDetail); "₦X on hold" in its subtitle lists the held withdrawals.
  */
 export function NgnBalanceEntry() {
   const balance = useNgn((s) => s.ngnBalance);
   const held = useNgn((s) => s.ngnMerchantBalance);
+  const reserved = useNgn((s) => s.ngnReserved);
+  const push = useWalletNav((s) => s.push);
   const open = usePayout((s) => s.open);
   return (
     <div className="screen-fade">
@@ -21,11 +26,13 @@ export function NgnBalanceEntry() {
       </div>
       <div className="assets-header"><span>Cash</span></div>
       <div className="section-card">
-        <div className="tx-row asset-item-row" data-holdtype="cash" data-holdcur="NGN" data-holdbucket="open" onClick={() => open("NGN")}>
+        <div className="tx-row asset-item-row" data-holdtype="cash" data-holdcur="NGN" data-holdbucket="open" role="button" tabIndex={0} onClick={() => push({ name: "ngn-balance" })}>
           <div className="asset-icon-wrap"><div className="badge" dangerouslySetInnerHTML={{ __html: WICON.ngFlag }} /></div>
           <div className="tx-main">
             <div className="tx-title">Nigerian Naira <span className="verified-badge"><Raw html={WICON.verified} /></span></div>
-            <div className="tx-sub"><Grey>{`${Math.round(balance / 100).toLocaleString("en-US")} NGN`}</Grey></div>
+            {/* Naira format for the balance (not the reference's "50,000 NGN" quantity), matching "₦X on hold" */}
+            <div className="tx-sub"><Grey>{fmtCurrency(balance, "NGN")}</Grey>
+              {reserved > 0 && <> · <OnHoldLink id="homeOnHold" reserved={reserved} /></>}</div>
           </div>
           <div className="asset-value"><div className="tx-amt"><Grey>{fmtCurrency(balance, "NGN")}</Grey></div></div>
         </div>

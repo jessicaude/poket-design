@@ -5,6 +5,8 @@ import { Raw } from "@/components/ui/Raw";
 import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP, WICON } from "@/lib/icons";
 import { WalletBody } from "./WalletBody";
 import { useWalletToast } from "./useWalletToast";
+import { useNotifications } from "./useNotifications";
+import { useWalletNav } from "./useWalletNav";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -33,6 +35,8 @@ type Props = {
 export function WalletShell({ css, tab = "home", onTab, onSettings, children }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [root, setRoot] = useState<ShadowRoot | null>(null);
+  const notifs = useNotifications((s) => s.list);
+  const unread = notifs.some((n) => !n.read);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -54,9 +58,12 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                         <Raw html={WALLET_LOCKUP} />
                       </div>
                       <div className="panel-actions" id="panelActions">
-                        <span className="panel-settings-btn" id="openNotifHeader" style={{ position: "relative", display: "none" }} aria-label="Notifications">
+                        {/* The bell shows once there are notifications, with a dot while any are unread (as in the reference). */}
+                        <span className="panel-settings-btn" id="openNotifHeader" role="button" tabIndex={0} aria-label="Notifications"
+                          style={{ position: "relative", display: notifs.length ? undefined : "none" }}
+                          onClick={() => useWalletNav.getState().push({ name: "notifications" })}>
                           <Raw html={BELL_ICON} />
-                          <span className="notif-dot" id="notifDot" style={{ display: "none" }} />
+                          <span className="notif-dot" id="notifDot" style={{ display: unread ? undefined : "none" }} />
                         </span>
                         <span className="panel-settings-btn" id="openSettingsHeader" aria-label="Settings" onClick={onSettings}>
                           <Raw html={SETTINGS_ICON} />

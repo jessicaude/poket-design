@@ -141,7 +141,8 @@ test("merchant-held balance: not available to withdraw, Convert instead", async 
   await expect(page.locator("#withdrawUseConvert")).toHaveText("Convert");
   await expect(page.locator("#payoutRecipientContinue")).toHaveCount(0);
   await page.locator("#backFromWithdraw").click();
-  // The open balance still withdraws as normal
+  // The open balance still withdraws as normal (its row opens the NGN balance screen)
   await page.locator('#panelBody [data-holdbucket="open"]').click();
+  await page.locator("#detailPayout").click();
   await expect(title(page)).toHaveText("Recipient");
 });

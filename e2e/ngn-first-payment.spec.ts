@@ -71,7 +71,7 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
 });
 
-test("account paid before: no notice; reserved at the PIN, then settled when sent", async ({ page }) => {
+test("account paid before: no notice; reserved at the PIN and still while Sending", async ({ page }) => {
   await toAmount(page, "self:lb2");
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
   await typeAmount(page, "1000000");
@@ -80,7 +80,7 @@ test("account paid before: no notice; reserved at the PIN, then settled when sen
   await typePin(page, "1234");
   await expect.poll(() => ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 });
   await expect(page.locator("#panelBody .step-sub")).toHaveText("On its way to Naira account");
-  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 }); // cleared once paid (ngn-withdrawal-status.spec)
   await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated arrivalUsually within seconds");
 });
 

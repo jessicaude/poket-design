@@ -173,10 +173,11 @@ export async function savePayoutRecipient(r: Omit<PayoutRecipient, "id">): Promi
 export type BalanceSource = "open" | "merchant";
 
 /**
- * A reservation holds money out of the available balance for one payout: "reserved" once the PIN is accepted,
- * "held" while a first payment to a new NGN account waits [hold], "settled" once sent, "released" if it fails.
+ * A reservation holds money out of the available balance for one payout, from the moment the PIN is accepted.
+ * "used" once a withdrawal is created against it (the withdrawal's status then decides when it clears);
+ * "released" if no withdrawal was made.
  */
-export type Reservation = { id: string; amount: number; status: "reserved" | "held" | "settled" | "released" };
+export type Reservation = { id: string; amount: number; status: "reserved" | "used" | "released" };
 const reservations = new Map<string, Reservation>();
 
 /** POST /v1/payouts/reservations, called once the PIN is accepted. `amount` includes any fee. */
@@ -195,19 +196,61 @@ export async function releaseReservation(id: string): Promise<void> {
 }
 
 /**
- * POST /v1/payouts, against a reservation. A first NGN payment to an account is "held" (it sends after [hold]);
- * otherwise it's "sent". Either way the account then counts as paid before.
+ * A withdrawal's status. scheduled: a first payment to an account, sends after [hold]. review: held for a risk check
+ * (open-ended). sending: on its way. paid. failed: never left, funds returned. reversed: paid, then returned by the bank.
+ * While scheduled, review or sending, its amount (plus fee) stays reserved out of the balance.
  */
-export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string }): Promise<{ ref: string; status: "sent" | "held" }> {
+export type WithdrawalStatus = "scheduled" | "review" | "sending" | "paid" | "failed" | "reversed";
+export type Withdrawal = {
+  id: string; ref: string; currency: PayoutCurrency; amount: number; fee: number;
+  recipientId: string; recipientName: string; recipientSub: string; createdAt: number; status: WithdrawalStatus;
+};
+const withdrawals: Withdrawal[] = [];
+
+/**
+ * POST /v1/payouts, against a reservation. A first NGN payment to an account is "scheduled" (it sends after [hold]);
+ * otherwise it's "sending". Either way the account then counts as paid before.
+ */
+export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string }): Promise<Withdrawal> {
   const rsv = reservations.get(p.reservationId);
   if (!rsv || rsv.status !== "reserved" || rsv.amount !== p.amount + p.fee) throw new Error("invalid_reservation");
   const recipient = payoutServer.recipients.find((r) => r.id === p.recipientId);
   if (!recipient) throw new Error("unknown_recipient");
   await wait(1500);
-  const status = p.currency === "NGN" && !recipient.paidBefore ? "held" : "sent";
-  rsv.status = status === "held" ? "held" : "settled";
+  rsv.status = "used";
+  const w: Withdrawal = {
+    id: "wd_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+    currency: p.currency, amount: p.amount, fee: p.fee, recipientId: recipient.id, recipientName: recipient.name,
+    recipientSub: p.recipientSub ?? "", createdAt: Date.now(),
+    status: p.currency === "NGN" && !recipient.paidBefore ? "scheduled" : "sending",
+  };
   recipient.paidBefore = true;
-  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000), status };
+  withdrawals.unshift(w);
+  return { ...w };
+}
+
+/** GET /v1/payouts, newest first. */
+export function listWithdrawals(): Withdrawal[] {
+  return withdrawals.map((w) => ({ ...w }));
+}
+
+/** Which statuses each demo action can move a withdrawal from (the provider's webhooks, in production). */
+export const WITHDRAWAL_TRANSITIONS: Record<WithdrawalStatus, WithdrawalStatus[]> = {
+  scheduled: ["sending", "review", "paid", "failed"],
+  review: ["sending", "paid", "failed"],
+  sending: ["review", "paid", "failed"],
+  paid: ["reversed"],
+  failed: [],
+  reversed: [],
+};
+
+/** Demo: move a withdrawal to a new status, as the payout provider would. Throws if the move isn't allowed. */
+export async function setWithdrawalStatus(id: string, to: WithdrawalStatus): Promise<Withdrawal> {
+  const w = withdrawals.find((x) => x.id === id);
+  if (!w) throw new Error("unknown_withdrawal");
+  if (!WITHDRAWAL_TRANSITIONS[w.status].includes(to)) throw new Error(`cannot_${w.status}_to_${to}`);
+  w.status = to;
+  return { ...w };
 }
 
 export const hasPin = () => payoutServer.pin !== null;
@@ -245,6 +288,7 @@ export function seedPayoutServer(patch: { pin?: string | null }) {
 export function resetPayoutServer() {
   enquiryServer.available = true;
   reservations.clear();
+  withdrawals.length = 0;
   payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
   payoutServer.pin = null;
   payoutServer.pinAttempts = 0;
