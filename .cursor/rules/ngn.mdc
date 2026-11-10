@@ -57,3 +57,6 @@ alwaysApply: true
   balance". Chips use the wallet's .va-status tones; no new colours.
 - NGN amounts over ₦[step-up] show the reference's step-up screen (tStepupIntro) before the PIN. The limit stays the
   ₦[step-up] placeholder on screen; STEP_UP_DEMO_KOBO is a demo value only.
+- Convert lives in features/wallet/convert/ (useConvert.ts: the reference's S.cv stages; convertMath.ts: cv* helpers).
+  Balances other than NGN are in features/wallet/useHoldings.ts; NGN stays in useNgn.ngnBalance. Card-funded
+  (FIAT-ONLY) cash converts only to cash, and the tag carries over. Preview at /demo/wallet?convert=<stage>.

@@ -3,11 +3,11 @@ import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useNgn } from "../useNgn";
 import { VaBack } from "./VaBack";
+import { useConvert } from "../../convert/useConvert";
 
 /** tVaNgn stage 'ngnUnavailable': the verified ID allows no NGN ID route (foreigner living abroad). */
 export function NgnUnavailableScreen() {
   const go = useNgn((s) => s.go);
-  // TODO: ngnUseConvert opens Convert (cvStart({ to: 'cash:NGN:open' })); wire it when Convert is ported.
   return (
     <>
       <VaBack />
@@ -18,7 +18,7 @@ export function NgnUnavailableScreen() {
       </div>
       <button className="btn-primary" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a temporary account</button>
       <div style={{ textAlign: "center", marginTop: "12px" }}>
-        <button type="button" className="btn-ghost" id="ngnUseConvert">Convert from USD or USDC</button>
+        <button type="button" className="btn-ghost" id="ngnUseConvert" onClick={() => useConvert.getState().start({ to: "cash:NGN:open" })}>Convert from USD or USDC</button>
       </div>
     </>
   );

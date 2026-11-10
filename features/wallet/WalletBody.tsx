@@ -1,4 +1,6 @@
 "use client";
+import { ConvertBody } from "./convert/ConvertBody";
+import { useConvert } from "./convert/useConvert";
 import { NgnBody } from "./ngn/NgnBody";
 import { useNgn } from "./ngn/useNgn";
 import { NgnBalanceEntry } from "./payout/NgnBalanceEntry";
@@ -11,13 +13,15 @@ import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
 
 /**
- * WalletShell's default #panelBody: an open payout or NGN flow first, then the current wallet screen
+ * WalletShell's default #panelBody: an open Convert, payout or NGN flow first, then the current wallet screen
  * (NGN balance, on hold, withdrawal status, notifications), else the home entry (NGN balance + Withdraw).
  */
 export function WalletBody() {
+  const convert = useConvert((s) => s.stage);
   const payout = usePayout((s) => s.stage);
   const ngn = useNgn((s) => s.stage);
   const screen = currentScreen(useWalletNav((s) => s.stack));
+  if (convert) return <ConvertBody />;
   if (payout) return <PayoutBody />;
   if (ngn) return <NgnBody />;
   if (!screen) return <NgnBalanceEntry />;

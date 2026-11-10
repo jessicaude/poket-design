@@ -347,3 +347,17 @@ function otherAccountName(seed: string): string {
   const rand = () => { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 8) / 0x1000000; };
   return first[Math.floor(rand() * first.length)] + " " + last[Math.floor(rand() * last.length)];
 }
+
+/* ---------- Convert ---------- */
+
+/**
+ * POST /v1/conversions: convert `amount` of one balance (`from`, a cvKey like "cash:NGN:open") into another (`to`),
+ * at the quote the user confirmed. The reference shows "Converting…" for 1.3s, then the result.
+ * Card-funded (FIAT-ONLY) cash can't be converted to a stablecoin.
+ */
+export async function createConversion(p: { from: string; to: string; amount: number; fee: number; receive: number }): Promise<{ ref: string }> {
+  if (!Number.isInteger(p.amount) || p.amount <= 0 || !Number.isInteger(p.receive)) throw new Error("invalid_amount");
+  if (p.from.startsWith("cash:") && p.from.endsWith(":fiat") && p.to.startsWith("coin:")) throw new Error("fiat_only_to_digital_asset");
+  await wait(1300);
+  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000) };
+}

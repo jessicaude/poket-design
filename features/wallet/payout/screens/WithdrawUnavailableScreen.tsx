@@ -24,7 +24,7 @@ export function WithdrawUnavailableScreen() {
         <div className="step-title" style={{ fontSize: "28px", letterSpacing: "-.02em" }}><Grey>{fmtCurrency(held, "NGN")}</Grey></div>
       </div>
       <div className="alert warn" role="alert" style={{ marginTop: "14px" }}><Raw html={WICON.alert} /><span>Not available: this balance can&apos;t be sent to a bank</span></div>
-      {/* TODO: opens Convert once it's ported (as #dmConvert and #ngnUseConvert). */}
+      {/* TODO: open Convert from the merchant-held balance once Convert has a merchant-held bucket (and its rules are decided). */}
       <button className="btn-primary" id="withdrawUseConvert">Convert</button>
     </>
   );

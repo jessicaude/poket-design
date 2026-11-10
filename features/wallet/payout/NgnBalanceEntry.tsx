@@ -7,6 +7,7 @@ import { Grey } from "./parts";
 import { usePayout } from "./usePayout";
 import { useWalletNav } from "../useWalletNav";
 import { OnHoldLink } from "../withdrawals/parts";
+import { useConvert } from "../convert/useConvert";
 
 /**
  * Demo entry point on the wallet home, from tWalletHome(): a Withdraw action (the reference's Payout action) and the
@@ -22,6 +23,7 @@ export function NgnBalanceEntry() {
   return (
     <div className="screen-fade">
       <div className="action-row">
+        <button className="action-btn" id="actConvert" onClick={() => useConvert.getState().start()}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
         <button className="action-btn" id="ngnWithdraw" onClick={() => open("NGN")}><span className="ic"><Raw html={WICON.bank} /></span>Withdraw</button>
       </div>
       <div className="assets-header"><span>Cash</span></div>
