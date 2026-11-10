@@ -46,3 +46,7 @@ alwaysApply: true
   fee as ₦[fee] (hasSpeeds, payoutEta in payoutMath.ts). Other currencies keep their speed options.
 - Withdrawing from an NGN balance lists only Nigerian bank recipients (recipientsFor): no international recipients,
   and no exchange rate or "Recipient gets" conversion for NGN (isCrossBorder is never true for NGN).
+- A first NGN payment to an account (recipient.paidBefore false) shows "First payment to a new account sends after
+  [hold]" on amount and review, and its delivery is "After [hold]". The amount (plus fee) is reserved from the balance
+  when the PIN is accepted (reservePayout → ngnReserved); it settles when sent, stays reserved while held, and is
+  released if the payout fails.

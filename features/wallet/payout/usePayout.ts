@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import {
-  createPayout, hasPin, listPayoutRecipients, nameEnquiry, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
+  createPayout, hasPin, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
   type BalanceSource, type NgBank, type PayoutCurrency, type PayoutRecipient,
 } from "@/lib/mock-api";
@@ -62,8 +62,8 @@ type State = {
   addingSelf: boolean;
   ack: boolean;
   lastRef: string | null;
-  /** The amount and fee actually sent, for the done screen. */
-  sent: { amount: number; fee: number } | null;
+  /** The amount and fee of the payout just made, and whether it sent or is held for [hold] (a first payment). */
+  sent: { amount: number; fee: number; status: "sent" | "held" } | null;
   pinStage: PinStage;
   /** "reset" after Reset PIN with passcode (S.pinPurpose). */
   pinPurpose: "payout" | "reset";
@@ -123,16 +123,33 @@ export const usePayout = create<State>((set, get) => {
   /** Increments per enquiry, so a slow answer for an older bank/number is ignored. */
   let enquiryId = 0;
 
-  /** executeWithdraw: processing, then debit the balance and show done. */
+  /** Move NGN between the available balance and the reserved total (positive: reserve; negative: give back or settle). */
+  const moveReserved = (toReserved: number, fromBalance: number) =>
+    useNgn.setState((s) => ({ ngnBalance: s.ngnBalance - fromBalance, ngnReserved: s.ngnReserved + toReserved }));
+
+  /**
+   * executeWithdraw, called once the PIN is accepted: reserve the amount from the balance, then create the payout.
+   * Sent: the reservation settles. Held (first payment to a new NGN account): it stays reserved until [hold] passes.
+   * Failed: the reservation is released back to the balance.
+   */
   const execute = async () => {
-    const { currency, recipient: r, cents, speed } = get();
+    const { currency, recipient: r, cents, speed, source } = get();
     if (!r) return;
     const fee = payoutFee(currency, r, speed, cents);
+    const total = cents + fee;
+    const isNgn = currency === "NGN";
     set({ stage: "processing" });
-    const { ref } = await createPayout({ currency, amount: cents, fee, recipientId: r.id, source: get().source });
-    if (get().stage !== "processing") return;
-    if (currency === "NGN") useNgn.setState((s) => ({ ngnBalance: s.ngnBalance - cents - fee }));
-    set({ stage: "done", lastRef: ref, sent: { amount: cents, fee } });
+    const rsv = await reservePayout({ currency, amount: total, source });
+    if (isNgn) moveReserved(total, total);
+    try {
+      const { ref, status } = await createPayout({ currency, amount: cents, fee, recipientId: r.id, reservationId: rsv.id });
+      if (isNgn && status === "sent") moveReserved(-total, 0);
+      set({ stage: "done", lastRef: ref, sent: { amount: cents, fee, status }, recipients: listPayoutRecipients() });
+    } catch {
+      await releaseReservation(rsv.id);
+      if (isNgn) moveReserved(-total, -total);
+      set({ stage: "review" });
+    }
   };
 
   return {

@@ -3,10 +3,19 @@ import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { NGN_VA, useNgn } from "../../ngn/useNgn";
 import {
-  CURRENCY_INFO, FEE_PLACEHOLDER, convertAmount, feeDecided, hasSpeeds, isCrossBorder, payoutEta, fmtCurrency, fmtFee, fmtWithFee, fxRateLabel, isLogoMethod, payoutFee, payoutMethodIcon, payoutMethodSub, withdrawFee,
+  CURRENCY_INFO, FEE_PLACEHOLDER, HOLD_PLACEHOLDER, isFirstPayment, convertAmount, feeDecided, hasSpeeds, isCrossBorder, payoutEta, fmtCurrency, fmtFee, fmtWithFee, fxRateLabel, isLogoMethod, payoutFee, payoutMethodIcon, payoutMethodSub, withdrawFee,
 } from "../payoutMath";
 import { BackRow, Grey, Keypad, SpinButton } from "../parts";
 import { availableFor, usePayout } from "../usePayout";
+
+/** Not in the reference: a first NGN payment to an account sends after [hold]. Shown on amount and review. */
+function FirstPaymentNotice() {
+  return (
+    <div className="alert info" id="firstPaymentNotice" role="note" style={{ marginBottom: "10px" }}>
+      <Raw html={WICON.info} /><span>First payment to a new account sends after {HOLD_PLACEHOLDER}</span>
+    </div>
+  );
+}
 
 /** amountBadgeHtml(false, null, null, cur): the currency's flag. */
 function CurrencyBadge() {
@@ -56,6 +65,7 @@ export function AmountScreen() {
       <div id="payoutAmtHint" style={{ textAlign: "center", fontSize: "11.5px", color: over ? "var(--err-600)" : "var(--txt3)", marginBottom: "6px" }}>
         <Grey>{over ? `Amount + fee exceeds available ${fmt(avail)}` : `Available ${fmt(avail)}${!feeDecided(currency) ? ` · fee ${FEE_PLACEHOLDER}` : fee ? ` · fee ${fmt(fee)}` : ""}`}</Grey> &middot; <span className="btn-ghost" id="payoutMaxAmt" role="button" onClick={max}>Max</span>
       </div>
+      {isFirstPayment(currency, r) && <FirstPaymentNotice />}
       <Keypad dataKey="payoutkey" onKey={key} />
       <SpinButton id="payoutReview" style={{ marginTop: "8px" }} disabled={!(cents > 0 && !over)} delay={500}
         onClick={() => usePayout.setState({ ack: false, stage: "review" })}>Review</SpinButton>
@@ -71,7 +81,7 @@ export function ReviewScreen() {
   const fee = payoutFee(currency, r, speed, cents);
   const crossBorder = isCrossBorder(currency, r);
   const recv = crossBorder ? convertAmount(Math.max(0, cents - fee), currency, r.currency) : cents;
-  const eta = payoutEta(currency, r, speed);
+  const eta = isFirstPayment(currency, r) ? `After ${HOLD_PLACEHOLDER}` : payoutEta(currency, r, speed);
   const fmt = (n: number) => fmtCurrency(n, currency);
   const row = (icon: string, label: string, value: string, extra = "") => (
     <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className={`r-value ${label === "To" || label === "Exchange rate" ? "mono" : ""}`}><Grey>{value}</Grey></span></div>
@@ -100,6 +110,7 @@ export function ReviewScreen() {
       {isSelf && hasSpeeds(currency) && (
         <p className="fine-print"><Raw html={WICON.info} /><span>{speed === "instant" ? "Instant payouts are irreversible once sent." : "Standard payouts settle over ACH and may arrive sooner than the estimate."}</span></p>
       )}
+      {isFirstPayment(currency, r) && <FirstPaymentNotice />}
       <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", margin: "2px 0 4px", cursor: "pointer" }}>
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
         <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&apos;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>

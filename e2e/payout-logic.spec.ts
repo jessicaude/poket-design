@@ -57,7 +57,7 @@ test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
   await expect(setPin("12a4")).rejects.toThrow();
 });
 
-test("store: a payout debits the amount from the NGN balance (no fee while undecided)", async () => {
+test("store: the PIN reserves the amount; a first payment to an account stays reserved (held)", async () => {
   const p = () => usePayout.getState();
   p().seedPin("1234");
   p().open("NGN");
@@ -69,11 +69,14 @@ test("store: a payout debits the amount from the NGN balance (no fee while undec
   await p().pinComplete("1234");
   expect(p().stage).toBe("done");
   expect(p().lastRef).toMatch(/^TXN-\d{6}$/);
+  expect(p().sent?.status).toBe("held"); // Ngozi Eze has never been paid
   expect(useNgn.getState().ngnBalance).toBe(5000000 - 500000);
+  expect(useNgn.getState().ngnReserved).toBe(500000);
+  expect(p().recipients.find((r) => r.id === "r6")?.paidBefore).toBe(true);
 });
 
 test("name enquiry mock and name matching", async () => {
-  const { nameEnquiry, createPayout } = await import("@/lib/mock-api");
+  const { nameEnquiry, reservePayout } = await import("@/lib/mock-api");
   const { sameName } = await import("@/features/wallet/payout/usePayout");
   expect(await nameEnquiry("058", "0123456789", "Ada Osun")).toEqual({ status: "found", accountName: "Ada Osun" });
   expect(await nameEnquiry("058", "0123450000", "Ada Osun")).toEqual({ status: "not_found" });
@@ -83,7 +86,7 @@ test("name enquiry mock and name matching", async () => {
   expect(sameName("OSUN, ADA", "Ada  Osun")).toBe(true);
   expect(sameName("Ada Osun", "Ada Okafor")).toBe(false);
   // Merchant-held money can't be paid out
-  await expect(createPayout({ currency: "NGN", amount: 100, fee: 0, recipientId: "lb2", source: "merchant" })).rejects.toThrow("balance_not_withdrawable");
+  await expect(reservePayout({ currency: "NGN", amount: 100, source: "merchant" })).rejects.toThrow("balance_not_withdrawable");
 });
 
 test("NGN: one speed, Nigerian bank accounts only, no conversion", () => {
@@ -97,4 +100,20 @@ test("NGN: one speed, Nigerian bank accounts only, no conversion", () => {
   const usd = all.find((r) => r.id === "r4")!;
   expect(isCrossBorder("NGN", usd)).toBe(false);
   expect(isCrossBorder("GBP", usd)).toBe(true);
+});
+
+test("reservations: sent settles, a first NGN payment is held, a mismatched reservation is refused", async () => {
+  const { reservePayout, createPayout, releaseReservation } = await import("@/lib/mock-api");
+  const a = await reservePayout({ currency: "NGN", amount: 100000 });
+  expect(a.status).toBe("reserved");
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "lb2", reservationId: a.id })).status).toBe("sent"); // paid before
+  const b = await reservePayout({ currency: "NGN", amount: 100000 });
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: b.id })).status).toBe("held"); // first payment
+  const c = await reservePayout({ currency: "NGN", amount: 100000 });
+  expect((await createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: c.id })).status).toBe("sent"); // paid now
+  await expect(createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: c.id })).rejects.toThrow("invalid_reservation"); // used
+  const d = await reservePayout({ currency: "NGN", amount: 100000 });
+  await expect(createPayout({ currency: "NGN", amount: 99999, fee: 0, recipientId: "r6", reservationId: d.id })).rejects.toThrow("invalid_reservation");
+  await releaseReservation(d.id);
+  await expect(createPayout({ currency: "NGN", amount: 100000, fee: 0, recipientId: "r6", reservationId: d.id })).rejects.toThrow("invalid_reservation");
 });

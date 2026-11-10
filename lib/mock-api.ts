@@ -140,11 +140,13 @@ export type PayoutRecipient = {
   zelleContact?: string;
   cashtag?: string;
   address?: string; city?: string; state?: string; zip?: string; country?: string;
+  /** Has received a payout before. A first NGN payment to an account is held for [hold] before it sends. */
+  paidBefore?: boolean;
 };
 
 const PAYOUT_SEED: PayoutRecipient[] = [
   { id: "lb1", isSelf: true, name: "Personal checking", bankName: "Chase Bank", accountNumber: "****4821", routingNumber: "021000021", currency: "USD", methodType: "bank" },
-  { id: "lb2", isSelf: true, name: "Naira account", bankName: "GTBank", accountNumber: "0123456789", routingNumber: "", currency: "NGN", methodType: "bank" },
+  { id: "lb2", isSelf: true, name: "Naira account", bankName: "GTBank", accountNumber: "0123456789", routingNumber: "", currency: "NGN", methodType: "bank", paidBefore: true },
   { id: "r4", isSelf: false, name: "Jordan Blake", currency: "USD", bankName: "Chase Bank", accountNumber: "****4821", routingNumber: "021000021", methodType: "bank" },
   { id: "r6", isSelf: false, name: "Ngozi Eze", currency: "NGN", bankName: "GTBank", accountNumber: "0123456789", routingNumber: "", methodType: "bank" },
 ];
@@ -162,7 +164,7 @@ export function listPayoutRecipients(): PayoutRecipient[] {
 /** POST /v1/payout/recipients. Your own methods must be in your name (checked on screen against the verified name). */
 export async function savePayoutRecipient(r: Omit<PayoutRecipient, "id">): Promise<PayoutRecipient> {
   await wait(500);
-  const saved = { ...r, id: (r.isSelf ? "lb" : "r") + Date.now() };
+  const saved = { ...r, id: (r.isSelf ? "lb" : "r") + Date.now(), paidBefore: false };
   payoutServer.recipients.push(saved);
   return { ...saved };
 }
@@ -170,13 +172,42 @@ export async function savePayoutRecipient(r: Omit<PayoutRecipient, "id">): Promi
 /** Which part of a cash balance a payout comes from. Merchant-held money can't be sent to a bank, only converted. */
 export type BalanceSource = "open" | "merchant";
 
-/** POST /v1/payouts. The caller has already approved it with the PIN. Returns the confirmation reference. */
-export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; source?: BalanceSource }): Promise<{ ref: string }> {
+/**
+ * A reservation holds money out of the available balance for one payout: "reserved" once the PIN is accepted,
+ * "held" while a first payment to a new NGN account waits [hold], "settled" once sent, "released" if it fails.
+ */
+export type Reservation = { id: string; amount: number; status: "reserved" | "held" | "settled" | "released" };
+const reservations = new Map<string, Reservation>();
+
+/** POST /v1/payouts/reservations, called once the PIN is accepted. `amount` includes any fee. */
+export async function reservePayout(p: { currency: PayoutCurrency; amount: number; source?: BalanceSource }): Promise<Reservation> {
   if (p.source === "merchant") throw new Error("balance_not_withdrawable");
   if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("invalid_amount");
-  if (!payoutServer.recipients.some((r) => r.id === p.recipientId)) throw new Error("unknown_recipient");
+  const r: Reservation = { id: "rsv_" + Math.random().toString(36).slice(2, 10), amount: p.amount, status: "reserved" };
+  reservations.set(r.id, r);
+  return { ...r };
+}
+
+/** DELETE /v1/payouts/reservations/:id: the money goes back to the available balance. */
+export async function releaseReservation(id: string): Promise<void> {
+  const r = reservations.get(id);
+  if (r && r.status === "reserved") r.status = "released";
+}
+
+/**
+ * POST /v1/payouts, against a reservation. A first NGN payment to an account is "held" (it sends after [hold]);
+ * otherwise it's "sent". Either way the account then counts as paid before.
+ */
+export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string }): Promise<{ ref: string; status: "sent" | "held" }> {
+  const rsv = reservations.get(p.reservationId);
+  if (!rsv || rsv.status !== "reserved" || rsv.amount !== p.amount + p.fee) throw new Error("invalid_reservation");
+  const recipient = payoutServer.recipients.find((r) => r.id === p.recipientId);
+  if (!recipient) throw new Error("unknown_recipient");
   await wait(1500);
-  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000) };
+  const status = p.currency === "NGN" && !recipient.paidBefore ? "held" : "sent";
+  rsv.status = status === "held" ? "held" : "settled";
+  recipient.paidBefore = true;
+  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000), status };
 }
 
 export const hasPin = () => payoutServer.pin !== null;
@@ -213,6 +244,7 @@ export function seedPayoutServer(patch: { pin?: string | null }) {
 }
 export function resetPayoutServer() {
   enquiryServer.available = true;
+  reservations.clear();
   payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
   payoutServer.pin = null;
   payoutServer.pinAttempts = 0;

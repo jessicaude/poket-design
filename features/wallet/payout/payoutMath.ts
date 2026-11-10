@@ -64,6 +64,11 @@ export const payoutEta = (cur: PayoutCurrency, r: PayoutRecipient, speed: Speed)
 /** NGN pays out only to Nigerian bank accounts, so there's no conversion; other currencies list every recipient. */
 export const recipientsFor = (list: PayoutRecipient[], cur: PayoutCurrency) =>
   cur === "NGN" ? list.filter((r) => r.currency === "NGN" && r.methodType === "bank") : list;
+/** How long a first NGN payment to a new account is held before it sends: not decided, so a placeholder (ngn.mdc). */
+export const HOLD_PLACEHOLDER = "[hold]";
+/** A first NGN payment to this account: it's held for [hold] before it sends. */
+export const isFirstPayment = (cur: PayoutCurrency, r: PayoutRecipient | null) => cur === "NGN" && !!r && !r.paidBefore;
+
 /** Paying someone in another currency (never for NGN). */
 export const isCrossBorder = (cur: PayoutCurrency, r: PayoutRecipient | null) => !!r && cur !== "NGN" && r.currency !== cur;
 
