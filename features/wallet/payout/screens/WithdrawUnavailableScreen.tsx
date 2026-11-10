@@ -5,6 +5,7 @@ import { useNgn } from "../../ngn/useNgn";
 import { fmtCurrency } from "../payoutMath";
 import { BackRow, Grey } from "../parts";
 import { usePayout } from "../usePayout";
+import { useConvert } from "../../convert/useConvert";
 
 /**
  * 'unavailable': a merchant-held balance can't be withdrawn to a bank; Convert is the alternative.
@@ -24,8 +25,8 @@ export function WithdrawUnavailableScreen() {
         <div className="step-title" style={{ fontSize: "28px", letterSpacing: "-.02em" }}><Grey>{fmtCurrency(held, "NGN")}</Grey></div>
       </div>
       <div className="alert warn" role="alert" style={{ marginTop: "14px" }}><Raw html={WICON.alert} /><span>Not available: this balance can&apos;t be sent to a bank</span></div>
-      {/* TODO: open Convert from the merchant-held balance once Convert has a merchant-held bucket (and its rules are decided). */}
-      <button className="btn-primary" id="withdrawUseConvert">Convert</button>
+      {/* Merchant-held naira converts to USD or USDC. */}
+      <button className="btn-primary" id="withdrawUseConvert" onClick={() => { usePayout.getState().close(); useConvert.getState().start({ from: "cash:NGN:merchant" }); }}>Convert</button>
     </>
   );
 }

@@ -350,14 +350,35 @@ function otherAccountName(seed: string): string {
 
 /* ---------- Convert ---------- */
 
+/** A completed conversion, for the activity list and its receipt. Texts are as shown at confirmation. */
+export type Conversion = {
+  id: string; ref: string; from: string; to: string; amount: number; fee: number; receive: number; createdAt: number;
+  rateText: string; feeLabel: string; feeText: string; paidText: string; receivedText: string;
+};
+const conversionServer: { list: Conversion[]; ngnToCoins: boolean } = { list: [], ngnToCoins: true };
+
+/** Demo control "NGN to stablecoins: Allowed / Blocked". */
+export function setNgnToStablecoinsAllowed(allowed: boolean) { conversionServer.ngnToCoins = allowed; }
+
 /**
  * POST /v1/conversions: convert `amount` of one balance (`from`, a cvKey like "cash:NGN:open") into another (`to`),
- * at the quote the user confirmed. The reference shows "Converting…" for 1.3s, then the result.
- * Card-funded (FIAT-ONLY) cash can't be converted to a stablecoin.
+ * at the quote the user confirmed. The reference shows "Converting…" for 1.3s, then the result. Refused:
+ * card-funded (FIAT-ONLY) cash to a stablecoin or to naira; merchant-held naira to anything but USD or USDC;
+ * naira to stablecoins (USDC or USDT) while that's switched off.
  */
-export async function createConversion(p: { from: string; to: string; amount: number; fee: number; receive: number }): Promise<{ ref: string }> {
+export async function createConversion(p: Omit<Conversion, "id" | "ref" | "createdAt">): Promise<Conversion> {
   if (!Number.isInteger(p.amount) || p.amount <= 0 || !Number.isInteger(p.receive)) throw new Error("invalid_amount");
-  if (p.from.startsWith("cash:") && p.from.endsWith(":fiat") && p.to.startsWith("coin:")) throw new Error("fiat_only_to_digital_asset");
+  const fiat = p.from.startsWith("cash:") && p.from.endsWith(":fiat");
+  if (fiat && p.to.startsWith("coin:")) throw new Error("fiat_only_to_digital_asset");
+  if (fiat && p.to.startsWith("cash:NGN:")) throw new Error("fiat_only_to_ngn");
+  if (p.from === "cash:NGN:merchant" && !(p.to === "cash:USD:open" || p.to.startsWith("coin:USDC:"))) throw new Error("merchant_held_target");
+  if (p.from.startsWith("cash:NGN:") && p.to.startsWith("coin:") && !conversionServer.ngnToCoins) throw new Error("ngn_to_stablecoins_unavailable");
   await wait(1300);
-  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000) };
+  const c: Conversion = { ...p, id: "cv_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000), createdAt: Date.now() };
+  conversionServer.list.unshift(c);
+  return { ...c };
 }
+
+/** GET /v1/conversions, newest first. */
+export function listConversions(): Conversion[] { return conversionServer.list.map((c) => ({ ...c })); }
+export function resetConversionServer() { conversionServer.list = []; conversionServer.ngnToCoins = true; }

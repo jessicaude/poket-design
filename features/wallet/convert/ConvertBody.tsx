@@ -2,7 +2,8 @@
 import type { ComponentType } from "react";
 import { useConvert, type ConvertStage } from "./useConvert";
 import {
-  ConvertDoneScreen, ConvertFormScreen, ConvertPickerScreen, ConvertProcessingScreen, ConvertReviewScreen,
+  ConvertDoneScreen, ConvertEmptyScreen, ConvertFormScreen, ConvertLimitBlockedScreen, ConvertPickerScreen, ConvertProcessingScreen,
+  ConvertReviewScreen, ConvertStepUpScreen,
 } from "./ConvertScreens";
 
 const SCREENS: Record<ConvertStage, ComponentType> = {
@@ -12,6 +13,9 @@ const SCREENS: Record<ConvertStage, ComponentType> = {
   review: ConvertReviewScreen,
   processing: ConvertProcessingScreen,
   done: ConvertDoneScreen,
+  empty: ConvertEmptyScreen,
+  stepup: ConvertStepUpScreen,
+  limitBlocked: ConvertLimitBlockedScreen,
 };
 
 /** The current Convert stage, for WalletShell's #panelBody, with the reference's .screen-fade entry. */
