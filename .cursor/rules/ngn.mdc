@@ -32,3 +32,17 @@ alwaysApply: true
 - `<Raw>` wraps HTML in a display:contents span, which breaks the wallet's direct-child selectors
   (`.settings-row>svg:last-child`, `.badge>svg`, `.qr-wrap>svg`). There, set the HTML on the parent
   element itself with dangerouslySetInnerHTML.
+- Payout (withdraw) lives in features/wallet/payout/: usePayout.ts (stages are tPayout's S.payoutStage values plus the
+  checkout's PIN screens pin, pinLocked, pinResetOtp, moneyDone), payoutMath.ts (fees, FX, formatting), PayoutBody.tsx
+  and screens/. WalletBody picks the open payout or NGN flow, else the home entry. Preview at /demo/wallet?payout=<stage>.
+- Payouts are approved with the checkout's 4-digit PIN (tPin), not tPayout's 6-digit passcode 'authorize' stage.
+- NGN bank accounts for withdrawal are added on ngn-account (bank from NG_BANKS in lib/mock-api.ts, 10-digit number,
+  automatic nameEnquiry()). A name that matches the verified user saves as their own account; any other name must be
+  confirmed as a third-party payee. Without a successful name enquiry, an account can't be added.
+- Merchant-held NGN can't be sent to a bank (createPayout rejects source "merchant"); offer Convert instead.
+- NGN withdrawal fees aren't decided: show ₦[fee] (FEE_PLACEHOLDER, fmtFee, fmtWithFee in payoutMath.ts) and keep
+  them out of the maths (payoutFee returns 0 for NGN). Don't show the reference's computed naira fees.
+- NGN withdrawals have no speed choice: no Standard / Instant. Show "Usually within seconds" (NGN_VA.arrives) with the
+  fee as ₦[fee] (hasSpeeds, payoutEta in payoutMath.ts). Other currencies keep their speed options.
+- Withdrawing from an NGN balance lists only Nigerian bank recipients (recipientsFor): no international recipients,
+  and no exchange rate or "Recipient gets" conversion for NGN (isCrossBorder is never true for NGN).

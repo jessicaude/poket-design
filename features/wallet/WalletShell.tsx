@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Raw } from "@/components/ui/Raw";
 import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP, WICON } from "@/lib/icons";
-import { NgnBody } from "./ngn/NgnBody";
+import { WalletBody } from "./WalletBody";
 import { useWalletToast } from "./useWalletToast";
 
 export type WalletTab = "home" | "card" | "activity";
@@ -21,7 +21,7 @@ type Props = {
   tab?: WalletTab | null;
   onTab?: (tab: WalletTab) => void;
   onSettings?: () => void;
-  /** Contents of #panelBody. Defaults to the current NGN screen (useNgn), empty when none is open. */
+  /** Contents of #panelBody. Defaults to WalletBody: the open payout or NGN screen, else the NGN balance entry. */
   children?: React.ReactNode;
 };
 
@@ -64,7 +64,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       </div>
                     </div>
                     <div className="panel-body" id="panelBody">
-                      {children ?? <NgnBody />}
+                      {children ?? <WalletBody />}
                     </div>
                     <div className="tabbar" id="tabbar">
                       {tab !== null &&

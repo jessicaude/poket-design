@@ -116,3 +116,158 @@ export function resetNgnServer() {
   ngnServer.verifiedId = null;
   ngnServer.dedicated = null;
 }
+
+/* ---------- Payout and PIN ----------
+   From the wallet's tPayout (seed data: seedAccount()'s linkedBanks and cash recipients) and the checkout's PIN steps
+   (tPin, pinComplete, tPinLocked, tPinResetOtp) in reference/poket-unified.html. */
+
+export type PayoutCurrency = "USD" | "NGN" | "EUR" | "GBP" | "GHS";
+export type PayoutMethodType = "bank" | "card" | "zelle" | "cashapp";
+/** A payout destination. isSelf: one of your own linked methods (S.linkedBanks); otherwise a saved recipient. */
+export type PayoutRecipient = {
+  id: string;
+  isSelf: boolean;
+  /** Nickname for your own methods, the person's name for recipients. */
+  name: string;
+  holderName?: string;
+  currency: PayoutCurrency;
+  methodType: PayoutMethodType;
+  bankName?: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  railType?: string;
+  cardNumber?: string;
+  zelleContact?: string;
+  cashtag?: string;
+  address?: string; city?: string; state?: string; zip?: string; country?: string;
+};
+
+const PAYOUT_SEED: PayoutRecipient[] = [
+  { id: "lb1", isSelf: true, name: "Personal checking", bankName: "Chase Bank", accountNumber: "****4821", routingNumber: "021000021", currency: "USD", methodType: "bank" },
+  { id: "lb2", isSelf: true, name: "Naira account", bankName: "GTBank", accountNumber: "0123456789", routingNumber: "", currency: "NGN", methodType: "bank" },
+  { id: "r4", isSelf: false, name: "Jordan Blake", currency: "USD", bankName: "Chase Bank", accountNumber: "****4821", routingNumber: "021000021", methodType: "bank" },
+  { id: "r6", isSelf: false, name: "Ngozi Eze", currency: "NGN", bankName: "GTBank", accountNumber: "0123456789", routingNumber: "", methodType: "bank" },
+];
+
+export const PIN_MAX_ATTEMPTS = 3;
+const payoutServer: { recipients: PayoutRecipient[]; pin: string | null; pinAttempts: number } = {
+  recipients: PAYOUT_SEED.map((r) => ({ ...r })), pin: null, pinAttempts: 0,
+};
+
+/** GET /v1/payout/recipients: your linked methods first, then saved recipients. */
+export function listPayoutRecipients(): PayoutRecipient[] {
+  return payoutServer.recipients.map((r) => ({ ...r }));
+}
+
+/** POST /v1/payout/recipients. Your own methods must be in your name (checked on screen against the verified name). */
+export async function savePayoutRecipient(r: Omit<PayoutRecipient, "id">): Promise<PayoutRecipient> {
+  await wait(500);
+  const saved = { ...r, id: (r.isSelf ? "lb" : "r") + Date.now() };
+  payoutServer.recipients.push(saved);
+  return { ...saved };
+}
+
+/** Which part of a cash balance a payout comes from. Merchant-held money can't be sent to a bank, only converted. */
+export type BalanceSource = "open" | "merchant";
+
+/** POST /v1/payouts. The caller has already approved it with the PIN. Returns the confirmation reference. */
+export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; source?: BalanceSource }): Promise<{ ref: string }> {
+  if (p.source === "merchant") throw new Error("balance_not_withdrawable");
+  if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("invalid_amount");
+  if (!payoutServer.recipients.some((r) => r.id === p.recipientId)) throw new Error("unknown_recipient");
+  await wait(1500);
+  return { ref: "TXN-" + Math.floor(100000 + Math.random() * 900000) };
+}
+
+export const hasPin = () => payoutServer.pin !== null;
+
+/** PUT /v1/pin. 4 digits. */
+export async function setPin(pin: string): Promise<void> {
+  if (!/^\d{4}$/.test(pin)) throw new Error("invalid_pin");
+  payoutServer.pin = pin;
+  payoutServer.pinAttempts = 0;
+}
+
+/** POST /v1/pin/verify. After PIN_MAX_ATTEMPTS wrong tries the PIN is locked until it is reset. */
+export async function verifyPin(pin: string): Promise<{ ok: true } | { ok: false; attemptsLeft: number; locked: boolean }> {
+  if (payoutServer.pin === null) throw new Error("no_pin");
+  if (pin === payoutServer.pin) { payoutServer.pinAttempts = 0; return { ok: true }; }
+  payoutServer.pinAttempts += 1;
+  const attemptsLeft = Math.max(0, PIN_MAX_ATTEMPTS - payoutServer.pinAttempts);
+  return { ok: false, attemptsLeft, locked: attemptsLeft === 0 };
+}
+
+/** The reference resets the PIN's attempt count each time the PIN step opens (wdGo: S.pinAttempts = 0). */
+export function resetPinAttempts() { payoutServer.pinAttempts = 0; }
+
+/** POST /v1/pin/reset: checks the 6-digit passcode emailed to you, then clears the PIN so a new one can be created. */
+export async function verifyPinResetCode(code: string): Promise<void> {
+  if (!/^\d{6}$/.test(code)) throw new Error("invalid_code");
+  payoutServer.pin = null;
+  payoutServer.pinAttempts = 0;
+}
+
+/** Demo controls. */
+export function seedPayoutServer(patch: { pin?: string | null }) {
+  if ("pin" in patch) { payoutServer.pin = patch.pin ?? null; payoutServer.pinAttempts = 0; }
+}
+export function resetPayoutServer() {
+  enquiryServer.available = true;
+  payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
+  payoutServer.pin = null;
+  payoutServer.pinAttempts = 0;
+}
+
+/* ---------- NGN bank accounts: bank list and name enquiry ---------- */
+
+/** A Nigerian bank, with its CBN bank code (what a NIP name enquiry is addressed to). */
+export type NgBank = { code: string; name: string };
+/** The reference's ngBanks, plus Stanbic IBTC and Polaris, to make 12. */
+export const NG_BANKS: NgBank[] = [
+  { code: "044", name: "Access Bank" },
+  { code: "050", name: "Ecobank Nigeria" },
+  { code: "070", name: "Fidelity Bank" },
+  { code: "011", name: "First Bank of Nigeria" },
+  { code: "058", name: "GTBank" },
+  { code: "076", name: "Polaris Bank" },
+  { code: "221", name: "Stanbic IBTC Bank" },
+  { code: "232", name: "Sterling Bank" },
+  { code: "032", name: "Union Bank" },
+  { code: "033", name: "UBA" },
+  { code: "035", name: "Wema Bank" },
+  { code: "057", name: "Zenith Bank" },
+];
+
+/** GET /v1/ngn/banks. */
+export async function listNgBanks(): Promise<NgBank[]> {
+  return NG_BANKS.map((b) => ({ ...b }));
+}
+
+export type NameEnquiry = { status: "found"; accountName: string } | { status: "not_found" };
+const enquiryServer = { available: true };
+
+/**
+ * POST /v1/ngn/name-enquiry: the name on a 10-digit account at a bank. Throws "lookup_unavailable" when the
+ * enquiry service is down. Mock: ending 0000 is not found; ending 1111 is someone else (a made-up name);
+ * any other number is in `holderName`, the verified user's name.
+ */
+export async function nameEnquiry(bankCode: string, accountNumber: string, holderName: string): Promise<NameEnquiry> {
+  if (!/^\d{10}$/.test(accountNumber) || !NG_BANKS.some((b) => b.code === bankCode)) throw new Error("invalid_request");
+  await wait(900);
+  if (!enquiryServer.available) throw new Error("lookup_unavailable");
+  if (accountNumber.endsWith("0000")) return { status: "not_found" };
+  if (accountNumber.endsWith("1111")) return { status: "found", accountName: otherAccountName(accountNumber + bankCode) };
+  return { status: "found", accountName: holderName };
+}
+/** Demo control: make the name enquiry service unavailable. */
+export function setNameEnquiryAvailable(available: boolean) { enquiryServer.available = available; }
+
+/** The reference's resolveNgAccountName: a seeded Nigerian name for an account that isn't yours. */
+function otherAccountName(seed: string): string {
+  const first = ["Adaeze", "Chinedu", "Ngozi", "Emeka", "Amaka", "Tunde", "Folake", "Ibrahim", "Aisha", "Chukwuemeka"];
+  const last = ["Okafor", "Balogun", "Eze", "Abubakar", "Adeyemi", "Nwosu", "Okonkwo", "Yusuf", "Bello", "Chukwu"];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const rand = () => { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 8) / 0x1000000; };
+  return first[Math.floor(rand() * first.length)] + " " + last[Math.floor(rand() * last.length)];
+}
