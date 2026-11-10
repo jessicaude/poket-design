@@ -127,7 +127,8 @@ test("opening with NGN as the target and nothing to convert from: NGN stays, wit
 
   // With open (not card-funded) USD, it converts from USD into NGN
   await setHoldings(page, { fiatOnly: { USD: 0, NGN: 0, EUR: 0, GBP: 0, GHS: 0 } });
-  await page.locator('[data-holdbucket="open"] .tx-title').click();
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   await page.locator("#detailDeposit").click();
   await page.locator("#dmConvert").click();
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USD");
@@ -230,7 +231,9 @@ test("merchant-held naira converts to USD or USDC; the merchant-held Convert but
   await page.goto("/demo/wallet");
   await page.getByLabel("Tier").selectOption("1");
   await page.getByLabel("Merchant-held balance").selectOption("yes");
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await page.locator('#panelBody [data-holdbucket="merchant"]').click();
+  await page.locator("#detailPayout").click(); // the "not available" screen
   await page.locator("#withdrawUseConvert").click();
   await expect(title(page)).toHaveText("Convert");
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");
@@ -282,7 +285,8 @@ test("conversions in the NGN balance history; View transaction opens the receipt
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(ref);
   await page.locator("#backFromTxDetail").click();
 
-  await page.locator('[data-holdbucket="open"] .tx-title').click();
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   const row = page.locator("#panelBody .section-card .tx-row");
   await expect(row.locator(".tx-title")).toHaveText(["Converted NGN to USDC"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦10,000.00 NGN → 6.45 USDC"]);

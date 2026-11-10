@@ -19,7 +19,7 @@ const action = (page: Page, name: string) => page.getByRole("button", { name, ex
 async function payAndOpen(page: Page, recipient: string, digits: string) {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator(`[data-payoutrecipient="${recipient}"]`).click();
   await page.locator("#payoutRecipientContinue").click();
   for (const d of digits) await page.locator(`[data-payoutkey="${d}"]`).click();
@@ -45,7 +45,8 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
 
   // Home: the NGN row's subtitle
   await page.locator("#backFromTxDetail").click();
-  const row = page.locator('#panelBody [data-holdbucket="open"]');
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  const row = page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]');
   await expect(row.locator(".tx-amt")).toHaveText("₦45,000.00 NGN");
   await expect(row.locator(".tx-sub")).toHaveText("₦45,000.00 NGN · ₦5,000.00 NGN on hold");
   await page.locator("#homeOnHold").click();
@@ -149,7 +150,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
 test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing reserved", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator('[data-payoutrecipient="self:lb2"]').click();
   await page.locator("#payoutRecipientContinue").click();
   for (const d of "2000001") await page.locator(`[data-payoutkey="${d}"]`).click(); // ₦20,000.01, over the demo limit
@@ -173,7 +174,7 @@ test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing 
 test("at ₦[step-up] or under: straight to the PIN", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator('[data-payoutrecipient="self:lb2"]').click();
   await page.locator("#payoutRecipientContinue").click();
   for (const d of "2000000") await page.locator(`[data-payoutkey="${d}"]`).click(); // ₦20,000.00

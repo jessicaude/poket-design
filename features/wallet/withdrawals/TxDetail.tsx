@@ -14,8 +14,10 @@ const LABEL_ICON: Record<string, keyof typeof WICON> = {
   Status: "check", Date: "calendar", Card: "card", "Statement descriptor": "hash",
   Fee: "percent", "Processing fee": "percent", "Network fee": "percent",
   To: "user", Recipient: "user", Handle: "user", From: "user",
-  Bank: "bank", Account: "hash", "Cash App": "hash",
+  Bank: "bank", Account: "hash", Merchant: "store", "Cash App": "hash",
 };
+/** detailIconInfo's "real" icons: a Currency row shows the currency's flag before its value, and a globe as its label icon. */
+const CURRENCY_FLAG: Record<string, keyof typeof WICON> = { USD: "usFlag", NGN: "ngFlag", EUR: "eurFlag", GBP: "gbFlag", GHS: "ghFlag" };
 
 /** formatTxDate: "10 Nov, 2026, 3:04 PM - GMT+1" (the time zone after " - ", when the browser gives one). */
 export function formatTxDate(ts: number): string {
@@ -35,16 +37,19 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
   const isStatus = label === "Status" && /completed|confirmed|approved/i.test(value);
   const isDate = label === "Date";
   const m = isDate ? value.match(/^(.*) - (\S+)$/) : null;
+  const flag = label === "Currency" ? Object.keys(CURRENCY_FLAG).find((c) => value.includes(c)) : undefined;
   return (
     <div className="info-row" data-label={label}>
       <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}>
-        <span className="detail-ic" dangerouslySetInnerHTML={{ __html: WICON[LABEL_ICON[label] ?? "activity"] }} />{label}
+        <span className="detail-ic" dangerouslySetInnerHTML={{ __html: WICON[flag ? "globe" : LABEL_ICON[label] ?? "activity"] }} />{label}
       </span>
       <span className="mono" style={{
         ...(isDate ? { whiteSpace: "nowrap", marginLeft: "12px" } : { maxWidth: "190px", wordBreak: "break-word" }),
         textAlign: "right", ...(isStatus ? { color: "var(--ok-600)", fontWeight: 600 } : {}),
       }}>
-        {m ? <>{m[1]} - <em>{m[2]}</em></> : <Grey>{value}</Grey>}
+        {m ? <>{m[1]} - <em>{m[2]}</em></>
+          : flag ? <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}><span className="icon-16" dangerouslySetInnerHTML={{ __html: WICON[CURRENCY_FLAG[flag]] }} />{value}</span>
+          : <Grey>{value}</Grey>}
       </span>
     </div>
   );

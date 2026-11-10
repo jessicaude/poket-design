@@ -64,7 +64,8 @@ test("Tier 0: bank transfer > amount > temporary account > transfer arrives > do
   await expect(body.locator(".step-sub")).toHaveText("It's in your NGN balance.");
   expect(await page.evaluate(() => (window as any).__ngn.getState().ngnBalance)).toBe(7500000); // eslint-disable-line @typescript-eslint/no-explicit-any
   await page.locator("#ngnDone").click();
-  await expect(body.locator(".asset-item-row .tx-amt")).toHaveText("₦75,000.00 NGN"); // back on the wallet home
+  await page.locator('[data-wallettab="cash"]').click(); // back on the wallet home; NGN is under Cash
+  await expect(body.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦75,000.00 NGN");
 });
 
 test("the temporary account expires after 30 minutes; 'Create a new one' keeps the amount", async ({ page }) => {

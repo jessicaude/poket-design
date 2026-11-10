@@ -9,7 +9,7 @@ const title = (page: Page) => page.locator("#panelBody .step-title").first();
 
 async function openAccountStep(page: Page, via = "#addPayoutOtherBtn") {
   await page.goto("/demo/wallet");
-  await page.locator("#ngnWithdraw").click();
+  await page.locator("#actPayout").click();
   await page.locator(via).click();
   await expect(title(page)).toHaveText("Add a bank account");
   await expect(page.locator("#panelBody .step-sub")).toHaveCount(0); // no subtitle
@@ -131,18 +131,23 @@ test("an account already saved is selected, not duplicated", async ({ page }) =>
 test("merchant-held balance: not available to withdraw, Convert instead", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("Merchant-held balance").selectOption("yes");
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   const held = page.locator('#panelBody [data-holdbucket="merchant"]');
-  await expect(held.locator(".tx-sub")).toHaveText("12,000 NGNMERCHANT-HELD");
+  await expect(held.locator(".tx-sub")).toHaveText("₦12,000.00 NGNMERCHANT-HELD");
   await expect(held.locator(".tx-amt")).toHaveText("₦12,000.00 NGN");
-  await held.click();
+  await held.click(); // its balance screen, then Payout
+  await expect(page.locator("#panelBody .step-sub").first()).toContainText("MERCHANT-HELD");
+  await page.locator("#detailPayout").click();
   const body = page.locator("#panelBody");
   await expect(body.locator(".step-title")).toHaveText("₦12,000.00 NGN");
   await expect(body.getByRole("alert")).toHaveText("Not available: this balance can't be sent to a bank");
   await expect(page.locator("#withdrawUseConvert")).toHaveText("Convert");
   await expect(page.locator("#payoutRecipientContinue")).toHaveCount(0);
   await page.locator("#backFromWithdraw").click();
+  await expect(page.locator("#holdingAmount")).toHaveText("₦12,000.00 NGN"); // back on the merchant-held balance
+  await page.locator("#backFromDetail").click();
   // The open balance still withdraws as normal (its row opens the NGN balance screen)
-  await page.locator('#panelBody [data-holdbucket="open"]').click();
+  await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]').click();
   await page.locator("#detailPayout").click();
   await expect(title(page)).toHaveText("Recipient");
 });

@@ -70,6 +70,9 @@ usePayout, createPayout, payoutFee, withdrawals.ts); read them as "send to a ban
 - Convert lives in features/wallet/convert/ (useConvert.ts: the reference's S.cv stages; convertMath.ts: cv* helpers).
   Balances other than NGN are in features/wallet/useHoldings.ts; NGN stays in useNgn.ngnBalance. Preview at
   /demo/wallet?convert=<stage>.
+- The wallet home is the reference's tWalletHome (features/wallet/home/): Stablecoins and Cash tabs read the holdings
+  stores (useHoldings, useNgn). Under Cash, open NGN keeps its naira-format subtitle with "₦X on hold" and opens the
+  NGN balance screen; merchant-held NGN is its own row (MERCHANT-HELD, naira format too) and counts toward the total.
 - Convert and naira (convertMath.ts):
   - Card-funded (FIAT-ONLY) money can't be converted to naira, as it can't to stablecoins: NGN is greyed out in
     "Convert to" with "Card-funded money can't be converted to naira" (tapping it: notice body "Choose another

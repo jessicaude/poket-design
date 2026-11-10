@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
-import { WalletShell, type WalletTab } from "@/features/wallet/WalletShell";
+import { useEffect } from "react";
+import { WalletShell } from "@/features/wallet/WalletShell";
+import { useWalletHome } from "@/features/wallet/home/homeData";
 import { NgnDemoBar } from "@/components/demo/NgnDemoBar";
 import { isNgnStage, useNgn } from "@/features/wallet/ngn/useNgn";
 import { isPayoutStage, usePayout } from "@/features/wallet/payout/usePayout";
@@ -16,11 +17,13 @@ import { isSendStage, useSend } from "@/features/wallet/send/useSend";
  * ?convert=<stage> (e.g. ?convert=form) or ?send=<stage> (e.g. ?send=recipients).
  */
 export function WalletDemo({ css }: { css: string }) {
-  const [tab, setTab] = useState<WalletTab>("home");
+  // The tab bar: Wallet (home) and Activity; Card isn't ported, so it keeps the home.
+  const tab = useWalletHome((s) => s.tab);
+  const setTab = (t: "home" | "card" | "activity") => { useWalletNav.getState().home(); useWalletHome.getState().set({ tab: t }); };
   const open = useNgn((s) => s.open);
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend });
+    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), p = q.get("payout"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);
