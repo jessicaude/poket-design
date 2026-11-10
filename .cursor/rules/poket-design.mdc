@@ -21,6 +21,9 @@ A **design environment** for the Poket widgets (Checkout, Payout, Wallets, Conve
 - Demo merchant sites in `app/demo/<merchant>/page.tsx`. Demo-only controls in `components/demo/`.
 - The fake backend is `lib/mock-api.ts`.
 
+## Wallet Send
+- For Send, take the flow, steps and copy from reference/poket-wallet-explore.html, but keep the wallet's own look (styles/wallet.css classes).
+
 ## Copy rules
 - Copy text exactly from the prototype. No em dashes.
 - No subtitles that repeat the title, descriptions of obvious fields, or filler. Keep errors, legal lines, amounts, fees and deadlines.
