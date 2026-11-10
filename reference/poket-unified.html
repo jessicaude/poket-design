@@ -1583,7 +1583,7 @@ const POKET = (function(){
     };
   }
   function seedAccount(a){
-    a.cashHoldings.NGN = 5000000; a.fiatOnlyHoldings.NGN = 5000000;
+    a.cashHoldings.NGN = 5000000; a.fiatOnlyHoldings.NGN = 0;
     a.linkedBanks = [
       {id:'lb1', nickname:'Personal checking', bankName:'Chase Bank', accountNumber:'****4821', routingNumber:'021000021', currency:'USD', methodType:'bank'},
       {id:'lb2', nickname:'Naira account', bankName:'GTBank', accountNumber:'0123456789', routingNumber:'', currency:'NGN', methodType:'bank'}
@@ -5071,7 +5071,7 @@ const S = {
      (not GOAT-funded) so the prototype can show a second USD balance that can buy digital assets.
      Fiat spends draw from the FIAT-ONLY balance first.
      FIAT-ONLY funds can be used for fiat payments and payouts, never to buy digital assets. */
-  fiatOnlyHoldings:{USD:15000, NGN:5000000, EUR:0, GBP:0, GHS:0},
+  fiatOnlyHoldings:{USD:15000, NGN:0, EUR:0, GBP:0, GHS:0},
   buyBlock:null,
   holdings:{USDC:{Base:0, Polygon:0}, USDT:{Base:0, Polygon:0}},
   walletTab:'assets',
@@ -5304,7 +5304,6 @@ const currencyInfo = {
 };
 function fmtCurrency(cents, currency){
   const symbol = (currencyInfo[currency]||{}).symbol || '';
-  if(currency==='NGN') return symbol + Math.round(cents/100).toLocaleString() + ' NGN';
   return symbol + (cents/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ' + currency;
 }
 
@@ -10366,8 +10365,8 @@ const VA_SPEC = {
   GBP:{ rails:'Faster Payments or Bacs', arrives:'Usually within seconds', instant:true, bank:'ClearBank',
         fields:(n)=>[['Account number', n.slice(0,8)], ['Sort code', '04-06-05'], ['Bank', 'ClearBank']],
         sample:{ own:20000, other:10000 } },
-  NGN:{ rails:'NIP bank transfer', arrives:'Usually within seconds', instant:true, bank:'Wema Bank',
-        fields:(n)=>[['Account number', n.slice(0,10)], ['Bank', 'Wema Bank']],
+  NGN:{ rails:'NIP bank transfer', arrives:'Usually within seconds', instant:true, bank:'[Partner bank]',
+        fields:(n)=>[['Account number', n.slice(0,10)], ['Bank', '[Partner bank]']],
         sample:{ own:25000000, other:5000000 } },
   GHS:{ rails:'GhIPSS bank transfer', arrives:'Usually within minutes', instant:true, bank:'Zenith Bank Ghana',
         fields:(n)=>[['Account number', '60' + n.slice(0,11)], ['Bank', 'Zenith Bank Ghana'], ['Branch', 'Accra Main']],
@@ -10398,6 +10397,22 @@ function vaCardHtml(cur){
 }
 function tDepositMethod(){
   const cur = S.depositCurrency, va = vaOf(cur), spec = VA_SPEC[cur];
+  if(cur==='NGN'){
+    const ready = va && va.status==='ready';
+    return `
+  <button class="back-row" id="backToDepositSelect">${icons.back} Back</button>
+  <div class="step-title">Deposit NGN</div>
+  <div class="select-row" id="dmBank">
+    <div class="va-ic">${icons.bank}</div>
+    <div class="meta"><div class="t1">Bank transfer</div><div class="t2">${ready ? 'To your NGN account \u00b7 usually within seconds' : 'From any Nigerian bank'}</div></div>
+    <span class="va-chev">${icons.chevR||'\u203a'}</span>
+  </div>
+  <div class="select-row" id="dmConvert">
+    <div class="va-ic">${CV_ICON}</div>
+    <div class="meta"><div class="t1">Convert</div><div class="t2">From your USD or USDC balance</div></div>
+    <span class="va-chev">${icons.chevR||'\u203a'}</span>
+  </div>`;
+  }
   const bankSub = !va ? `Get your own ${cur} account details. Free to receive.`
     : va.status==='ready' ? `To your ${cur} account \u00b7 ${spec.arrives.split(' \u00b7 ')[0]}`
     : va.status==='pending' ? 'Your account is being set up'
@@ -10422,11 +10437,53 @@ function vaOpen(cur, back){
   S.va = { cur, back: back || S.screen, taxId:'', agree:false, copied:null, confirmClose:false };
   const va = vaOf(cur);
   S.va.stage = S.tier < 1 ? 'locked' : !va ? 'intro' : 'details';
+  /* NGN: everyone can top up through a temporary account; a dedicated account needs Tier 1 and BVN or NIN */
+  if(cur==='NGN' && !(va && va.status!=='rejected')) S.va.stage = S.tier < 1 ? 'tempAmount' : 'ngnChoice';
   go('va');
 }
+/* ---------- NGN: temporary accounts, eligibility and BVN or NIN ----------
+   Placeholders until the partner sets them: limits, validity, bank name. */
+const NGN_TEMP_MINUTES = 30;            // [time] placeholder
+const NGN_ROUTES = {
+  ng_in:    { label:'Nigerian living in Nigeria', routes:['bvn','nin'] },
+  ng_out:   { label:'Nigerian living abroad', routes:['nrbvn'] },
+  for_in:   { label:'Foreigner living in Nigeria', routes:['nin','bvn','permit'] },
+  for_out:  { label:'Foreigner living outside Nigeria', routes:[] }
+};
+const NGN_ID = { bvn:{ name:'BVN', long:'Bank Verification Number', len:11 }, nin:{ name:'NIN', long:'National Identification Number', len:11 },
+  nrbvn:{ name:'NRBVN', long:'Non-Resident BVN', len:11 }, permit:{ name:'Passport and residence permit', long:'Passport and residence permit', len:0 } };
+function ngnEligibility(){ return S.ngnElig || 'ng_in'; }
+function ngnFmtCountdown(ms){ const s=Math.max(0,Math.round(ms/1000)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function ngnTempLeft(){ const tmp=S.va && S.va.temp; return tmp ? tmp.expiresAt - Date.now() : 0; }
+function ngnStopTicker(){ if(S._ngnTick){ clearInterval(S._ngnTick); S._ngnTick=null; } }
+function ngnStartTicker(){ ngnStopTicker(); S._ngnTick=setInterval(()=>{ if(S.screen!=='va' || !S.va || S.va.stage!=='temp'){ ngnStopTicker(); return; }
+  const left=ngnTempLeft();
+  if(left<=0){ S.va.stage='tempExpired'; ngnStopTicker(); render(); return; }
+  const c=document.getElementById('ngnCount'); if(c) c.textContent=ngnFmtCountdown(left); }, 1000); }
+function ngnTempCreate(){ const v=S.va; v.stage='tempCreating'; render();
+  setTimeout(()=>{ v.temp={ num:String(Math.floor(1e9+Math.random()*8.9e9)), amount:v.tempCents, expiresAt:Date.now()+NGN_TEMP_MINUTES*60000, ref:genRef() };
+    logComplianceEvent('virtual_account', { tier:S.tier, kind:'temporary' }, { action:'temporary_created', currency:'NGN', amount:v.tempCents });
+    v.stage='temp'; render(); ngnStartTicker(); }, 1200); }
+function ngnTempArrive(){ const v=S.va, tmp=v.temp; ngnStopTicker();
+  const tx={ type:'deposit', title:'Bank transfer to your temporary account', sub:'Incoming \u00b7 NIP', amount:Math.round(tmp.amount*(fxToUSD.NGN||1)), amountText:`+${fmtCurrency(tmp.amount,'NGN')}`, positive:true, reference:tmp.ref, status:'pending',
+    details:{ Currency:'NGN', Rail:'NIP', Account:'Temporary \u2022\u2022'+tmp.num.slice(-4) } };
+  addTx(tx); const added=S.txns[0]; v.stage='tempArrived'; render();
+  setTimeout(()=>{ S.cashHoldings.NGN=(S.cashHoldings.NGN||0)+tmp.amount; added.status='completed'; added.sub='NIP \u00b7 temporary account';
+    vfNotify(`${fmtCurrency(tmp.amount,'NGN')} added to your NGN balance`, 'From your bank transfer.'); if(S.va) { S.va.stage='tempDone'; } render(); }, 1800); }
+function ngnIdCheck(){ const v=S.va, id=(v.idNum||'').replace(/\D/g,'');
+  v.stage='ngnChecking'; render();
+  setTimeout(()=>{
+    if(id==='00000000000'){   /* demo: a number whose name or date of birth doesn't match the Veriff record */
+      S.vfAttempts=(S.vfAttempts||0)+1;
+      logComplianceEvent('kyc_step', { vendor:'BVN/NIN lookup', decision:'mismatch' }, { attempt:S.vfAttempts, route:v.route });
+      v.stage = S.vfAttempts>=VF_MAX_TRIES ? 'ngnLocked' : 'ngnId'; v.mismatch=true; v.idNum=''; render(); return; }
+    S.ngnId={ type:v.route, last4:id.slice(-4) };
+    logComplianceEvent('kyc_step', { vendor:'BVN/NIN lookup', decision:'matched' }, { route:v.route });
+    v.mismatch=false; v.stage='intro'; render(); }, 1400); }
 function tVa(){
   const v = S.va || {}, cur = v.cur, spec = VA_SPEC[cur], va = vaOf(cur);
   const back = `<button class="back-row" id="vaBack">${icons.back} Back</button>`;
+  if(cur==='NGN'){ const ngn = tVaNgn(v, back); if(ngn!==null) return ngn; }
   if(v.stage==='locked') return `${back}
   <div class="center-col" style="padding-top:20px">
     <div class="check-circle" style="background:var(--surface);color:var(--txt2)">${icons.lockIc}</div>
@@ -10434,6 +10491,7 @@ function tVa(){
     <p class="step-sub">Account details are in your verified name, so we need to confirm who you are.</p>
     <button class="btn-primary" id="vaVerify">Verify identity</button>
   </div>`;
+  if(v.stage==='intro' && cur==='NGN' && !S.ngnId){ v.stage='ngnRoute'; return tVa(); }
   if(v.stage==='intro') return `${back}
   <div class="convert-visual" style="margin-top:4px"><div class="badge">${icons[currencyInfo[cur].icon]}</div><span class="convert-arrow">${icons.bank}</span></div>
   <div class="step-title" style="text-align:center;margin-top:10px">Get ${cur} account details</div>
@@ -10444,7 +10502,7 @@ function tVa(){
     <div class="receipt-row"><span class="r-ic">${icons.clock||icons.info}</span><span class="r-label">Arrives</span><span class="r-value">${spec.arrives.split(' \u00b7 ')[0]}</span></div>
     <div class="receipt-row"><span class="r-ic">${icons.percent}</span><span class="r-label">Fees</span><span class="r-value">Free to receive</span></div>
   </div>
-  <p class="step-sub" style="font-size:11.5px;margin-top:10px">Money you receive here can be converted to stablecoins.</p>
+  ${cur==='NGN' ? '' : `<p class="step-sub" style="font-size:11.5px;margin-top:10px">Money you receive here can be converted to stablecoins.</p>`}
   ${cur==='USD' && S.country==='United States' && !S.ssnOnFile ? `
   <label class="field-label" for="vaTaxId" style="margin-top:12px">SSN or ITIN</label>
   <input class="field-input mono" id="vaTaxId" inputmode="numeric" maxlength="11" placeholder="000-00-0000" value="${v.taxId||''}">
@@ -10494,12 +10552,98 @@ function tVa(){
     <button class="btn-secondary" id="vaShare">Share details</button>
     <button class="btn-secondary" id="vaLetter">Confirmation letter</button>
   </div>
-  <div class="va-note">Anyone can send to these details. Money you receive can be converted to stablecoins.</div>
+  <div class="va-note">${cur==='NGN' ? 'Transfers from someone else are checked before they\u2019re added to your balance.' : 'Anyone can send to these details. Money you receive can be converted to stablecoins.'}</div>
   <div class="settings-list" style="margin-top:14px">
     ${extSettingsRow('vaFreeze', icons.lockIc, frozen?'Unfreeze account':'Freeze account', frozen?'Start receiving transfers again':'Return incoming transfers until you unfreeze')}
     ${extSettingsRow('vaClose', icons.closeIc, 'Close account details', 'Your balance stays in your wallet')}
   </div>
 `;
+}
+function tVaNgn(v, back){
+  const rows = (pairs)=>`<div class="receipt-card">${pairs.map(([ic,k,val])=>`<div class="receipt-row"><span class="r-ic">${ic}</span><span class="r-label">${k}</span><span class="r-value">${val}</span></div>`).join('')}</div>`;
+  if(v.stage==='ngnChoice') return `${back}
+  <div class="step-title">Bank transfer</div>
+  <div class="select-row" id="ngnPickTemp">
+    <div class="va-ic">${icons.clock||icons.bank}</div>
+    <div class="meta"><div class="t1">Temporary account</div><div class="t2">For this transfer only, valid ${NGN_TEMP_MINUTES} minutes [time]</div></div>
+    <span class="va-chev">${icons.chevR||'\u203a'}</span>
+  </div>
+  <div class="select-row" id="ngnPickDedicated">
+    <div class="va-ic">${icons.bank}</div>
+    <div class="meta"><div class="t1">Your own NGN account</div><div class="t2">${S.ngnId ? 'Reuse it for every transfer' : 'Needs your BVN or NIN'}</div></div>
+    <span class="va-chev">${icons.chevR||'\u203a'}</span>
+  </div>`;
+  if(v.stage==='tempAmount'){ const ok=(v.tempCents||0)>=10000;
+    return `${back}
+  <div class="step-title">Add naira</div>
+  <p class="step-sub">We'll create a temporary account for this amount.</p>
+  <label class="field-label" for="ngnAmt">Amount</label>
+  <input class="field-input mono" id="ngnAmt" inputmode="decimal" placeholder="\u20a60.00" value="${v.tempCents ? fmtCurrency(v.tempCents,'NGN').replace(' NGN','') : ''}">
+  <p class="step-sub" style="font-size:11.5px;margin-top:-6px">${S.tier<1 ? 'Tier 0: up to \u20a6[limit] per top-up and \u20a6[limit] in total' : 'Up to \u20a6[limit] per top-up'}</p>
+  <button class="btn-primary" id="ngnTempGo" ${ok?'':'disabled'}>Create temporary account</button>`; }
+  if(v.stage==='tempCreating') return `<div class="center-col" style="padding-top:50px"><div class="spinner"></div><div class="step-title" style="margin-top:16px">Creating your temporary account</div></div>`;
+  if(v.stage==='temp'){ const tmp=v.temp; const fields=[['Amount to send', fmtCurrency(tmp.amount,'NGN')], ['Account number', tmp.num], ['Bank', '[Partner bank]'], ['Account name', 'Poket / '+vaHolderName()]];
+    return `${back}
+  <div class="step-title">Send exactly ${fmtCurrency(tmp.amount,'NGN')}</div>
+  <p class="step-sub">From any Nigerian bank app. This account expires in <b class="mono" id="ngnCount">${ngnFmtCountdown(ngnTempLeft())}</b>.</p>
+  <div class="va-details">
+    ${fields.map(([k,val],i)=>`<div class="va-field"><div><div class="va-k">${k}</div><div class="va-v ${/Amount|number/.test(k)?'mono':''}">${val}</div></div>
+      ${k==='Bank' ? '' : `<button type="button" class="va-copy" data-ngncopy="${i}" aria-label="Copy ${k}">${v.copied===i?'Copied':'Copy'}</button>`}</div>`).join('')}
+  </div>
+  <div class="va-actions"><button class="btn-secondary" id="ngnTempShare">Share details</button></div>
+  <div class="va-note">Use it once. A transfer for a different amount, or after it expires, is [handling].</div>`; }
+  if(v.stage==='tempArrived') return `<div class="center-col" style="padding-top:40px"><div class="spinner"></div><div class="step-title" style="margin-top:16px">Transfer received</div><p class="step-sub">Adding ${fmtCurrency(v.temp.amount,'NGN')} to your balance.</p></div>`;
+  if(v.stage==='tempDone') return `
+  <div class="center-col" style="padding-top:30px">
+    <div class="check-circle">${icons.check||'\u2713'}</div>
+    <div class="step-title">${fmtCurrency(v.temp.amount,'NGN')} added</div>
+    <p class="step-sub">It's in your NGN balance.</p>
+  </div>
+  <button class="btn-primary" id="ngnDone">Done</button>`;
+  if(v.stage==='tempExpired') return `${back}
+  <div class="center-col" style="padding-top:20px">
+    <div class="check-circle" style="background:var(--surface);color:var(--txt2)">${icons.clock||icons.info}</div>
+    <div class="step-title">This temporary account expired</div>
+    <p class="step-sub">Create a new one to add naira. Don't send to the old account number.</p>
+  </div>
+  <button class="btn-primary" id="ngnTempAgain">Create a new one</button>`;
+  if(v.stage==='ngnRoute'){ const e=NGN_ROUTES[ngnEligibility()];
+    if(!e.routes.length){ v.stage='ngnUnavailable'; return tVaNgn(v, back); }
+    return `${back}
+  <div class="step-title">Get your own NGN account</div>
+  <p class="step-sub">Choose the ID you'll use. It must match the name and date of birth on your verified ID.</p>
+  ${e.routes.map(r=>`<div class="select-row" data-ngnroute="${r}"><div class="va-ic">${icons.idCard||icons.user||icons.info}</div><div class="meta"><div class="t1">${NGN_ID[r].name}</div><div class="t2">${NGN_ID[r].long}</div></div><span class="va-chev">${icons.chevR||'\u203a'}</span></div>`).join('')}`; }
+  if(v.stage==='ngnUnavailable') return `${back}
+  <div class="center-col" style="padding-top:20px">
+    <div class="check-circle" style="background:var(--surface);color:var(--txt2)">${icons.info}</div>
+    <div class="step-title">Your own NGN account isn't available</div>
+    <p class="step-sub">It needs a Nigerian ID (BVN or NIN), and your verified ID shows you live outside Nigeria.</p>
+  </div>
+  <button class="btn-primary" id="ngnUseTemp">Use a temporary account</button>
+  <div style="text-align:center;margin-top:12px"><button type="button" class="btn-ghost" id="ngnUseConvert">Convert from USD or USDC</button></div>`;
+  if(v.stage==='ngnId'){ const r=NGN_ID[v.route], left=VF_MAX_TRIES-(S.vfAttempts||0), digits=(v.idNum||'').replace(/\D/g,''), ok=digits.length===r.len;
+    if(v.route==='permit') return `${back}
+  <div class="step-title">Passport and residence permit</div>
+  <p class="step-sub">Accepted only if Poket's partner allows it. [to confirm]</p>
+  <button class="btn-primary" id="ngnPermitGo">Upload documents</button>`;
+    return `${back}
+  <div class="step-title">Enter your ${r.name}</div>
+  <p class="step-sub">${r.long}, 11 digits.</p>
+  ${v.mismatch ? `<div role="alert" style="background:var(--err-50);color:var(--err-600);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.4;margin:2px 0 14px">The name or date of birth on this ${r.name} doesn't match your verified ID. ${left} ${left===1?'attempt':'attempts'} left.</div>` : ''}
+  <label class="field-label" for="ngnIdNum">${r.name}</label>
+  <input class="field-input mono" id="ngnIdNum" inputmode="numeric" maxlength="11" placeholder="00000000000" value="${v.idNum||''}" autocomplete="off">
+  ${rows([[icons.user||icons.info,'Name',vaHolderName()],[icons.clock||icons.info,'Date of birth',S.dob||'From your verified ID']])}
+  <button class="btn-primary" id="ngnIdGo" ${ok?'':'disabled'}>Check ${r.name}</button>`; }
+  if(v.stage==='ngnChecking') return `<div class="center-col" style="padding-top:50px"><div class="spinner"></div><div class="step-title" style="margin-top:16px">Checking your ${NGN_ID[v.route].name}</div></div>`;
+  if(v.stage==='ngnLocked') return `${back}
+  <div class="center-col" style="padding-top:20px">
+    <div class="check-circle" style="background:var(--err-50);color:var(--err-600)">${icons.lockIc}</div>
+    <div class="step-title">We couldn't confirm your ID</div>
+    <p class="step-sub">You've used all ${VF_MAX_TRIES} attempts. Contact support to continue. You can still add naira with a temporary account.</p>
+  </div>
+  <a class="btn-secondary vf-support" href="https://poketwallet.com/support" target="_blank" rel="noopener">Contact support</a>
+  <div style="text-align:center;margin-top:12px"><button type="button" class="btn-ghost" id="ngnUseTemp">Use a temporary account</button></div>`;
+  return null;
 }
 function vaIntroReady(){
   const v=S.va||{}; const needsTax = v.cur==='USD' && S.country==='United States' && !S.ssnOnFile;
@@ -10522,7 +10666,7 @@ function vaIncoming(kind){
   const [sender, bank] = own ? [vaHolderName(), (S.linkedBanks||[]).find(b=>b.currency===cur)?.bankName || 'Your bank'] : VA_SENDERS[Math.floor(Math.random()*VA_SENDERS.length)];
   const amt = own ? spec.sample.own : spec.sample.other;
   const returnedFrozen = va.status==='frozen' || S.vfDeclined;
-  const outcome = returnedFrozen ? 'returned' : kind==='held' || kind==='returned' ? kind : 'completed';
+  const outcome = returnedFrozen ? 'returned' : kind==='held' || kind==='returned' ? kind : (cur==='NGN' && !own) ? 'held' : 'completed';
   const ref = genRef();
   const tx = { type:'deposit', title:`Bank transfer from ${sender}`, sub:`Incoming \u00b7 ${spec.rails.split(' or ')[0]}`,
     amount:Math.round(amt*(fxToUSD[cur]||1)), amountText:`+${fmtCurrency(amt,cur)}`, positive:true, reference:ref, status:'pending',
@@ -10568,6 +10712,14 @@ function protoActionsFor(){
     return [{ label:'Skip ahead 45s', run:()=>{ if(S.vfPending){ S.vfPending.start = Date.now() - VF_SLOW_MS; S.vfPending.hinted = true; vfTick(); } } }];
   if(S.screen==='onboard-vf-slow' && p && p.outcome==='veriffReview')
     return [{ label:'Approve review', run:()=>{ if(S.vfPending) S.vfPending.outcome='pass'; vfResolve('approved'); } }];
+  if(S.screen==='va' && S.va && S.va.cur==='NGN' && S.va.stage==='temp') return [
+      { label:'Transfer arrives', run:()=>ngnTempArrive() },
+      { label:'Let it expire', run:()=>{ S.va.temp.expiresAt=Date.now(); S.va.stage='tempExpired'; ngnStopTicker(); render(); } } ];
+  if(S.screen==='va' && S.va && S.va.cur==='NGN' && (S.va.stage==='ngnChoice' || S.va.stage==='ngnRoute')) return [
+      { label:'Verified ID shows', options:[['ng_in','Nigerian, lives in Nigeria'],['ng_out','Nigerian, lives abroad'],['for_in','Foreigner, lives in Nigeria'],['for_out','Foreigner, lives abroad']], run:(val)=>{ S.ngnElig=val; S.va.stage='ngnRoute'; render(); } } ];
+  if(S.screen==='va' && S.va && S.va.cur==='NGN' && S.va.stage==='ngnId') return [
+      { label:'Fill a mismatching number', run:()=>{ S.va.idNum='00000000000'; render(); } },
+      { label:'Fill a matching number', run:()=>{ S.va.idNum='22312345678'; render(); } } ];
   if(S.screen==='va' && S.va){
     const va = vaOf(S.va.cur), cur = S.va.cur;
     if(va && va.status==='pending' && S.va.stage==='details') return [
@@ -11037,14 +11189,38 @@ function bindExtras(){
   document.querySelectorAll('#vaOpen').forEach(el=>{ const go2=()=>vaOpen(el.dataset.vacur, 'holding-detail'); el.onclick=go2; el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go2(); } }; });
   if($('dmBank')) $('dmBank').onclick = ()=>vaOpen(S.depositCurrency, 'deposit-method');
   if($('dmCard')) $('dmCard').onclick = ()=>{ S.cardFundCents=0; S.cardFundKeypadOpen=false; S.cardFundStage='amount'; go('card-fund'); };
+  if($('dmConvert')) $('dmConvert').onclick = ()=>cvStart({ to:'cash:NGN:open' });
   if(S.screen==='deposit-method' && $('backToDepositSelect')) $('backToDepositSelect').onclick = ()=>{ if(S.dmBack){ const back=S.dmBack; S.dmBack=null; go(back); return; } S.cardFundStage='select'; go('card-fund'); };
   if(S.screen==='va' && S.va){
     const v=S.va;
-    if($('vaBack')) $('vaBack').onclick = ()=>{ if(v.confirmClose){ v.confirmClose=false; render(); return; } go(v.back==='va'?'home':v.back); };
+    if($('vaBack')) $('vaBack').onclick = ()=>{ if(v.confirmClose){ v.confirmClose=false; render(); return; }
+      if(v.cur==='NGN'){ const prev={ tempAmount: S.tier<1 ? null : 'ngnChoice', ngnRoute:'ngnChoice', ngnId:'ngnRoute', ngnUnavailable:'ngnChoice', intro: S.ngnId ? 'ngnChoice' : 'ngnRoute' }[v.stage];
+        if(v.stage==='temp' || v.stage==='tempExpired'){ ngnStopTicker(); v.temp=null; v.stage='tempAmount'; render(); return; }
+        if(prev){ v.stage=prev; render(); return; } }
+      ngnStopTicker(); go(v.back==='va'?'home':v.back); };
     if($('vaVerify')) $('vaVerify').onclick = ()=>go('onboard-kyc-start');
     if($('vaTaxId')) $('vaTaxId').oninput = e=>{ let d=e.target.value.replace(/\D/g,'').slice(0,9); e.target.value = d.length>5 ? d.slice(0,3)+'-'+d.slice(3,5)+'-'+d.slice(5) : d.length>3 ? d.slice(0,3)+'-'+d.slice(3) : d; v.taxId=e.target.value; const b=$('vaCreate'); if(b) b.disabled=!vaIntroReady(); };
     if($('vaAgree')) $('vaAgree').onchange = e=>{ v.agree=e.target.checked; const b=$('vaCreate'); if(b) b.disabled=!vaIntroReady(); };
     if($('vaCreate')) $('vaCreate').onclick = ()=>vaCreate();
+    /* NGN */
+    if($('ngnPickTemp')) $('ngnPickTemp').onclick = ()=>{ v.stage='tempAmount'; render(); };
+    if($('ngnPickDedicated')) $('ngnPickDedicated').onclick = ()=>{ v.stage = S.ngnId ? 'intro' : 'ngnRoute'; render(); };
+    document.querySelectorAll('[data-ngnroute]').forEach(b=>b.onclick=()=>{ v.route=b.dataset.ngnroute; v.mismatch=false; v.idNum=''; v.stage='ngnId'; render(); });
+    if($('ngnIdNum')) $('ngnIdNum').oninput = e=>{ e.target.value=e.target.value.replace(/\D/g,'').slice(0,11); v.idNum=e.target.value; const b=$('ngnIdGo'); if(b) b.disabled = e.target.value.length!==11; };
+    if($('ngnIdGo')) $('ngnIdGo').onclick = ()=>ngnIdCheck();
+    if($('ngnPermitGo')) $('ngnPermitGo').onclick = ()=>showNotice('Not in the prototype yet', 'Depends on what the partner accepts.', 2400);
+    if($('ngnUseTemp')) $('ngnUseTemp').onclick = ()=>{ v.stage='tempAmount'; render(); };
+    if($('ngnUseConvert')) $('ngnUseConvert').onclick = ()=>cvStart({ to:'cash:NGN:open' });
+    if($('ngnAmt')) $('ngnAmt').oninput = e=>{ const raw=e.target.value.replace(/[^\d.]/g,''); const [ip,dp]=raw.split('.'); v.tempCents=Math.round(parseFloat((ip||'0')+(dp!==undefined?'.'+dp.slice(0,2):''))*100)||0; const b=$('ngnTempGo'); if(b) b.disabled = v.tempCents<10000; };
+    if($('ngnAmt')) $('ngnAmt').onblur = e=>{ if(v.tempCents) e.target.value = fmtCurrency(v.tempCents,'NGN').replace(' NGN',''); };
+    if($('ngnTempGo')) $('ngnTempGo').onclick = ()=>ngnTempCreate();
+    if($('ngnTempAgain')) $('ngnTempAgain').onclick = ()=>{ v.temp=null; v.stage='tempAmount'; render(); };
+    if($('ngnDone')) $('ngnDone').onclick = ()=>{ S.va=null; go('home'); };
+    document.querySelectorAll('[data-ngncopy]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.ngncopy, tmp=v.temp; const vals=[fmtCurrency(tmp.amount,'NGN'), tmp.num, '[Partner bank]', 'Poket / '+vaHolderName()];
+      try{ navigator.clipboard && navigator.clipboard.writeText(vals[i]).catch(()=>{}); }catch(e){} v.copied=i; render(); setTimeout(()=>{ if(S.va && S.va.copied===i){ S.va.copied=null; render(); } }, 1500); });
+    if($('ngnTempShare')) $('ngnTempShare').onclick = ()=>{ const tmp=v.temp; const text=`Send exactly ${fmtCurrency(tmp.amount,'NGN')}\nAccount number: ${tmp.num}\nBank: [Partner bank]\nAccount name: Poket / ${vaHolderName()}`;
+      if(navigator.share){ navigator.share({ title:'Temporary account details', text }).catch(()=>{}); } else { try{ navigator.clipboard.writeText(text).catch(()=>{}); }catch(e){} showNotice('Details copied', 'Paste them into your bank app.', 2400); } };
+    if(v.stage==='temp' && !S._ngnTick) ngnStartTicker();
     if($('vaProtoApprove')) $('vaProtoApprove').onclick = ()=>{ vaOf(v.cur).status='ready'; logComplianceEvent('virtual_account', {partnerBank:VA_SPEC[v.cur].bank}, {action:'approved', currency:v.cur}); vfNotify(`Your ${v.cur} account details are ready`, `Share them to receive ${v.cur}.`); render(); };
     if($('vaProtoReject')) $('vaProtoReject').onclick = ()=>{ vaOf(v.cur).status='rejected'; logComplianceEvent('virtual_account', {partnerBank:VA_SPEC[v.cur].bank}, {action:'declined', currency:v.cur}); vfNotify(`We couldn't open your ${v.cur} account`, 'You can still deposit by card.'); render(); };
     if($('vaUseCard')) $('vaUseCard').onclick = ()=>{ S.depositType='cash'; S.depositCurrency=v.cur; S.cardFundCents=0; S.cardFundKeypadOpen=false; S.cardFundStage='amount'; go('card-fund'); };
@@ -11182,7 +11358,7 @@ function bindExtras(){
     return _ot.call(this, screen, cb);
   };
   const _setSc = POKET.setScenario;
-  POKET.setScenario = function(){ vfStopTicker(); S.noSsn=false; S.ssn=''; S.ssnOnFile=false; S.ssnVisible=false; S.kycVendor=null; S.virtualAccounts={}; S.va=null; S.vfPending=null; POKET.identity.provisional=null; S.vfDeclined=false; S.vfStarted=false; S.vfAttempts=0; S.vfRetryReason=null; const _r = _setSc.apply(this, arguments); S.simulateGeoBlock = POKET.location==='blocked'; return _r; };
+  POKET.setScenario = function(){ vfStopTicker(); S.noSsn=false; S.ssn=''; S.ssnOnFile=false; S.ssnVisible=false; S.kycVendor=null; S.virtualAccounts={}; S.va=null; S.ngnId=null; S.ngnElig=null; ngnStopTicker && ngnStopTicker(); S.vfPending=null; POKET.identity.provisional=null; S.vfDeclined=false; S.vfStarted=false; S.vfAttempts=0; S.vfRetryReason=null; const _r = _setSc.apply(this, arguments); S.simulateGeoBlock = POKET.location==='blocked'; return _r; };
   W.showStandalone = function(){ S.fromMerchant = false; return _ss.apply(this, arguments); };
 })();
 

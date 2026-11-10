@@ -1,0 +1,34 @@
+---
+description: NGN (naira) wallet rules. Apply to every NGN screen and change.
+alwaysApply: true
+---
+
+# NGN (naira) rules
+- Source for NGN screens: reference/poket-unified.html. Search for tVaNgn, tDepositMethod,
+  ngnTempCreate, ngnIdCheck and VA_SPEC.NGN. Match its copy, states and behaviour exactly.
+- Naira format: ₦ symbol, two decimals, thousands separators, followed by the grey code,
+  e.g. "₦25,000.00 NGN". Amounts are integer kobo (cents), never floats.
+- Partner-neutral: never name a bank. Use the placeholder "[Partner bank]".
+- Values not decided yet stay as visible placeholders: ₦[limit], [time], [handling], [hold], ₦[fee].
+- NGN is funded only by bank transfer or conversion, never by card.
+- Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a temporary account
+  created per top-up, valid 30 minutes [time], for one exact amount.
+- Tier 1 and above: a dedicated NGN account needs BVN, NIN, NRBVN (or passport and residence
+  permit, partner permitting), matched to the verified name and date of birth.
+- Failed ID matches share Veriff's limit of 3 attempts. After 3, the account is locked for this step.
+- Credits from someone other than the account holder are held for review.
+- Keep the wallet's existing visual language. No new colours; use the wallet's tokens.
+
+## Where NGN screens live
+- Every NGN screen renders inside WalletShell's #panelBody, in the shadow root. One component per
+  screen in features/wallet/ngn/screens/, registered in features/wallet/ngn/NgnBody.tsx.
+- Screen switching and NGN state live in features/wallet/ngn/useNgn.ts; stages use the reference's
+  v.stage names. Backend calls go through lib/mock-api.ts. Stages without a component show a
+  "[Not ported yet]" placeholder. Preview one at /demo/wallet?ngn=<stage>.
+- Format naira with formatNaira() from lib/money.ts; wrap the code in <span className="cur-code">.
+- Use only the reference's class names (styles/wallet.css) and icons from lib/icons.ts. Tailwind
+  classes don't apply inside the wallet. A missing icon is extracted from reference/poket-unified.html
+  by script, verbatim (wallet engine icons go in WICON).
+- `<Raw>` wraps HTML in a display:contents span, which breaks the wallet's direct-child selectors
+  (`.settings-row>svg:last-child`, `.badge>svg`, `.qr-wrap>svg`). There, set the HTML on the parent
+  element itself with dangerouslySetInnerHTML.
