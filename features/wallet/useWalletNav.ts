@@ -5,6 +5,7 @@ export type WalletScreen =
   | { name: "ngn-balance" }
   | { name: "on-hold" }
   | { name: "withdrawal"; id: string }
+  | { name: "conversion"; id: string }
   | { name: "notifications" };
 
 type State = {

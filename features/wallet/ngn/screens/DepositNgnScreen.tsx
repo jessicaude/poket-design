@@ -2,6 +2,7 @@
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useNgn } from "../useNgn";
+import { useConvert } from "../../convert/useConvert";
 
 /**
  * "Deposit NGN": tDepositMethod() with cur === 'NGN' in reference/poket-unified.html.
@@ -11,7 +12,6 @@ import { useNgn } from "../useNgn";
 export function DepositNgnScreen() {
   const { back, dedicated, openBankTransfer } = useNgn();
   const ready = dedicated?.status === "ready";
-  // TODO: dmConvert opens Convert (cvStart({ to: 'cash:NGN:open' })); wire it when Convert is ported.
   return (
     <>
       <button className="back-row" id="backToDepositSelect" onClick={back}><Raw html={WICON.back} /> Back</button>
@@ -21,7 +21,7 @@ export function DepositNgnScreen() {
         <div className="meta"><div className="t1">Bank transfer</div><div className="t2">{ready ? "To your NGN account · usually within seconds" : "From any Nigerian bank"}</div></div>
         <span className="va-chev">{"›"}</span>
       </div>
-      <div className="select-row" id="dmConvert">
+      <div className="select-row" id="dmConvert" onClick={() => useConvert.getState().start({ to: "cash:NGN:open" })}>
         <div className="va-ic"><Raw html={WICON.convert} /></div>
         <div className="meta"><div className="t1">Convert</div><div className="t2">From your USD or USDC balance</div></div>
         <span className="va-chev">{"›"}</span>

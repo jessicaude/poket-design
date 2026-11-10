@@ -1,5 +1,5 @@
 import { WICON } from "@/lib/icons";
-import { formatMinor } from "@/lib/money";
+import { formatMinor, formatNaira } from "@/lib/money";
 import type { PayoutCurrency, PayoutRecipient } from "@/lib/mock-api";
 import { NGN_VA } from "../ngn/useNgn";
 
@@ -17,8 +17,8 @@ export const CURRENCY_INFO: Record<PayoutCurrency, { name: string; symbol: strin
   GHS: { name: "Ghanaian Cedi", symbol: "GH₵", icon: "ghFlag" },
 };
 
-/** fmtCurrency(cents, cur): "₦50,000.00 NGN". */
-export const fmtCurrency = (minor: number, cur: PayoutCurrency) => formatMinor(minor, CURRENCY_INFO[cur].symbol, cur);
+/** fmtCurrency(cents, cur): "₦50,000.00 NGN". Naira always goes through formatNaira (ngn.mdc). */
+export const fmtCurrency = (minor: number, cur: PayoutCurrency) => (cur === "NGN" ? formatNaira(minor) : formatMinor(minor, CURRENCY_INFO[cur].symbol, cur));
 
 /**
  * fxToUSD as exact fractions [num, den] (USD per unit), so conversions stay in integer maths:

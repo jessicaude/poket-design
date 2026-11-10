@@ -4,6 +4,7 @@ import { DEMO_PIN, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
 import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
+import { useConvert } from "@/features/wallet/convert/useConvert";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
@@ -13,6 +14,7 @@ export function NgnDemoBar() {
   const { stage, tier, eligibility, set, transferArrives, expireTemp, go, setIdNum } = useNgn();
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const held = useNgn((s) => s.ngnMerchantBalance);
+  const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -51,6 +53,11 @@ export function NgnDemoBar() {
       <label className="opt-lbl"><span>Name enquiry</span>
         <select aria-label="Name enquiry" value={enquiryDown ? "down" : "up"} onChange={(e) => setEnquiryDown(e.target.value === "down")}>
           <option value="up">Available</option><option value="down">Unavailable</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>NGN to stablecoins</span>
+        <select aria-label="NGN to stablecoins" value={ngnCoinsBlocked ? "blocked" : "allowed"} onChange={(e) => setNgnCoinsBlocked(e.target.value === "blocked")}>
+          <option value="allowed">Allowed</option><option value="blocked">Blocked</option>
         </select>
       </label>
       <span className="grow" />

@@ -29,3 +29,6 @@ export const useWalletToast = create<State>((set) => {
     showNotice: (title, body, ms) => show({ title, body, top: true, variant: "notice" }, ms),
   };
 });
+
+/** The reference's notice for actions not in the prototype (as #ngnPermitGo shows it). */
+export const showNotPorted = (body: string) => useWalletToast.getState().showNotice("Not in the prototype yet", body, 2400);

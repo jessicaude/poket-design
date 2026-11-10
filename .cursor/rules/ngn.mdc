@@ -9,7 +9,7 @@ alwaysApply: true
 - Naira format: ₦ symbol, two decimals, thousands separators, followed by the grey code,
   e.g. "₦25,000.00 NGN". Amounts are integer kobo (cents), never floats.
 - Partner-neutral: never name a bank. Use the placeholder "[Partner bank]".
-- Values not decided yet stay as visible placeholders: ₦[limit], [time], [handling], [hold], ₦[fee].
+- Values not decided yet stay as visible placeholders: ₦[limit], ₦[minimum], [time], [handling], [hold], ₦[fee].
 - NGN is funded only by bank transfer or conversion, never by card.
 - Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a temporary account
   created per top-up, valid 30 minutes [time], for one exact amount.
@@ -57,3 +57,29 @@ alwaysApply: true
   balance". Chips use the wallet's .va-status tones; no new colours.
 - NGN amounts over ₦[step-up] show the reference's step-up screen (tStepupIntro) before the PIN. The limit stays the
   ₦[step-up] placeholder on screen; STEP_UP_DEMO_KOBO is a demo value only.
+- Convert lives in features/wallet/convert/ (useConvert.ts: the reference's S.cv stages; convertMath.ts: cv* helpers).
+  Balances other than NGN are in features/wallet/useHoldings.ts; NGN stays in useNgn.ngnBalance. Preview at
+  /demo/wallet?convert=<stage>.
+- Convert and naira (convertMath.ts):
+  - Card-funded (FIAT-ONLY) money can't be converted to naira, as it can't to stablecoins: NGN is greyed out in
+    "Convert to" with "Card-funded money can't be converted to naira" (tapping it: notice body "Choose another
+    currency."), and the mock API refuses it. The tag still carries over on other cash-to-cash conversions.
+  - A card-funded source gets no pre-selected target: To shows "Choose a currency" until the user picks one.
+  - Opened with NGN as the target (Deposit NGN, the unavailable screen) and nothing that can convert into it: NGN
+    stays the target, with "You have no USD or USDC to convert yet" and a Deposit button. Deposit isn't ported, so it
+    shows the wallet's "Not in the prototype yet" notice (showNotPorted in useWalletToast.ts), like other unported actions.
+  - Naira conversion fees are undecided: "Fee: ₦[fee]" (or "$[fee]", or the coin equivalent "[fee] USDC") and 0 in
+    the maths. The quote card shows the rate, the fee, "You get" and the reference's 30-second countdown.
+  - Naira conversions are capped at ₦[limit] per conversion ("Over your limit of ₦[limit] per conversion") and have a
+    minimum, "Minimum is ₦[minimum]", both on the naira side. NGN_CONVERT_LIMIT_DEMO_KOBO and NGN_CONVERT_MIN_DEMO_KOBO
+    are demo values that never show.
+  - Before converting, the reference's limit and tier check runs (evaluateLimit in features/wallet/limits.ts, then
+    step-up or "This exceeds Poket's limits"). Naira conversions show the tier limit as ₦[limit].
+  - Merchant-held naira converts only to USD or USDC; it's listed in "Convert from" with its MERCHANT-HELD tag.
+  - Demo "NGN to stablecoins: Blocked": naira (open or merchant-held) defaults to USD; choosing USDC or USDT shows
+    "Converting naira to stablecoins isn't available yet. You can convert to USD." with a button to switch to USD;
+    the mock API refuses both.
+  - Conversions from or to naira appear in the NGN balance history; their receipt opens from there and from
+    "View transaction". The receipt is the reference's transaction detail (features/wallet/withdrawals/TxDetail.tsx):
+    label icons, monospace right-aligned values, green bold "Completed", the date's " - " part in italics, and the
+    Reference chip that copies. Stablecoin amounts there add " on {network}".

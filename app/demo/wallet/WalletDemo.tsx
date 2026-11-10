@@ -6,21 +6,25 @@ import { isNgnStage, useNgn } from "@/features/wallet/ngn/useNgn";
 import { isPayoutStage, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { useWalletNav } from "@/features/wallet/useWalletNav";
+import { isConvertStage, useConvert } from "@/features/wallet/convert/useConvert";
+import { useHoldings } from "@/features/wallet/useHoldings";
 
 /**
  * The body is the open payout or NGN screen, else the NGN balance with Withdraw (WalletBody).
- * Open a screen with ?ngn=<stage> (e.g. ?ngn=deposit-method) or ?payout=<stage> (e.g. ?payout=recipient).
+ * Open a screen with ?ngn=<stage> (e.g. ?ngn=deposit-method), ?payout=<stage> (e.g. ?payout=recipient) or
+ * ?convert=<stage> (e.g. ?convert=form).
  */
 export function WalletDemo({ css }: { css: string }) {
   const [tab, setTab] = useState<WalletTab>("home");
   const open = useNgn((s) => s.open);
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav });
+    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings });
     const q = new URLSearchParams(window.location.search);
-    const s = q.get("ngn"), p = q.get("payout");
+    const s = q.get("ngn"), p = q.get("payout"), c = q.get("convert");
     if (isNgnStage(s)) open(s);
     if (isPayoutStage(p)) { usePayout.getState().open("NGN"); usePayout.getState().go(p); }
+    if (isConvertStage(c)) { useConvert.getState().start(); useConvert.setState({ stage: c }); }
   }, [open]);
   // The prototype bar is fixed at the top: --pk-bar tells the wallet's stage to leave room for it, as in the reference.
   return (
