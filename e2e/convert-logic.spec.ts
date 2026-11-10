@@ -119,3 +119,30 @@ test("fmtCurrency formats naira with formatNaira", async () => {
   for (const k of [0, 1, 155000, 123456789, -2500]) expect(fmtCurrency(k, "NGN")).toBe(formatNaira(k));
   expect(fmtCurrency(1560, "USD")).toBe("$15.60 USD");
 });
+
+test("Send sources: what can pay each kind of recipient", async () => {
+  const { sourceAllowed, defaultSource } = await import("@/features/wallet/send/sources");
+  const bank = (currency: "NGN" | "USD" | "GBP") => ({ kind: "bank" as const, id: "b", self: false, bank: { id: "x", isSelf: false, name: "X", currency, methodType: "bank" as const } });
+  const wallet = { kind: "wallet" as const, id: "w", wallet: { id: "w", name: "W", address: "0x0", asset: "USDC" as const, network: "Base" as const } };
+  // Merchant-held naira: never for a bank
+  expect(sourceAllowed("cash:NGN:merchant", bank("NGN"), false)).toBe(false);
+  expect(sourceAllowed("cash:NGN:merchant", bank("USD"), false)).toBe(false);
+  // Card-funded money: not for naira or stablecoins; fine for other banks
+  expect(sourceAllowed("cash:USD:fiat", bank("NGN"), false)).toBe(false);
+  expect(sourceAllowed("cash:USD:fiat", wallet, false)).toBe(false);
+  expect(sourceAllowed("cash:USD:fiat", bank("USD"), false)).toBe(true);
+  expect(sourceAllowed("cash:USD:fiat", bank("GBP"), false)).toBe(true);
+  // NGN: not for non-Nigerian banks
+  expect(sourceAllowed("cash:NGN:open", bank("USD"), false)).toBe(false);
+  expect(sourceAllowed("cash:NGN:open", bank("NGN"), false)).toBe(true);
+  // Conversions follow Convert's rules (and the demo block on naira to stablecoins)
+  expect(sourceAllowed("coin:USDC:Base", bank("NGN"), false)).toBe(true);
+  expect(sourceAllowed("cash:NGN:open", wallet, false)).toBe(true);
+  expect(sourceAllowed("cash:NGN:open", wallet, true)).toBe(false);
+  expect(sourceAllowed("cash:NGN:merchant", wallet, false)).toBe(true); // merchant-held converts to USDC
+  // Defaults: the recipient's currency (open, then card-funded), or the balance it was opened from if allowed
+  expect(defaultSource(bank("NGN"), null, false)).toBe("cash:NGN:open");
+  expect(defaultSource(bank("USD"), null, false)).toBe("cash:USD:fiat");
+  expect(defaultSource(bank("NGN"), "cash:USD:fiat", false)).toBe("cash:NGN:open");
+  expect(defaultSource(bank("GBP"), null, false)).toBe("cash:GBP:open");
+});

@@ -69,21 +69,18 @@ type State = {
   continueWallet: () => Promise<void>;
 };
 
-/** Sending naira to a Nigerian bank account is the only send with an amount screen so far. */
-export const canSendTo = (r: SendRecipient) => r.kind === "bank" && r.bank.currency === "NGN";
+/** Bank accounts (any currency) have the amount screen; Poket users and stablecoin wallets don't yet. */
+export const canSendTo = (r: SendRecipient) => r.kind === "bank";
 
 /**
- * What the source balance allows. Merchant-held naira can't be sent to a bank: the "not available" screen (with
- * Convert). Only the NGN balance has an amount screen; from another balance, sending isn't ported yet.
- * Returns the action to take instead of continuing, or null to continue.
+ * Merchant-held naira can't be sent to a bank: choosing a bank account from it shows the "not available" screen
+ * (with Convert). Every other source is handled on the amount screen, whose chip only offers balances that can pay
+ * the recipient (features/wallet/send/sources.ts). Returns the action to take instead of continuing, or null.
  */
 export function sourceBlock(source: string | null, r?: SendRecipient): (() => void) | null {
-  if (!source || source === "cash:NGN:open") return null;
-  if (source === "cash:NGN:merchant") {
-    if (r && r.kind !== "bank") return null; // other kinds aren't ported either way
-    return () => { useSend.getState().close(); usePayout.getState().open("NGN", "merchant"); };
-  }
-  return () => showNotPorted(`Sending from ${sourceName(source)} isn't ported yet.`);
+  if (source !== "cash:NGN:merchant") return null;
+  if (r && r.kind !== "bank") return null;
+  return () => { useSend.getState().close(); usePayout.getState().open("NGN", "merchant"); };
 }
 /** "US Dollar", "USDC on Base". */
 export function sourceName(source: string): string {
@@ -131,9 +128,8 @@ export const useSend = create<State>((set, get) => {
     choose: (r) => {
       const block = sourceBlock(get().source, r);
       if (block) return block();
-      if (!canSendTo(r) || r.kind !== "bank") {
-        const what = r.kind === "poket" ? "Sending to a Poket user" : r.kind === "wallet" ? "Sending to a stablecoin wallet" : `Sending ${r.bank.currency} to a bank account`;
-        return showNotPorted(`${what} isn't ported yet.`);
+      if (r.kind !== "bank") {
+        return showNotPorted(`${r.kind === "poket" ? "Sending to a Poket user" : "Sending to a stablecoin wallet"} isn't ported yet.`);
       }
       set({ stage: null }); // keep the source: Back and "Change" return to Send with it
       usePayout.getState().sendTo(r.bank);
@@ -164,24 +160,26 @@ export const useSend = create<State>((set, get) => {
     continueUs: async () => {
       const d = get().us, rb = routingBank(d.routing);
       if (!rb || !usReady(d)) return;
-      await savePayoutRecipient({
+      const saved = await savePayoutRecipient({
         isSelf: false, name: d.nick.trim() || d.name.trim(), holderName: d.name.trim(), currency: "USD", methodType: "bank",
         bankName: rb.short, bankFullName: rb.full, accountNumber: d.acct, routingNumber: d.routing, speed: d.speed,
         ...(d.speed === "wire" ? { address: d.street, city: d.city, state: d.state, zip: d.zip, country: "United States" } : {}),
         saved: d.save,
       });
-      savedButNotPorted("Sending USD to a bank account");
+      set({ stage: null }); // keep the source; on to the amount, as for NGN
+      usePayout.getState().sendTo(saved);
     },
 
     editUk: (p) => set((s) => ({ uk: { ...s.uk, ...p } })),
     continueUk: async () => {
       const d = get().uk, sb = sortBank(d.sort);
       if (!sb || !ukReady(d)) return;
-      await savePayoutRecipient({
+      const saved = await savePayoutRecipient({
         isSelf: false, name: d.nick.trim() || d.name.trim(), holderName: d.name.trim(), currency: "GBP", methodType: "bank",
         bankName: sb.short, bankFullName: sb.full, accountNumber: d.acct, routingNumber: d.sort, saved: d.save,
       });
-      savedButNotPorted("Sending GBP to a bank account");
+      set({ stage: null });
+      usePayout.getState().sendTo(saved);
     },
 
     setPoketQuery: (query) => {

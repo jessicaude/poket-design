@@ -106,7 +106,9 @@ test("rows open their balance screens: USD (with account details card and histor
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From US DollarFIAT-ONLY"); // this balance is the source
   await page.locator('[data-sendrecipient="bank:r6"]').click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending from US Dollar isn't ported yet.");
+  // Card-funded money can't pay naira: the amount starts on the NGN balance instead
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
+  await page.locator("#backToPayoutRecipient2").click();
   await page.locator("#backFromSend").click();
   await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. Free to receive.›");
   await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242"]);

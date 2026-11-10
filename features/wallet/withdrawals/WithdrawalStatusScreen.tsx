@@ -34,7 +34,10 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         {row("Status", <StatusChip status={w.status} />)}
         {row("Date", fmtDate(w.createdAt))}
         {row("To", w.recipientSub)}
-        {row("Fee", <Grey>{fmtFee(w.fee, w.currency)}</Grey>)}
+        {/* A send that converted: what left the source and at what rate; one Fee row covers the conversion and the send. */}
+        {w.conversion && row("You send", <Grey>{w.conversion.paidText}</Grey>)}
+        {w.conversion && row("Rate", <Grey>{w.conversion.rateText}</Grey>)}
+        {row("Fee", <Grey>{w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency)}</Grey>)}
         {row("Reference", <span className="mono">{w.ref}</span>)}
       </div>
     </>

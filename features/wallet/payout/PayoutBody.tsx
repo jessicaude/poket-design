@@ -9,6 +9,7 @@ import { DoneScreen, ProcessingScreen } from "./screens/ProcessingDoneScreens";
 import { NgnAccountScreen, NgnBankScreen } from "./screens/NgnAccountScreens";
 import { WithdrawUnavailableScreen } from "./screens/WithdrawUnavailableScreen";
 import { StepUpScreen } from "./screens/StepUpScreen";
+import { PayFromScreen, SendAmountScreen } from "../send/SendAmountScreens";
 
 /** One component per payout stage. */
 const SCREENS: Record<PayoutStage, ComponentType> = {
@@ -16,7 +17,8 @@ const SCREENS: Record<PayoutStage, ComponentType> = {
   "add-recipient": AddSelfScreen,
   "add-recipient-details": AddOtherDetailsScreen,
   "add-recipient-method": AddOtherMethodScreen,
-  amount: AmountScreen,
+  // Opened from Send: You send / They get with the paying balance; otherwise the reference's amount screen.
+  amount: () => (usePayout.getState().fromSend ? <SendAmountScreen /> : <AmountScreen />),
   review: ReviewScreen,
   pin: PinScreen,
   pinLocked: PinLockedScreen,
@@ -28,6 +30,7 @@ const SCREENS: Record<PayoutStage, ComponentType> = {
   "ngn-bank": NgnBankScreen,
   unavailable: WithdrawUnavailableScreen,
   stepup: StepUpScreen,
+  payFrom: PayFromScreen,
 };
 
 /** The current payout stage, for WalletShell's #panelBody, with the reference's .screen-fade entry. */

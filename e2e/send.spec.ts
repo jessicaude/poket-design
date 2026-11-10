@@ -123,7 +123,9 @@ test("USD bank account: routing number and bank, account, holder, nickname, spee
   await page.locator("#usZip").fill("78701");
   await expect(go).toBeEnabled();
   await go.click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending USD to a bank account isn't ported yet.");
+  // On to the amount, paying from USD (card-funded USD can pay a US bank)
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USDFIAT-ONLY");
+  await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Rent" });
   await expect(saved.locator(".t2")).toHaveText("Chase · •••• 6789");
@@ -153,7 +155,8 @@ test("GBP bank account: sort code with the bank's name, 8-digit account number, 
   await page.locator("#ukAcct").fill("12345678");
   await expect(go).toBeEnabled();
   await go.click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending GBP to a bank account isn't ported yet.");
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("GBP"); // on to the amount, from GBP
+  await page.locator("#backToPayoutRecipient2").click();
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ has: page.locator(".t1", { hasText: /^Amara Okoye$/ }) });
   await expect(saved.locator(".t2")).toHaveText("Monzo · •••• 5678");
   await expect(saved.locator(".badge svg")).toHaveCount(1); // the UK flag

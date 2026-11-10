@@ -6,6 +6,10 @@ import {
 } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
 import { sourceBlock, useSend } from "../send/useSend";
+import { defaultSource, sameAsTarget } from "../send/sources";
+import { cvAvail, cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType } from "../convert/convertMath";
+import { cashAmount, setCashAmount, useHoldings } from "../useHoldings";
+import { useConvert } from "../convert/useConvert";
 import { holderName, useNgn } from "../ngn/useNgn";
 import { holderMatches, maxPayout, methodReady, needsStepUp, payoutFee, payoutMethodSub, type Draft, type Speed } from "./payoutMath";
 
@@ -22,7 +26,7 @@ export const PAYOUT_STAGES = [
   "recipient", "add-recipient", "add-recipient-details", "add-recipient-method", "amount", "review",
   "pin", "pinLocked", "pinResetOtp", "moneyDone",
   "processing", "done",
-  "ngn-account", "ngn-bank", "unavailable", "stepup",
+  "ngn-account", "ngn-bank", "unavailable", "stepup", "payFrom",
 ] as const;
 export type PayoutStage = (typeof PAYOUT_STAGES)[number];
 export const isPayoutStage = (s: unknown): s is PayoutStage => PAYOUT_STAGES.includes(s as PayoutStage);
@@ -82,9 +86,23 @@ type State = {
   enquiryDown: boolean;
   /** Opened from Send: Back and "Change" return to Send's recipients, and a new bank account goes on to the amount. */
   fromSend: boolean;
+  /**
+   * Send's amount screen: the balance paying ("You send" chip, a cvKey), the amount typed in its currency, and the
+   * inline quote when it's another currency (quoted at quoteAt, held CV_QUOTE_SECONDS). `cents` is what the recipient
+   * gets ("They get"), in the recipient's currency.
+   */
+  payFrom: string | null;
+  payCents: number;
+  quoteAt: number;
+  jitter: number;
+  quoteExpired: boolean;
 
   /** Send: a saved Nigerian bank account, straight to the amount. */
   sendTo: (r: PayoutRecipient) => void;
+  /** The chip: pay from another balance (a new quote if it's another currency). */
+  setPayFrom: (key: string) => void;
+  refreshQuote: () => void;
+  expireQuote: () => void;
   /** Send's "+ New recipient" → Bank account: the bank-account step, then the amount. */
   sendToNewBank: () => void;
   /** The amount screen's "Change": back to the recipients (Send's, when opened from Send). */
@@ -128,6 +146,7 @@ const TRANSIENT = {
   stage: null, recipient: null, cents: 0, speed: "standard" as Speed, draft: {}, addingSelf: false, ack: false, lastRef: null, sent: null,
   pinStage: "create" as PinStage, pinPurpose: "payout" as const, pinDraft: null, pinError: "", otpError: "",
   source: "open" as BalanceSource, account: EMPTY_ACCOUNT, fromSend: false,
+  payFrom: null as string | null, payCents: 0, quoteAt: 0, jitter: 1, quoteExpired: false,
 };
 
 /** Balance of the payout currency. Only NGN is wired to a balance (useNgn.ngnBalance) in this design repo. */
@@ -153,11 +172,13 @@ export const usePayout = create<State>((set, get) => {
     const total = cents + fee;
     const isNgn = currency === "NGN";
     set({ stage: "processing" });
+    const conversion = conversionDetails();
+    convertPayFrom();
     const rsv = await reservePayout({ currency, amount: total, source });
     if (isNgn) moveReserved(total, total);
     try {
       // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
-      const w = await createPayout({ currency, amount: cents, fee, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r) });
+      const w = await createPayout({ currency, amount: cents, fee, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r), conversion });
       useWithdrawals.getState().refresh();
       set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee, status: w.status }, recipients: listPayoutRecipients() });
     } catch {
@@ -165,6 +186,54 @@ export const usePayout = create<State>((set, get) => {
       if (isNgn) moveReserved(-total, -total);
       set({ stage: "review" });
     }
+  };
+
+  /** Send as a recipient for the source rules. */
+  const asSendRecipient = (r: PayoutRecipient) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: r.isSelf, bank: r });
+  const ngnCoinsBlocked = () => useConvert.getState().ngnCoinsBlocked;
+  /** "They get": the typed amount, or what it converts to at the current quote. */
+  const recompute = () => {
+    const { payFrom, payCents, recipient: r, jitter } = get();
+    if (!payFrom || !r) return;
+    const target = `cash:${r.currency}:open`;
+    set({ cents: sameAsTarget(payFrom, asSendRecipient(r)) ? payCents : cvQuote(payFrom, target, payCents, jitter).receive });
+  };
+  const newQuote = () => {
+    const { payFrom, recipient: r } = get();
+    if (!payFrom || !r) return;
+    const fx = cvType(cvParse(payFrom), cvParse(`cash:${r.currency}:open`)) === "fx";
+    set({ quoteAt: Date.now(), quoteExpired: false, jitter: fx ? 1 + (Math.random() - 0.5) * 0.004 : 1 });
+  };
+  /** Opening Send's amount for a bank recipient: the default source, nothing typed. */
+  const startAmount = (r: PayoutRecipient) => {
+    const payFrom = defaultSource(asSendRecipient(r), useSend.getState().source, ngnCoinsBlocked());
+    set({ payFrom, payCents: 0, cents: 0 });
+    newQuote();
+  };
+  /** A send that converts: what leaves the source, what arrives, the rate and the conversion fee, for its one record. */
+  const conversionDetails = () => {
+    const { fromSend, payFrom, payCents, recipient: r, cents, jitter } = get();
+    if (!fromSend || !payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return undefined;
+    const target = `cash:${r.currency}:open`, q = cvQuote(payFrom, target, payCents, jitter);
+    return { paidText: cvFmt(payCents, q.f), receivedText: cvFmt(cents, q.to), rateText: cvRateText(q.f, q.to, jitter, false), feeText: cvFeeText(q) };
+  };
+  /**
+   * Paying from another currency: once the PIN is accepted, the source converts into the recipient's currency at the
+   * quote (the source is debited, the recipient currency's balance credited), then the send reserves as usual.
+   */
+  const convertPayFrom = () => {
+    const { fromSend, payFrom, payCents, recipient: r, cents } = get();
+    if (!fromSend || !payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return;
+    const f = cvParse(payFrom);
+    if (f.k === "cash" && f.bucket === "merchant") useNgn.setState((s) => ({ ngnMerchantBalance: s.ngnMerchantBalance - payCents }));
+    else if (f.k === "cash") {
+      setCashAmount(f.cur, cashAmount(f.cur) - payCents);
+      if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) - payCents) } }));
+    } else {
+      const c = useHoldings.getState().coins;
+      useHoldings.setState({ coins: { ...c, [f.asset]: { ...c[f.asset], [f.net]: Math.max(0, (c[f.asset][f.net] || 0) - payCents) } } });
+    }
+    if (r.currency === "NGN" || r.currency === "USD" || r.currency === "GBP" || r.currency === "EUR" || r.currency === "GHS") setCashAmount(r.currency, cashAmount(r.currency) + cents);
   };
 
   return {
@@ -180,10 +249,16 @@ export const usePayout = create<State>((set, get) => {
     close: () => set({ ...TRANSIENT }),
     go: (stage) => set({ stage }),
 
-    sendTo: (r) => set({
-      ...TRANSIENT, currency: "NGN", recipients: listPayoutRecipients(), recipient: r, fromSend: true, stage: "amount",
-      ...(r.isSelf ? { speed: r.methodType === "card" ? "instant" as Speed : "standard" as Speed } : {}),
-    }),
+    sendTo: (r) => {
+      set({
+        ...TRANSIENT, currency: r.currency, recipients: listPayoutRecipients(), recipient: r, fromSend: true, stage: "amount",
+        ...(r.isSelf ? { speed: r.methodType === "card" ? "instant" as Speed : "standard" as Speed } : {}),
+      });
+      startAmount(r);
+    },
+    setPayFrom: (key) => { set({ payFrom: key, stage: "amount" }); newQuote(); recompute(); },
+    refreshQuote: () => { newQuote(); recompute(); },
+    expireQuote: () => set({ quoteExpired: true }),
     sendToNewBank: () => set({ ...TRANSIENT, currency: "NGN", recipients: listPayoutRecipients(), fromSend: true, account: EMPTY_ACCOUNT, stage: "ngn-account" }),
     changeRecipient: () => {
       if (!get().fromSend) return set({ stage: "recipient" });
@@ -204,7 +279,7 @@ export const usePayout = create<State>((set, get) => {
         // The reference goes back to its currency picker, which this flow skips (it opens from the NGN balance).
         recipient: null,
         "add-recipient": "recipient", "add-recipient-details": "recipient", "add-recipient-method": "add-recipient-details",
-        amount: "recipient", review: "amount", pin: "review", stepup: "review",
+        amount: "recipient", review: "amount", pin: "review", stepup: "review", payFrom: "amount",
         "ngn-account": "recipient", "ngn-bank": "ngn-account", unavailable: null,
       };
       if (!stage || !(stage in prev)) return;
@@ -238,19 +313,32 @@ export const usePayout = create<State>((set, get) => {
     },
 
     /** data-payoutkey: digits shift in from the right; back drops the last one. */
-    key: (k) => set((s) => {
-      if (k === "back") return { cents: Math.floor(s.cents / 10) };
-      if (s.cents >= KEYPAD_MAX) return {};
-      return { cents: s.cents * 10 + Number(k) };
-    }),
+    key: (k) => {
+      if (get().fromSend && get().payFrom) {
+        // Send: the amount is typed in the source's currency ("You send").
+        const p = get().payCents;
+        if (k === "back") set({ payCents: Math.floor(p / 10) });
+        else if (p < KEYPAD_MAX) set({ payCents: p * 10 + Number(k) });
+        return recompute();
+      }
+      set((s) => {
+        if (k === "back") return { cents: Math.floor(s.cents / 10) };
+        if (s.cents >= KEYPAD_MAX) return {};
+        return { cents: s.cents * 10 + Number(k) };
+      });
+    },
     max: () => {
-      const { currency, recipient, speed } = get();
+      const { currency, recipient, speed, fromSend, payFrom } = get();
+      if (fromSend && payFrom) { set({ payCents: cvAvail(cvParse(payFrom)) }); return recompute(); }
       set({ cents: maxPayout(currency, recipient, speed, availableFor(currency)) });
     },
     setAck: (ack) => set({ ack }),
 
     confirm: () => {
       if (!get().ack) return;
+      // A send that converts can't go ahead on an expired quote (Refresh rate first).
+      const { fromSend, payFrom, recipient, quoteExpired } = get();
+      if (fromSend && payFrom && recipient && quoteExpired && !sameAsTarget(payFrom, asSendRecipient(recipient))) return;
       if (get().stage === "review" && needsStepUp(get().currency, get().cents)) return set({ stage: "stepup" });
       get().toPin();
     },
@@ -331,9 +419,10 @@ export const usePayout = create<State>((set, get) => {
       set((s) => ({
         recipients: existing ? s.recipients : [...s.recipients, saved], recipient: saved, account: EMPTY_ACCOUNT,
         // From Send, a new recipient goes straight on to the amount (the explore prototype's Continue).
-        ...(s.fromSend ? { stage: "amount" as const, cents: 0 } : { stage: "recipient" as const }),
+        ...(s.fromSend ? { stage: "amount" as const, cents: 0, currency: saved.currency } : { stage: "recipient" as const }),
         ...(saved.isSelf ? { speed: "standard" as Speed } : {}),
       }));
+      if (get().fromSend) startAmount(saved);
     },
     setEnquiryDown: (down) => { setNameEnquiryAvailable(!down); set({ enquiryDown: down }); },
 

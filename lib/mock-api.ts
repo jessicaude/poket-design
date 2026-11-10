@@ -209,6 +209,8 @@ export type WithdrawalStatus = "scheduled" | "review" | "sending" | "paid" | "fa
 export type Withdrawal = {
   id: string; ref: string; currency: PayoutCurrency; amount: number; fee: number;
   recipientId: string; recipientName: string; recipientSub: string; createdAt: number; status: WithdrawalStatus;
+  /** A send paid from another balance converts on the way: one record, with what left the source and at what rate. */
+  conversion?: { paidText: string; receivedText: string; rateText: string; feeText: string };
 };
 const withdrawals: Withdrawal[] = [];
 
@@ -216,7 +218,7 @@ const withdrawals: Withdrawal[] = [];
  * POST /v1/payouts, against a reservation. A first NGN payment to an account is "scheduled" (it sends after [hold]);
  * otherwise it's "sending". Either way the account then counts as paid before.
  */
-export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string }): Promise<Withdrawal> {
+export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string; conversion?: Withdrawal["conversion"] }): Promise<Withdrawal> {
   const rsv = reservations.get(p.reservationId);
   if (!rsv || rsv.status !== "reserved" || rsv.amount !== p.amount + p.fee) throw new Error("invalid_reservation");
   const recipient = payoutServer.recipients.find((r) => r.id === p.recipientId);
@@ -226,7 +228,7 @@ export async function createPayout(p: { currency: PayoutCurrency; amount: number
   const w: Withdrawal = {
     id: "wd_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: recipient.id, recipientName: recipient.name,
-    recipientSub: p.recipientSub ?? "", createdAt: Date.now(),
+    recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
     status: p.currency === "NGN" && !recipient.paidBefore ? "scheduled" : "sending",
   };
   recipient.paidBefore = true;

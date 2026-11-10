@@ -45,7 +45,8 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await page.locator('[data-payoutkey="back"]').click();
   await expect(body.locator(".amount-value")).toHaveText("₦12,500.00 NGN");
   await expect(page.locator("#payoutSpeedPill")).toHaveText("Usually within seconds · ₦[fee] fee");
-  await expect(page.locator("#payoutAmtHint")).toHaveText("Available ₦50,000.00 NGN · fee ₦[fee] · Max");
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
+  await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
 
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // Naira account has been paid before
   await page.locator("#payoutReview").click();
@@ -174,7 +175,8 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await expect(page.locator("#payoutSpeedPill")).toHaveText("After [hold] · ₦[fee] fee"); // first payment to Ngozi Eze
   await page.locator("#payoutMaxAmt").click();
   await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
-  await expect(page.locator("#payoutAmtHint")).toHaveText("Available ₦50,000.00 NGN · fee ₦[fee] · Max");
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
+  await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
   await expect(body.locator(".info-card")).toHaveCount(0); // no exchange rate or "Recipient gets"
   await page.locator("#payoutReview").click();
   await expect(body.locator(".step-sub").first()).toHaveText("to Ngozi Eze");

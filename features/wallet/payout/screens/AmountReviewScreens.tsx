@@ -2,6 +2,8 @@
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { NGN_VA, useNgn } from "../../ngn/useNgn";
+import { cvFmt, cvParse, cvRateText, cvType, feePlaceholder } from "../../convert/convertMath";
+import { useQuoteTimer } from "../../send/useQuoteTimer";
 import {
   CURRENCY_INFO, FEE_PLACEHOLDER, HOLD_PLACEHOLDER, isFirstPayment, convertAmount, feeDecided, hasSpeeds, isCrossBorder, payoutEta, fmtCurrency, fmtFee, fmtWithFee, fxRateLabel, isLogoMethod, payoutFee, payoutMethodIcon, payoutMethodSub, withdrawFee,
 } from "../payoutMath";
@@ -9,7 +11,7 @@ import { BackRow, Grey, Keypad, SpinButton } from "../parts";
 import { availableFor, usePayout } from "../usePayout";
 
 /** Not in the reference: a first NGN payment to an account sends after [hold]. Shown on amount and review. */
-function FirstPaymentNotice() {
+export function FirstPaymentNotice() {
   return (
     <div className="alert info" id="firstPaymentNotice" role="note" style={{ marginBottom: "10px" }}>
       <Raw html={WICON.info} /><span>First payment to a new account sends after {HOLD_PLACEHOLDER}</span>
@@ -18,7 +20,7 @@ function FirstPaymentNotice() {
 }
 
 /** amountBadgeHtml(false, null, null, cur): the currency's flag. */
-function CurrencyBadge() {
+export function CurrencyBadge() {
   const icon = CURRENCY_INFO[usePayout((s) => s.currency)].icon;
   return (
     <div className="center-col" style={{ padding: "4px 0 2px" }}>
@@ -75,8 +77,12 @@ export function AmountScreen() {
 
 /** tPayout stage 'review' (cash). "Payout" goes on to the PIN. */
 export function ReviewScreen() {
-  const { currency, recipient: r, cents, speed, ack, setAck, confirm, back } = usePayout();
+  const { currency, recipient: r, cents, speed, ack, setAck, confirm, back, fromSend, payFrom, payCents, jitter, quoteAt, quoteExpired, expireQuote, refreshQuote } = usePayout();
+  const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   if (!r) return <BackRow id="backToPayoutAmount" onClick={back} />;
+  // Sent from Send out of another currency: what leaves that balance, at the quoted rate (converted at the PIN).
+  const paySide = fromSend && payFrom ? cvParse(payFrom) : null;
+  const converting = !!paySide && !!cvType(paySide, cvParse(`cash:${r.currency}:open`));
   const isSelf = r.isSelf;
   const fee = payoutFee(currency, r, speed, cents);
   const crossBorder = isCrossBorder(currency, r);
@@ -101,11 +107,14 @@ export function ReviewScreen() {
       </p>
       <div className="receipt-card" style={{ marginTop: "14px" }}>
         {row(WICON.user, "To", payoutMethodSub(r))}
+        {converting && paySide && row(WICON.convert, "You send", cvFmt(payCents, paySide))}
+        {converting && paySide && row(WICON.globe, "Rate", cvRateText(paySide, cvParse(`cash:${r.currency}:open`), jitter, false))}
         {crossBorder && row(WICON.globe, "Exchange rate", fxRateLabel(currency, r.currency))}
         {row(WICON.percent, "Fee", fmtFee(fee, currency))}
         {crossBorder && row(WICON.coins, "Recipient gets", fmtCurrency(recv, r.currency))}
         {row(WICON.calendar, isSelf ? "Arrives" : "Delivery", eta)}
-        {row(WICON.check, isSelf ? "Debited from balance" : "Total charged", fmtWithFee(cents, fee, currency), "total")}
+        {row(WICON.check, isSelf ? "Debited from balance" : "Total charged",
+          converting && paySide ? `${cvFmt(payCents, paySide)} + ${feePlaceholder(paySide)}` : fmtWithFee(cents, fee, currency), "total")}
       </div>
       {isSelf && hasSpeeds(currency) && (
         <p className="fine-print"><Raw html={WICON.info} /><span>{speed === "instant" ? "Instant payouts are irreversible once sent." : "Standard payouts settle over ACH and may arrive sooner than the estimate."}</span></p>
@@ -115,7 +124,16 @@ export function ReviewScreen() {
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
         <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&apos;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
       </label>
-      <SpinButton id="confirmPayout" disabled={!ack} delay={500} onClick={confirm}>Send</SpinButton>
+      {converting && (
+        // The quote holds on review too: the same countdown; on expiry, Refresh rate before Send.
+        <>
+          <div className={`cv-timer ${quoteExpired ? "expired" : ""}`} id="cvTimer">
+            {quoteExpired ? "Rate expired. Refresh to get a new rate." : <>Rate held for <span className="mono" id="cvTimerLeft">0:{String(secs).padStart(2, "0")}</span></>}
+          </div>
+          {quoteExpired && <SpinButton id="cvRefresh" className="btn-secondary" style={{ width: "100%", marginBottom: "10px" }} delay={400} onClick={refreshQuote}>Refresh rate</SpinButton>}
+        </>
+      )}
+      <SpinButton id="confirmPayout" disabled={!ack || (converting && quoteExpired)} delay={500} onClick={confirm}>Send</SpinButton>
     </>
   );
 }

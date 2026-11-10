@@ -83,7 +83,8 @@ test("different name: shown, and it must be confirmed as a third-party payee", a
 
   // Straight on to the amount: the fee is the placeholder, not a number
   await expect(page.locator("#panelBody")).toContainText(`To: ${payee}`);
-  await expect(page.locator("#payoutAmtHint")).toHaveText("Available ₦50,000.00 NGN · fee ₦[fee] · Max");
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
+  await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
   await page.locator("#backToPayoutRecipient2").click();
   const labels = await page.locator("#panelBody .field-label, #panelBody [data-sendrecipient] .t1").allTextContents();
   expect(labels.indexOf(payee)).toBeGreaterThan(labels.indexOf("Saved")); // a third party: under Saved

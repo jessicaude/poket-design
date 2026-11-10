@@ -45,6 +45,16 @@ usePayout, createPayout, payoutFee, withdrawals.ts); read them as "send to a ban
   Payout. A balance screen passes itself as the source (useSend.open(source)): NGN sends to Nigerian banks as below;
   merchant-held naira choosing a bank shows the "not available" screen with Convert; other balances say sending from
   them isn't ported yet. A saved Nigerian bank account goes straight to the amount; Back and "Change" return to Send.
+- Send's amount screen (features/wallet/send/SendAmountScreens.tsx): "You send" in the paying balance (a chip with
+  Max), then "They get" in the recipient's currency. The source defaults to the balance it was opened from if that can
+  pay, else the recipient's currency. Another currency converts inline with the quote card (rate, fee as ₦[fee] or the
+  coin equivalent, They get, the 30-second countdown and Refresh rate); it converts when the PIN is accepted.
+  Review holds the same quote: the countdown shows there too, and on expiry Send is disabled until Refresh rate.
+- A send that converts is one activity record (no separate conversion row): its row reads "To {name} · {source
+  amount} → {target amount}", and its receipt adds You send and Rate, with one Fee row for both ("[fee] USDC + ₦[fee]").
+- The chip never offers a balance that can't pay the recipient (features/wallet/send/sources.ts): merchant-held naira
+  for bank accounts, card-funded money for naira or stablecoins, NGN for non-Nigerian bank accounts, and conversions
+  Convert wouldn't allow.
 - Copy: the button is "Send", processing is "Sending…", activity and status read "To {name}", and a reversal's
   notification is "Transfer reversed". Don't reintroduce "Payout" in this flow's copy.
 - Sending is approved with the checkout's 4-digit PIN (tPin), not the reference's 6-digit passcode 'authorize' stage.
