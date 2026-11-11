@@ -259,9 +259,12 @@ export const usePayout = create<State>((set, get) => {
     const rsv = await reservePayout({ currency: r.currency, amount: s.sourceTotal });
     if (fromNgn) moveReserved(s.sourceTotal, s.sourceTotal); else adjustBalance(payFrom, -s.sourceTotal);
     try {
+      // A Poket user: your record is in your paying balance's currency; what they receive (USD when naira converts on
+      // receipt, WGT-07) is its targetKey, and only their side is credited in it
+      const src = cvParse(payFrom);
       const w = await createPayout({
-        currency: r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
-        kind: s.kind, recipientName: r.name, amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
+        currency: s.kind === "poket" && src.k === "cash" ? src.cur as typeof r.currency : r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
+        kind: s.kind, recipientName: r.name, ...(s.kind === "poket" ? { targetKey: s.targetKey } : {}), amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
         sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
         ...(usBank ? { speed, ...(speed === "wire" ? { wireAddress: wire } : {}) } : {}),
       });

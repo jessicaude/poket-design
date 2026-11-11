@@ -3,7 +3,7 @@ import type { Withdrawal, WithdrawalStatus } from "@/lib/mock-api";
 import { WICON } from "@/lib/icons";
 import { fmtCurrency } from "../payout/payoutMath";
 import { Grey } from "../payout/parts";
-import { QUICK_CHECK, STATUS_META } from "../payout/withdrawals";
+import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
 
 /** A withdrawal status chip: the wallet's .va-status with its tone (ok / muted / warn / err). */
@@ -29,7 +29,7 @@ export function WithdrawalRow({ w }: { w: Withdrawal }) {
         <div className="tx-title">{w.conversion ? <Grey>{`To ${w.recipientName} \u00b7 ${w.conversion.paidText} \u2192 ${w.conversion.receivedText}`}</Grey> : `To ${w.recipientName}`}</div>
         <div className="tx-sub" style={{ display: "flex", alignItems: "center", gap: "6px" }}><StatusChip status={w.status} quickCheck={w.quickCheck} /><span>{w.recipientSub}</span></div>
       </div>
-      <div className="tx-amt"><Grey>{"-" + (w.amountText ?? fmtCurrency(w.amount, w.currency))}</Grey></div>
+      <div className="tx-amt"><Grey>{"-" + sentText(w)}</Grey></div>
     </div>
   );
 }

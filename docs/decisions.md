@@ -32,6 +32,7 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - Send replaces the wallet's Transfer and Payout actions (not the Payout (Get paid) widget). Sending is recipient-first: pick a saved recipient or add one (bank account, debit card, Poket user, stablecoin wallet), then the amount (you send, they get). Withdrawing to your own bank is sending to yourself.
 - Send to a debit card: Visa or Mastercard debit only (credit cards can't receive payouts), paid only from USD, arrives instantly. Fee not decided ($[fee]).
 - A US bank send's speed (Standard, Instant, Wire) is chosen per send on the amount screen, not saved with the recipient. Naira keeps one speed.
+- Naira to Poket users (WGT-07): if the recipient can hold naira, they get naira. If they can't (no BVN or NIN, or not eligible), the naira converts to **USD on receipt**, and the sender sees it before sending ("{First name} can't hold naira. They'll get USD.", what they get and the quote, held 30 seconds). Existing rules still apply: card-funded money can't become stablecoins, merchant-held naira keeps its MERCHANT-HELD tag at the recipient, and the naira-to-stablecoins block applies (the conversion is only ever to USD).
 
 ## Merchants
 - A merchant without a logo shows its **initials** on a colour derived from its name, in the same rounded square as a logo.

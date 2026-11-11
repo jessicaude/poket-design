@@ -12,7 +12,8 @@ import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
 import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountReviewScreens";
 import { usePayout } from "../payout/usePayout";
 import { NGN_VA } from "../ngn/useNgn";
-import { asSendRecipient, sameAsTarget, sendSources, targetKeyFor } from "./sources";
+import { asSendRecipient, nairaConvertsOnReceipt, sameAsTarget, sendSources, targetKeyFor } from "./sources";
+import { useNairaRecipients } from "./nairaRecipients";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
@@ -42,6 +43,7 @@ function Tag({ o }: { o: Side }) {
 
 export function SendAmountScreen() {
   useBalances();
+  useNairaRecipients((s) => s.othersHoldNaira); // the demo bar's "Recipient can hold naira" changes the target
   const { recipient: r, payFrom, payCents, cents, jitter, speed, wire, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, currency, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
@@ -78,6 +80,12 @@ export function SendAmountScreen() {
       <p className="step-sub" style={{ textAlign: "center", marginBottom: 0 }}>
         <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
+      {nairaConvertsOnReceipt(asSendRecipient(r), payFrom) && (
+        // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
+        <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&apos;t hold naira. They&apos;ll get USD.</span>
+        </div>
+      )}
       {nairaRedirected && (
         // Why another balance is paying, and which (NEW copy)
         <div className="alert info" id="nairaOnlyNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>

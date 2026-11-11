@@ -13,7 +13,7 @@ test("recipients: + New recipient first, Your accounts, Saved with marks; search
   await expect(title(page)).toHaveText("Send");
   await expect(page.locator("#panelBody .select-row").first()).toHaveAttribute("id", "newRecipient");
   await expect(page.locator("#panelBody .field-label")).toHaveText(["Your accounts", "Saved"]);
-  await expect(rowNames(page)).toHaveText(["Personal checking", "Naira account", "Jordan Blake", "Ngozi Eze", "Tobi Bello", "Ngozi Okafor", "Kemi Adeyemi", "Ledger"]);
+  await expect(rowNames(page)).toHaveText(["Personal checking", "Naira account", "Jordan Blake", "Ngozi Eze", "Tobi Bello", "Ngozi Okafor", "Kemi Adeyemi", "Amara Okafor", "Daniel Cho", "Ledger"]);
   await expect(page.locator('[data-sendrecipient="bank:lb2"] .badge svg')).toHaveCount(1); // the NGN flag
   await expect(page.locator('[data-sendrecipient="poket:pu1"] .badge')).toHaveText("TB");
   await expect(page.locator('[data-sendrecipient="wallet:sw1"] .badge-network')).toHaveCount(1);
@@ -175,7 +175,7 @@ test("a debit card in your own name is saved under Your accounts", async ({ page
   const yours = page.locator("#panelBody .field-label", { hasText: "Your accounts" });
   await expect(yours).toBeVisible();
   const rows = page.locator("#panelBody [data-sendrecipient]");
-  await expect(rows.locator(".t1")).toHaveText(["Personal checking", "Naira account", "ada OSUN", "Jordan Blake", "Ngozi Eze", "Tobi Bello", "Ngozi Okafor", "Kemi Adeyemi", "Ledger"]);
+  await expect(rows.locator(".t1")).toHaveText(["Personal checking", "Naira account", "ada OSUN", "Jordan Blake", "Ngozi Eze", "Tobi Bello", "Ngozi Okafor", "Kemi Adeyemi", "Amara Okafor", "Daniel Cho", "Ledger"]);
 });
 
 test("NGN bank account: an optional nickname once the name is found; review shows the account holder", async ({ page }) => {

@@ -33,8 +33,10 @@ export function DoneScreen() {
   const held = sent.status === "scheduled";
   // A first payment of $500 or more to a new card, wallet or Poket user (the exploration's doneScreen when held)
   const checking = sent.status === "review" && !!sent.quickCheck;
-  const t = cvParse(s.targetKey);
+  // A converted send leads with what left your balance (its badge too); what they get follows
+  const t = cvParse(s.converting ? payFrom : s.targetKey);
   const iconKey = t.k === "coin" ? t.asset.toLowerCase() : CURRENCY_INFO[t.cur as keyof typeof CURRENCY_INFO]?.icon;
+  const who = r.isSelf || r.methodType === "wallet" ? r.name : r.name.split(/\s+/)[0];
   return (
     <>
       <div className="center-col" style={{ paddingBottom: 0 }}>
@@ -42,7 +44,12 @@ export function DoneScreen() {
           <div className="check-circle" style={{ marginBottom: 0 }}><Raw html={WICON.check} /></div>
           <span className="check-badge" dangerouslySetInnerHTML={{ __html: iconKey ? WICON[iconKey as keyof typeof WICON] ?? "" : "" }} />
         </div>
-        <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>
+        {s.converting && s.youSendText ? (
+          <>
+            <div className="step-title mono" id="doneSent" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.youSendText}</Grey> <span style={{ fontFamily: "var(--sans)" }}>sent</span></div>
+            <p className="step-sub" id="doneTheyGet" style={{ marginBottom: "2px" }}>{who} gets <Grey>{s.theyGetText}</Grey></p>
+          </>
+        ) : <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>}
         <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : checking ? `To ${r.name}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
         {checking && (
           <>

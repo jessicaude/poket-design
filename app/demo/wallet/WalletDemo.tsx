@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { WalletShell } from "@/features/wallet/WalletShell";
 import { useWalletHome } from "@/features/wallet/home/homeData";
 import { NgnDemoBar } from "@/components/demo/NgnDemoBar";
+import { RecipientActivityPanel } from "@/components/demo/RecipientActivityPanel";
 import { isNgnStage, useNgn } from "@/features/wallet/ngn/useNgn";
 import { isPayoutStage, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
@@ -44,6 +45,7 @@ export function WalletDemo({ css }: { css: string }) {
       <div style={{ paddingTop: "var(--bar)", ["--pk-bar" as string]: "var(--bar)" }}>
         <WalletShell css={css} tab={tab} onTab={setTab} />
       </div>
+      <RecipientActivityPanel />
     </>
   );
 }

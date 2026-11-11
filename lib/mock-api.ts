@@ -150,6 +150,8 @@ export type PayoutRecipient = {
   bankFullName?: string;
   /** Poket users: their @handle, email or phone. Stablecoin wallets: the address, coin and network. */
   handle?: string;
+  /** Poket users (WGT-07): whether they can hold naira; unset follows the demo bar ("Recipient can hold naira"). */
+  holdsNaira?: boolean;
   walletAddress?: string;
   asset?: "USDC" | "USDT";
   network?: WalletNetwork;
@@ -250,6 +252,8 @@ export type Withdrawal = {
   /** Held (status "review") for a quick check: a first payment of $500 or more to a new card, wallet or Poket user. */
   quickCheck?: boolean;
   sourceKey?: string; sourceTotal?: number;
+  /** A Poket user: what they receive (a cvKey); naira converts to USD on receipt when they can't hold naira (WGT-07). */
+  targetKey?: string;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
 };
@@ -269,8 +273,16 @@ export async function createPayout(p: {
   speed?: string; wireAddress?: { street: string; city: string; state: string; zip: string };
   /** The USD value leaving the source, in cents: a first payment of $500 or more to a new card, wallet or Poket user is held for a quick check. */
   usdOut?: number;
+  /** A Poket user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
+  targetKey?: string;
 }): Promise<Withdrawal> {
   const kind = p.kind ?? "bank";
+  // WGT-07: a Poket user who can't hold naira never receives naira
+  if (kind === "poket") {
+    const target = p.targetKey ?? p.sourceKey ?? "cash:NGN:open";
+    const user = POKET_USERS.find((u) => u.id === p.recipientId);
+    if (target.startsWith("cash:NGN:") && !poketUserHoldsNaira(user)) throw new Error("recipient_cannot_hold_naira");
+  }
   if (p.speed === "wire" && !p.wireAddress) throw new Error("address_required");
   const rsv = reservations.get(p.reservationId);
   const reserved = p.sourceTotal ?? p.amount + p.fee;
@@ -285,6 +297,7 @@ export async function createPayout(p: {
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
     kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
+    ...(p.targetKey ? { targetKey: p.targetKey } : {}),
     status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
   };
   // A first payment of $500 or more to a new card, stablecoin wallet or Poket user: held for a quick check (the
@@ -309,14 +322,23 @@ export async function createPayout(p: {
 
 /** Poket users' balances, as credited by sends: "{currency}:{open | merchant | fiat}" → minor units. */
 const poketBalances: Record<string, Record<string, number>> = {};
-/** A paid send to a Poket user lands in their balance, in the source's currency, keeping its tag. */
+/** What a Poket user sees in their activity: what they received, in their currency, with its tag. */
+export type PoketActivity = { id: string; recipientId: string; recipientName: string; amountText: string; tag?: Withdrawal["tag"]; at: number };
+const poketActivity: PoketActivity[] = [];
+/**
+ * A paid send to a Poket user lands in their balance in what they receive (the target: the source's currency, or USD
+ * when naira converted on receipt), keeping its tag, and shows in their activity.
+ */
 function creditPoketUser(w: Withdrawal) {
-  const [k, cur, bucket] = (w.sourceKey ?? "cash:NGN:open").split(":");
+  const [k, cur, bucket] = (w.targetKey ?? w.sourceKey ?? "cash:NGN:open").split(":");
   const tagged = k === "cash" && (bucket === "merchant" || bucket === "fiat") ? bucket : "open";
   const asset = k === "cash" ? cur : `${cur} (${bucket})`;
   const book = (poketBalances[w.recipientId] ??= {});
   book[`${asset}:${tagged}`] = (book[`${asset}:${tagged}`] ?? 0) + w.amount;
+  poketActivity.unshift({ id: w.id, recipientId: w.recipientId, recipientName: w.recipientName, amountText: w.amountText ?? "", ...(w.tag ? { tag: w.tag } : {}), at: Date.now() });
 }
+/** Demo: every Poket user's received payments, newest first (the recipient's activity, for the demo panel). */
+export const listPoketActivity = () => poketActivity.map((a) => ({ ...a }));
 /** $500.00: a first payment at least this much (USD value) to a new card, wallet or Poket user is held for a quick check. */
 export const QUICK_CHECK_USD_CENTS = 50000;
 /** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "NGN:merchant": 100000 }). */
@@ -393,6 +415,8 @@ export function resetPayoutServer() {
   withdrawals.length = 0;
   for (const k of Object.keys(poketBalances)) delete poketBalances[k];
   for (const x of [...POKET_USERS, ...STABLECOIN_WALLETS]) delete x.paidBefore;
+  poketActivity.length = 0;
+  poketNaira.othersHold = true;
   payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
   payoutServer.pin = null;
   payoutServer.pinAttempts = 0;
@@ -491,7 +515,17 @@ export function resetConversionServer() { conversionServer.list = []; conversion
    Send is recipient-first (docs/decisions.md). Bank accounts are the payout recipients above (your own and saved);
    Poket users and stablecoin wallets are seeded from reference/poket-wallet-explore.html (DIRECTORY, SAVED.external). */
 
-export type PoketUser = { id: string; name: string; handle: string; initials: string; /** Has been sent money before. */ paidBefore?: boolean };
+export type PoketUser = {
+  id: string; name: string; handle: string; initials: string; /** Has been sent money before. */ paidBefore?: boolean;
+  /** WGT-07: can hold naira (BVN or NIN, and eligible). Unset: the demo bar's "Recipient can hold naira" decides. */
+  holdsNaira?: boolean;
+};
+
+/** Demo bar "Recipient can hold naira: Yes / No": every Poket user without their own setting (not Amara or Daniel). */
+const poketNaira = { othersHold: true };
+export function setOtherPoketUsersHoldNaira(v: boolean) { poketNaira.othersHold = v; }
+/** Whether a Poket user can hold naira: their own setting, else the demo bar's. */
+export const poketUserHoldsNaira = (u: Pick<PoketUser, "holdsNaira"> | undefined) => u?.holdsNaira ?? poketNaira.othersHold;
 export type WalletNetwork = "Base" | "Polygon" | "Solana" | "Ethereum";
 export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork; /** Has been sent money before. */ paidBefore?: boolean };
 export type SendRecipient =
@@ -504,6 +538,9 @@ const POKET_USERS: PoketUser[] = [
   { id: "pu1", name: "Tobi Bello", handle: "tobi@lagos.ng", initials: "TB" },
   { id: "pu2", name: "Ngozi Okafor", handle: "+2348031234567", initials: "NO" },
   { id: "pu3", name: "Kemi Adeyemi", handle: "kemi.a@gmail.com", initials: "KA" },
+  // WGT-07: Amara can hold naira; Daniel can't (lives abroad)
+  { id: "pu4", name: "Amara Okafor", handle: "@amara", initials: "AO", holdsNaira: true },
+  { id: "pu5", name: "Daniel Cho", handle: "@dcho", initials: "DC", holdsNaira: false },
 ];
 const STABLECOIN_WALLETS: StablecoinWallet[] = [
   { id: "sw1", name: "Ledger", address: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC", network: "Base" },
@@ -530,8 +567,8 @@ export function listSendRecipients(): SendRecipient[] {
  * prototype's DIRECTORY (by email or phone). Saved Poket users are found too.
  */
 const POKET_DIRECTORY: PoketUser[] = [
-  { id: "pd1", name: "Amara Okafor", handle: "@amara", initials: "AO" },
-  { id: "pd2", name: "Daniel Cho", handle: "@dcho", initials: "DC" },
+  { id: "pd1", name: "Amara Okafor", handle: "@amara", initials: "AO", holdsNaira: true },
+  { id: "pd2", name: "Daniel Cho", handle: "@dcho", initials: "DC", holdsNaira: false },
   { id: "pd3", name: "Priya Nair", handle: "@priya", initials: "PN" },
   ...POKET_USERS.map((u) => ({ ...u, id: "pd-" + u.id })),
 ];
@@ -551,7 +588,8 @@ export async function lookupPoketUser(query: string): Promise<PoketUser | null> 
 export async function savePoketUser(u: Omit<PoketUser, "id">): Promise<PoketUser> {
   await wait(400);
   const existing = POKET_USERS.find((x) => x.handle === u.handle);
-  if (existing) return { ...existing };
+  // Already saved: keep the record (and whether they can hold naira); a new nickname replaces the name shown
+  if (existing) { existing.name = u.name; return { ...existing }; }
   const saved = { ...u, id: "pu" + Date.now() };
   POKET_USERS.push(saved);
   return { ...saved };

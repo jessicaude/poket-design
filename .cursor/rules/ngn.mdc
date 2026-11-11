@@ -77,6 +77,24 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   - Poket users can be paid from merchant-held naira or card-funded USD. Their money keeps the MERCHANT-HELD or
     FIAT-ONLY tag (shown on They get, review, done and the status screen; the mock API credits the matching
     tagged balance), so the rules on that money follow it.
+  - Naira to Poket users (WGT-07): a recipient who can hold naira gets naira. One who can't (no BVN or NIN, or not
+    eligible) gets USD, converted on receipt (targetFor in features/wallet/send/sources.ts): the amount screen says
+    "{First name} can't hold naira. They'll get USD." with "They get ≈ $X USD" and the quote card (rate, fee as
+    ₦[fee], They get; "Rate held for 0:30", then "Refresh rate"); review shows You send, They get and Rate.
+    - The conversion is always naira to USD cash in the same bucket: merchant-held stays MERCHANT-HELD and
+      card-funded stays FIAT-ONLY at the recipient. It's never a stablecoin, so card-funded money never becomes one
+      and the "NGN to stablecoins" block is never crossed. Other sources (USD, card-funded USD, USDC) arrive as they
+      are; card-funded USD never becomes naira.
+    - Mock recipients: Amara Okafor (@amara) can hold naira; Daniel Cho (@dcho) can't (lives abroad). Every other
+      Poket user follows the demo bar's "Recipient can hold naira: Yes / No" (nairaRecipients.ts). The mock API
+      refuses naira for a recipient who can't hold it (recipient_cannot_hold_naira).
+    - Only the recipient's record is in USD. Your own record stays in the paying balance's currency (it shows in the
+      NGN history and "on hold"), with what they receive as Withdrawal.targetKey. Your activity row and receipt lead
+      with what left your balance (sentText): "To Daniel Cho · ₦5,000.00 NGN → $3.23 USD", amount "-₦5,000.00 NGN",
+      and the receipt's amount ₦5,000.00 NGN with You send, They get, Rate and Fee. The done screen reads
+      "₦5,000.00 NGN sent" with "{First name} gets $3.23 USD" underneath (the badge is the source's currency). This
+      applies to every converted send. The recipient's activity (the wallet demo's "Recipient's activity"
+      panel, listPoketActivity) shows what they received, in their currency, with its tag.
   - Debit cards (Send → New recipient → Debit card, the explore prototype's card fields): Visa and Mastercard debit
     only ("Only Visa and Mastercard debit cards."; a credit card shows "This is a credit card. Use a debit card." and
     the mock API refuses it). Only USD (open or card-funded) can pay a card; no conversion, no first-payment hold.

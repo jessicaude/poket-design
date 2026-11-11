@@ -1,8 +1,8 @@
 "use client";
-import { fmtCurrency, fmtFee } from "../payout/payoutMath";
+import { fmtFee } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
-import { QUICK_CHECK, STATUS_META } from "../payout/withdrawals";
+import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
 import { StatusChip, withdrawalIcon } from "./parts";
 
@@ -26,7 +26,7 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
       <div className="center-col" style={{ padding: "6px 8px 0" }}>
         <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />
       </div>
-      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{w.amountText ?? fmtCurrency(w.amount, w.currency)}</Grey></div>
+      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{sentText(w)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>To {w.recipientName}{w.tag && <span className="fiat-tag" id="withdrawalTag">{w.tag}</span>}</p>
       <div style={{ textAlign: "center" }} id="withdrawalStatus"><StatusChip status={w.status} quickCheck={w.quickCheck} /></div>
       {message && <p className="step-sub" id="withdrawalStatusMsg" style={{ textAlign: "center", margin: "8px 0 14px" }}>{message}</p>}
@@ -34,8 +34,9 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         {row("Status", <StatusChip status={w.status} quickCheck={w.quickCheck} />)}
         {row("Date", fmtDate(w.createdAt))}
         {row("To", w.recipientSub)}
-        {/* A send that converted: what left the source and at what rate; one Fee row covers the conversion and the send. */}
+        {/* A send that converted: what left the source, what arrived and at what rate; one Fee row covers the conversion and the send. */}
         {w.conversion && row("You send", <Grey>{w.conversion.paidText}</Grey>)}
+        {w.conversion && row("They get", <Grey>{w.conversion.receivedText}</Grey>)}
         {w.conversion && row("Rate", <Grey>{w.conversion.rateText}</Grey>)}
         {row("Fee", <Grey>{w.feeText ?? (w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency))}</Grey>)}
         {row("Reference", <span className="mono">{w.ref}</span>)}

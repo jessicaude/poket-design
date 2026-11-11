@@ -1,6 +1,6 @@
-import type { WithdrawalStatus } from "@/lib/mock-api";
+import type { Withdrawal, WithdrawalStatus } from "@/lib/mock-api";
 import { NGN_VA } from "../ngn/useNgn";
-import { HOLD_PLACEHOLDER } from "./payoutMath";
+import { HOLD_PLACEHOLDER, fmtCurrency } from "./payoutMath";
 
 /**
  * Withdrawal statuses as shown: the chip (the wallet's .va-status, tone = its modifier class) and the message
@@ -35,3 +35,10 @@ export function reservationEffect(from: WithdrawalStatus, to: WithdrawalStatus, 
   if (from === "paid" && to === "reversed") return { balance: total, reserved: 0 };
   return { balance: 0, reserved: 0 };
 }
+
+/**
+ * What left your balance, for your own activity, receipt and notices: a converted send leads with the source amount
+ * ("₦5,000.00 NGN"), not what the recipient got (only the recipient's record is in their currency); others are the
+ * send's amount.
+ */
+export const sentText = (w: Withdrawal) => w.conversion?.paidText ?? w.amountText ?? fmtCurrency(w.amount, w.currency);

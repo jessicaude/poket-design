@@ -4,8 +4,7 @@ import { useNgn } from "../ngn/useNgn";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { useNotifications } from "../useNotifications";
 import { useWalletToast } from "../useWalletToast";
-import { fmtCurrency } from "./payoutMath";
-import { reservationEffect } from "./withdrawals";
+import { reservationEffect, sentText } from "./withdrawals";
 
 type State = {
   list: Withdrawal[];
@@ -50,7 +49,7 @@ export const useWithdrawals = create<State>((set, get) => ({
     }
     get().refresh();
     if (to === "reversed") {
-      const desc = `${after.amountText ?? fmtCurrency(after.amount, after.currency)} to ${after.recipientName}. Funds returned to your balance.`;
+      const desc = `${sentText(after)} to ${after.recipientName}. Funds returned to your balance.`; // what left (and returns to) your balance
       useNotifications.getState().add({ type: "payout", title: "Transfer reversed", desc });
       useWalletToast.getState().showNotice("Transfer reversed", desc, 3200);
     }

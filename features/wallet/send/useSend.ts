@@ -208,7 +208,7 @@ export const useSend = create<State>((set, get) => {
       const { lookup, nick, save } = get().poket;
       if (lookup.status !== "found" || !lookup.user) return;
       const name = nick.trim() || lookup.user.name;
-      const user = save ? await savePoketUser({ name, handle: lookup.user.handle, initials: initialsOf(lookup.user.name) }) : { ...lookup.user, name };
+      const user = save ? await savePoketUser({ name, handle: lookup.user.handle, initials: initialsOf(lookup.user.name), holdsNaira: lookup.user.holdsNaira }) : { ...lookup.user, name };
       set({ stage: null });
       usePayout.getState().sendTo(toPayoutRecipient({ kind: "poket", id: `poket:${user.id}`, user }));
     },

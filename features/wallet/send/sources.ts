@@ -1,6 +1,7 @@
 import type { PayoutRecipient, SendRecipient } from "@/lib/mock-api";
 import { cashBuckets, type CashCurrency } from "../useHoldings";
 import { cvAvail, cvBlockReason, cvOptions, cvParse, cvType, isNgnToStablecoin, type Side } from "../convert/convertMath";
+import { canHoldNaira } from "./nairaRecipients";
 
 /**
  * Which balances can pay a Send recipient (the amount screen's "You send" chip), and which one it starts on.
@@ -21,6 +22,23 @@ export function recipientTarget(r: SendRecipient): string | null {
   return null;
 }
 
+/**
+ * What a recipient receives from this source. A Poket user takes the source's currency, except naira for someone who
+ * can't hold it (WGT-07): that converts to USD on receipt, in the same bucket, so merchant-held stays MERCHANT-HELD
+ * and card-funded stays FIAT-ONLY. It's always USD cash, never a stablecoin, so card-funded naira never becomes one
+ * and the "NGN to stablecoins" block can't be crossed.
+ */
+export function targetFor(r: SendRecipient, source: string): string {
+  const target = recipientTarget(r);
+  if (target) return target;
+  const f = cvParse(source);
+  if (r.kind === "poket" && f.k === "cash" && f.cur === "NGN" && !canHoldNaira(r.user)) return `cash:USD:${f.bucket}`;
+  return source;
+}
+/** A Poket user who can't hold naira, paid from naira: converted to USD on receipt. */
+export const nairaConvertsOnReceipt = (r: SendRecipient, source: string) =>
+  r.kind === "poket" && source.startsWith("cash:NGN:") && !canHoldNaira(r.user);
+
 export function sourceAllowed(source: string, r: SendRecipient, ngnCoinsBlocked: boolean): boolean {
   const f = cvParse(source);
   // A debit card: only USD can pay it (open or card-funded), never converted
@@ -30,9 +48,7 @@ export function sourceAllowed(source: string, r: SendRecipient, ngnCoinsBlocked:
   if (isBank && f.k === "cash" && f.bucket === "merchant") return false;
   if (f.k === "cash" && f.bucket === "fiat" && (ngnBank || r.kind === "wallet")) return false;
   if (isBank && !ngnBank && f.k === "cash" && f.cur === "NGN") return false;
-  const target = recipientTarget(r);
-  if (!target) return true; // a Poket user receives in the source's currency
-  const t = cvParse(target);
+  const t = cvParse(targetFor(r, source));
   if (!cvType(f, t)) return true; // the same balance: no conversion
   if (cvBlockReason(f, t)) return false;
   if (ngnCoinsBlocked && isNgnToStablecoin(f, t)) return false;
@@ -40,10 +56,7 @@ export function sourceAllowed(source: string, r: SendRecipient, ngnCoinsBlocked:
 }
 
 /** Same balance as the target, so no conversion (the same currency, or the same coin on the same network). */
-export const sameAsTarget = (source: string, r: SendRecipient) => {
-  const target = recipientTarget(r);
-  return !target || !cvType(cvParse(source), cvParse(target));
-};
+export const sameAsTarget = (source: string, r: SendRecipient) => !cvType(cvParse(source), cvParse(targetFor(r, source)));
 
 /** The chip's list: balances you hold that can pay this recipient (and the recipient's own currency, even at 0). */
 export function sendSources(r: SendRecipient, ngnCoinsBlocked: boolean): string[] {
@@ -79,7 +92,7 @@ const keyOf = (o: Side) => (o.k === "cash" ? `cash:${o.cur}:${o.bucket}` : `coin
 
 /** The send flow's recipient (bank, Poket user or wallet) as a Send recipient, for these rules. */
 export function asSendRecipient(r: PayoutRecipient): SendRecipient {
-  if (r.methodType === "poket") return { kind: "poket", id: `poket:${r.id}`, user: { id: r.id, name: r.name, handle: r.handle ?? "", initials: "" } };
+  if (r.methodType === "poket") return { kind: "poket", id: `poket:${r.id}`, user: { id: r.id, name: r.name, handle: r.handle ?? "", initials: "", holdsNaira: r.holdsNaira } };
   if (r.methodType === "card") return { kind: "card", id: `card:${r.id}`, self: r.isSelf, card: r };
   if (r.methodType === "wallet") return { kind: "wallet", id: `wallet:${r.id}`, wallet: { id: r.id, name: r.name, address: r.walletAddress ?? "", asset: r.asset ?? "USDC", network: r.network ?? "Base" } };
   return { kind: "bank", id: `bank:${r.id}`, self: r.isSelf, bank: r };
@@ -89,9 +102,9 @@ export function asSendRecipient(r: PayoutRecipient): SendRecipient {
 export function toPayoutRecipient(r: SendRecipient): PayoutRecipient {
   if (r.kind === "bank") return r.bank;
   if (r.kind === "card") return r.card;
-  if (r.kind === "poket") return { id: r.user.id, isSelf: false, name: r.user.name, currency: "NGN", methodType: "poket", handle: r.user.handle };
+  if (r.kind === "poket") return { id: r.user.id, isSelf: false, name: r.user.name, currency: "NGN", methodType: "poket", handle: r.user.handle, holdsNaira: r.user.holdsNaira };
   return { id: r.wallet.id, isSelf: false, name: r.wallet.name, currency: "USD", methodType: "wallet", walletAddress: r.wallet.address, asset: r.wallet.asset, network: r.wallet.network };
 }
 
 /** What the recipient receives, given the paying balance (a Poket user takes the source's currency). */
-export const targetKeyFor = (r: PayoutRecipient, payFrom: string) => recipientTarget(asSendRecipient(r)) ?? payFrom;
+export const targetKeyFor = (r: PayoutRecipient, payFrom: string) => targetFor(asSendRecipient(r), payFrom);
