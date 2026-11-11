@@ -33,3 +33,7 @@
    real height, so the page, the scrim and the widget sit below it. */
 .pbar.wrap{height:auto;min-height:44px;flex-wrap:wrap;row-gap:6px;padding-top:8px;padding-bottom:8px}
 .pbar.wrap select{max-width:none}
+/* Checkout quote card (converted payment): the wallet's held-rate timer (styles/wallet.css .cv-timer) */
+.wg .cv-timer{text-align:center;font-size:12px;color:var(--txt2);margin-top:6px}
+.wg .cv-timer.expired{color:var(--warn)}
+.wg .cv-fee .cv-fee-v{font-weight:600;color:#5a6278}

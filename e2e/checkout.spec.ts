@@ -393,3 +393,112 @@ test("mock: CentryOS matches a pool transfer to the order by amount", async () =
   va = await getMerchantPoolAccount(p);
   expect(await simulatePoolTransfer(va.id, 3989700)).toMatchObject({ status: "overpaid", received: 3989700 });
 });
+
+/** Ada (remembered: Visa ••• 4242, Chase checking ••• 6789) on an NGN order. */
+async function ngnReturning(page: import("@playwright/test").Page, setBar?: () => Promise<void>) {
+  await page.goto("/demo/ile-living");
+  await page.getByLabel("Order currency").selectOption("NGN");
+  await page.getByLabel("Customer", { exact: true }).selectOption("returning");
+  if (setBar) await setBar();
+  await page.locator("#payWithPoket").click();
+  return page.getByTestId("checkout-widget");
+}
+const squash = (l: import("@playwright/test").Locator) => l.innerText().then((t) => t.replace(/\s+/g, " ").trim());
+
+test("converted: a USD card on an NGN order sees the quote before Pay; done shows both amounts", async ({ page }) => {
+  const widget = await ngnReturning(page);
+  await expect(widget.getByRole("heading", { name: "Pay ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator("#quoteRate")).toHaveText("1 USD ≈ 1,550.00 NGN");
+  await expect(widget.locator("#quoteFee")).toHaveText("Covered by Ilé Living");
+  await expect(widget.locator(".sumbox .line", { hasText: "Fees" })).toContainText("Covered by Ilé Living");
+  expect(await squash(widget.locator("#quoteYouPay"))).toBe("You pay $23.40 USD for ₦36,270.00 NGN");
+  await expect(widget.locator("#quoteTimer")).toHaveText(/^Rate held for 0:(30|29|28)$/);
+  await expect(widget.locator(".sumbox .line", { hasText: "You pay" })).toHaveText(/\$23\.40\s*USD/);
+  await expect(widget.locator("#payGo")).toHaveText("Pay $23.40");
+  await expect(widget.locator(".mandate")).toHaveCount(0); // a card: no debit line
+
+  await widget.locator("#payGo").click();
+  await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator("#donePaidUsd")).toHaveText(/You paid\s*\$23\.40\s*USD/);
+  await expect(widget.locator(".sumbox .line", { hasText: "Total" })).toHaveText(/₦36,270\.00\s*NGN/);
+  await expect(widget.locator(".sumbox")).toContainText("1 USD ≈ 1,550.00 NGN");
+  const p = await page.evaluate(() => (window as any).__account.getState().account.payments[0]); // eslint-disable-line @typescript-eslint/no-explicit-any
+  expect(p).toMatchObject({ amount: 3627000, currency: "NGN", charged: { amount: 2340, currency: "USD" } });
+  // The merchant's event: the naira order plus what was charged and the rate
+  const ev = page.getByTestId("events").locator("li", { hasText: "payment.succeeded" });
+  await expect(ev).toContainText('"amount":3627000,"currency":"NGN"');
+  await expect(ev).toContainText('"charged_amount":2340,"charged_currency":"USD","fx_rate":1550');
+});
+
+test("converted: paying from a US bank, the debit line names the dollars debited", async ({ page }) => {
+  const widget = await ngnReturning(page);
+  await widget.locator('[data-pm="pm_bank"]').click();
+  await expect(widget.locator(".mandate")).toHaveText("By paying, you authorize Poket to debit Chase checking ••• 6789 for $23.40 USD.");
+  await expect(widget.locator("#quoteCard")).toBeVisible();
+  await widget.locator("#payGo").click();
+  await expect(widget.locator("#donePaidUsd")).toHaveText(/\$23\.40\s*USD/);
+});
+
+test("converted: after 30 seconds the rate expires and Refresh rate replaces Pay", async ({ page }) => {
+  await page.clock.install();
+  const widget = await ngnReturning(page);
+  await expect(widget.locator("#quoteTimer")).toHaveText("Rate held for 0:30");
+  await page.clock.runFor(10_000);
+  await expect(widget.locator("#quoteTimer")).toHaveText("Rate held for 0:20");
+  await page.clock.runFor(20_000);
+  await expect(widget.locator("#quoteTimer")).toHaveText("Rate expired. Refresh to get a new rate.");
+  await expect(widget.locator("#payGo")).toHaveCount(0);
+  // The store refuses a payment on an expired rate too
+  await page.evaluate(() => (window as any).__checkout.getState().pay()); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(widget.locator("#quoteRefresh")).toHaveText("Refresh rate");
+
+  await widget.locator("#quoteRefresh").click();
+  await expect(widget.locator("#quoteTimer")).toHaveText("Rate held for 0:30");
+  await expect(widget.locator("#quoteRate")).toHaveText(/^1 USD ≈ 1,5\d\d\.\d\d NGN$/); // a new quote can move a little
+  await expect(widget.locator("#payGo")).toHaveText(/^Pay \$23\.\d\d$/);
+});
+
+test("Conversion off: dollar methods are disabled with why and can't be selected; a naira card still pays", async ({ page }) => {
+  const widget = await ngnReturning(page, () => page.getByRole("group", { name: "Merchant accepts" }).getByLabel("Conversion").uncheck());
+  for (const id of ["pm_visa", "pm_bank"]) {
+    const row = widget.locator(`[data-pm="${id}"]`);
+    await expect(row).toHaveClass(/\boff\b/);
+    await expect(row).toHaveAttribute("aria-disabled", "true");
+    await expect(row).toHaveAttribute("aria-checked", "false");
+    await expect(row.locator("small")).toHaveText("Ilé Living only accepts naira for this order.");
+  }
+  await widget.locator('[data-pm="pm_bank"]').click({ force: true });
+  await expect(widget.locator('[data-pm="pm_bank"]')).toHaveAttribute("aria-checked", "false");
+  await page.evaluate(() => (window as any).__checkout.getState().select("pm_visa")); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(widget.locator('[data-pm="pm_visa"]')).toHaveAttribute("aria-checked", "false");
+  await expect(widget.locator("#payGo")).toBeDisabled();
+  await expect(widget.locator("#quoteCard")).toHaveCount(0);
+  await expect(widget.locator(".mandate")).toHaveCount(0);
+
+  // A naira card is selectable and pays the naira amount
+  await page.evaluate(() => (window as any).__account.getState().update((a: any) => ({ ...a, methods: [...a.methods, // eslint-disable-line @typescript-eslint/no-explicit-any
+    { id: "pm_ngn", kind: "card", brand: "verve", last4: "0000", name: "Verve ••• 0000", sub: "Debit", currency: "NGN" }] })));
+  await widget.locator('[data-pm="pm_ngn"]').click();
+  await expect(widget.locator('[data-pm="pm_ngn"]')).toHaveAttribute("aria-checked", "true");
+  await expect(widget.locator('[data-pm="pm_ngn"]')).not.toHaveClass(/\boff\b/);
+  await widget.locator("#payGo").click();
+  await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator("#donePaidUsd")).toHaveCount(0);
+  await expect(page.getByTestId("events").locator("li", { hasText: "payment.succeeded" })).not.toContainText("charged_amount");
+});
+
+test("no quote: an NGN card, or a USD order", async ({ page }) => {
+  const widget = await ngnReturning(page);
+  await expect(widget.locator("#quoteCard")).toBeVisible();
+  await page.evaluate(() => (window as any).__account.getState().update((a: any) => ({ ...a, methods: [...a.methods, // eslint-disable-line @typescript-eslint/no-explicit-any
+    { id: "pm_ngn", kind: "card", brand: "verve", last4: "0000", name: "Verve ••• 0000", sub: "Debit", currency: "NGN" }] })));
+  await widget.locator('[data-pm="pm_ngn"]').click();
+  await expect(widget.locator("#quoteCard")).toHaveCount(0);
+  await expect(widget.locator("#payGo")).toHaveText("Pay ₦36,270.00 NGN");
+
+  await page.goto("/demo/ile-living");
+  await page.getByLabel("Customer", { exact: true }).selectOption("returning");
+  await page.locator("#payWithPoket").click();
+  await expect(page.getByTestId("checkout-widget").locator("#payGo")).toHaveText("Pay $23.40");
+  await expect(page.getByTestId("checkout-widget").locator("#quoteCard")).toHaveCount(0);
+});

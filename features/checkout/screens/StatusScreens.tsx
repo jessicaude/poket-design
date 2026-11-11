@@ -45,6 +45,8 @@ export function DoneScreen() {
         <div className="line"><span>Paid with</span><span className="plain pm"><Raw html={mini} />{m.name}</span></div>
         <div className="line"><span>Order</span><span>{order.orderRef}</span></div>
         <div className="line"><span>Reference</span><span>{paid.ref}</span></div>
+        {paid.charged && <div className="line" id="donePaidUsd"><span>You paid</span><span><MoneyU minor={paid.charged.amount} currency={paid.charged.currency} /></span></div>}
+        {paid.charged && <div className="line"><span>Rate</span><span className="txt">{paid.charged.rate}</span></div>}
         <div className="line"><span>Total</span><span><MoneyU minor={order.amount} currency={order.currency} /></span></div>
       </div>
       <Raw html={PROTECT_NOTE.replace(/__HOST__/g, order.merchant)} />

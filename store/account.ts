@@ -13,7 +13,9 @@ export type PaymentMethod = {
   currency?: "USD" | "NGN"; // what the method pays in: NGN for a Nigerian card; USD when not set
 };
 /** `amount` is in minor units of `currency` (cents or kobo). */
-export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid" };
+export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid";
+  /** Converted: what the method was actually debited, e.g. $23.40 USD for a ₦36,270.00 NGN order. */
+  charged?: { amount: number; currency: "USD" } };
 export type Account = {
   email: string;
   first: string;
