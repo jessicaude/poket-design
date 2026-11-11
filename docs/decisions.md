@@ -10,6 +10,7 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 
 ## Checkout
 - Every payment **under $500** skips the ID check (Tier 1 limits apply). $500 or more needs identity verification.
+  For a naira (NGN) order the limit uses the **USD value of the naira total**: under $500 needs no ID check, at Tier 0 too; $500 or more goes to identity verification.
 - New users give their **legal first and last name** at sign-up; it prefills identity verification later.
 - Terms: https://onepoket.com/terms-and-conditions · Privacy: https://onepoket.com/privacy-policy
 
