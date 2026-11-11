@@ -5,3 +5,10 @@
   --sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: var(--font-geist-mono), "SF Mono", Consolas, monospace;
 }
+
+/* Demo bar: checkbox group (Merchant accepts) */
+.pbar .pbar-group{display:flex;align-items:center;gap:8px;padding:0 8px;height:28px;border:1px solid rgba(255,255,255,.14);border-radius:7px;white-space:nowrap}
+.pbar .pbar-group-lbl{color:#9aa0ab}
+.pbar .pbar-check{gap:4px;cursor:pointer}
+.pbar .pbar-check span{color:#fff}
+.pbar .pbar-check input{margin:0;accent-color:var(--brand)}

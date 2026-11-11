@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { BrandKey } from "@/lib/card";
-import type { Cents } from "@/lib/money";
 
 /** A saved way to pay. `name` and `sub` are display text, as in the prototype ("Visa ••• 4242", "Debit · Expires 12/2028"). */
 export type PaymentMethod = {
@@ -12,7 +11,8 @@ export type PaymentMethod = {
   sub: string;
   oneTime?: boolean; // "Save this card for next time" was unticked
 };
-export type Payment = { id: string; merchant: string; amount: Cents; method: string; at: string; status: "paid" };
+/** `amount` is in minor units of `currency` (cents or kobo). */
+export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid" };
 export type Account = {
   email: string;
   first: string;

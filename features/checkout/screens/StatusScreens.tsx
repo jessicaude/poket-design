@@ -1,7 +1,7 @@
 "use client";
 import { Raw } from "@/components/ui/Raw";
 import { BANK_MINI, BRANDS, CHECK_DRAW, ICON, PROTECT_NOTE } from "@/lib/icons";
-import { money } from "@/lib/money";
+import { formatOrder } from "@/lib/money";
 import { useAccount } from "@/store/account";
 import { useCheckout } from "../useCheckout";
 import { MoneyU } from "./PayScreen";
@@ -10,7 +10,7 @@ import { MoneyU } from "./PayScreen";
 export function ProcessingScreen() {
   const order = useCheckout((s) => s.order);
   if (!order) return null;
-  return <div className="center"><div className="spinner" /><h2 className="title">Paying {order.merchant}</h2><p className="sub">{money(order.amount)}</p></div>;
+  return <div className="center"><div className="spinner" /><h2 className="title">Paying {order.merchant}</h2><p className="sub">{formatOrder(order.amount, order.currency)}</p></div>;
 }
 
 /** SCREENS['declined'] */
@@ -40,12 +40,12 @@ export function DoneScreen() {
   return (
     <>
       <div className="done-head"><span className="done-mark"><Raw html={CHECK_DRAW} /></span>
-        <div><h2 className="title">Paid {money(order.amount)} to {order.merchant}</h2></div></div>
+        <div><h2 className="title">Paid {formatOrder(order.amount, order.currency)} to {order.merchant}</h2></div></div>
       <div className="sumbox">
         <div className="line"><span>Paid with</span><span className="plain pm"><Raw html={mini} />{m.name}</span></div>
         <div className="line"><span>Order</span><span>{order.orderRef}</span></div>
         <div className="line"><span>Reference</span><span>{paid.ref}</span></div>
-        <div className="line"><span>Total</span><span><MoneyU cents={order.amount} /></span></div>
+        <div className="line"><span>Total</span><span><MoneyU minor={order.amount} currency={order.currency} /></span></div>
       </div>
       <Raw html={PROTECT_NOTE.replace(/__HOST__/g, order.merchant)} />
       <div className={`btn-pair ${order.merchant.length > 14 ? "stack" : ""}`}>
@@ -62,7 +62,7 @@ export function IdNeededScreen() {
   return (
     <>
       <h2 className="title">Verify your identity</h2>
-      <p className="sub">Payments of $500 or more need a quick ID check{order ? ` (this one is ${money(order.amount)})` : ""}.</p>
+      <p className="sub">Payments of $500 or more need a quick ID check{order ? ` (this one is ${formatOrder(order.amount, order.currency)})` : ""}.</p>
       <p className="err">Not ported yet. See docs/prompting-guide.md.</p>
     </>
   );

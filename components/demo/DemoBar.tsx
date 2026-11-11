@@ -1,10 +1,17 @@
 "use client";
 import { useEffect } from "react";
-import { useDemo, type CardOutcome, type Customer, type Theme } from "@/store/demo";
+import { useDemo, type BankTransferAccount, type CardOutcome, type Customer, type MerchantAccepts, type OrderCurrency, type Theme } from "@/store/demo";
 
-/** Prototype controls (styles: .pbar in styles/prototype.css). Dev-only, not part of the product. */
-export function DemoBar() {
-  const { customer, cardOutcome, theme, shareDetails, set } = useDemo();
+const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [
+  { key: "ngnCard", label: "NGN card" }, { key: "ngnBank", label: "NGN bank transfer" }, { key: "conversion", label: "Conversion" },
+];
+
+/**
+ * Prototype controls (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
+ * `checkout` adds the merchant's checkout options (order currency, what it accepts, bank transfer account).
+ */
+export function DemoBar({ checkout = false }: { checkout?: boolean }) {
+  const { customer, cardOutcome, theme, shareDetails, orderCurrency, merchantAccepts, bankTransferAccount, set } = useDemo();
   useEffect(() => {
     if (theme === "centry") document.documentElement.dataset.theme = "centry";
     else delete document.documentElement.dataset.theme;
@@ -27,6 +34,30 @@ export function DemoBar() {
           <option value="share">Shared by merchant</option><option value="none">Not shared</option>
         </select>
       </label>
+      {checkout && (
+        <>
+          <label className="opt-lbl"><span>Order currency</span>
+            <select aria-label="Order currency" value={orderCurrency} onChange={(e) => set({ orderCurrency: e.target.value as OrderCurrency })}>
+              <option value="USD">Order in USD</option><option value="NGN">Order in NGN</option>
+            </select>
+          </label>
+          <span className="pbar-group" role="group" aria-label="Merchant accepts">
+            <span className="pbar-group-lbl">Merchant accepts</span>
+            {ACCEPTS.map(({ key, label }) => (
+              <label key={key} className="pbar-check">
+                <input type="checkbox" checked={merchantAccepts[key]}
+                  onChange={(e) => set({ merchantAccepts: { ...merchantAccepts, [key]: e.target.checked } })} />
+                <span>{label}</span>
+              </label>
+            ))}
+          </span>
+          <label className="opt-lbl"><span>Bank transfer account</span>
+            <select aria-label="Bank transfer account" value={bankTransferAccount} onChange={(e) => set({ bankTransferAccount: e.target.value as BankTransferAccount })}>
+              <option value="dynamic">Dynamic account</option><option value="pool">Merchant pool</option>
+            </select>
+          </label>
+        </>
+      )}
       <label className="opt-lbl"><span>Theme</span>
         <select aria-label="Theme" value={theme} onChange={(e) => set({ theme: e.target.value as Theme })}>
           <option value="poket">Poket</option><option value="centry">CentryOS</option>

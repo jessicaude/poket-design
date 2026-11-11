@@ -101,3 +101,51 @@ test("Amex formats 4-6-5 and asks for a 4-digit CVC", async ({ page }) => {
   await widget.locator("#cExp").fill("012024");
   await expect(widget.getByText("This card has expired. Use a card that’s still valid.")).toBeVisible();
 });
+
+test("demo bar: an NGN order shows in naira on the page and in the widget", async ({ page }) => {
+  await page.goto("/demo/ile-living");
+  await expect(page.locator("#orderTotal")).toHaveText("$23.40");
+  await page.getByLabel("Order currency").selectOption("NGN");
+  await expect(page.locator("#orderTotal")).toHaveText("₦36,270.00 NGN");
+  await expect(page.locator(".summary")).toContainText("₦24,490.00 NGN"); // Adire throw cushion, $15.80
+  await expect(page.locator(".ship")).toContainText("₦9,300.00 NGN"); // Express, $6.00
+
+  await page.getByLabel("Customer", { exact: true }).selectOption("returning");
+  await page.locator("#payWithPoket").click();
+  const widget = page.getByTestId("checkout-widget");
+  await expect(widget.getByRole("heading", { name: "Pay ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator(".line", { hasText: "Order total" })).toHaveText(/₦36,270\.00\s*NGN/);
+  await expect(page.getByTestId("events")).toContainText('"currency":"NGN"');
+  await widget.locator("#payGo").click();
+  await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+});
+
+test("demo bar: the widget reads what the merchant accepts and its bank transfer account", async ({ page }) => {
+  await page.goto("/demo/ile-living");
+  const settings = () => page.evaluate(() => (window as any).__checkout.getState().settings); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const accepts = page.getByRole("group", { name: "Merchant accepts" });
+  for (const l of ["NGN card", "NGN bank transfer", "Conversion"]) await expect(accepts.getByLabel(l)).toBeChecked();
+  await expect(page.getByLabel("Bank transfer account")).toHaveValue("dynamic");
+
+  await accepts.getByLabel("NGN card").uncheck();
+  await accepts.getByLabel("Conversion").uncheck();
+  await page.getByLabel("Bank transfer account").selectOption("pool");
+  await page.locator("#payWithPoket").click();
+  expect(await settings()).toEqual({ accepts: { ngnCard: false, ngnBank: true, conversion: false }, bankTransferAccount: "pool" });
+
+  // Read when the widget opens: changing the bar later applies to the next checkout
+  await page.getByTestId("checkout-widget").getByRole("button", { name: "Close" }).click();
+  await accepts.getByLabel("NGN card").check();
+  await page.getByLabel("Bank transfer account").selectOption("dynamic");
+  await page.locator("#payWithPoket").click();
+  expect(await settings()).toEqual({ accepts: { ngnCard: true, ngnBank: true, conversion: false }, bankTransferAccount: "dynamic" });
+});
+
+test("the $500 ID check uses an NGN order's USD value", async () => {
+  const { orderUsdCents, formatOrder } = await import("@/lib/money");
+  expect(orderUsdCents(50000 * 1550, "NGN")).toBe(50000);
+  expect(orderUsdCents(49999 * 1550, "NGN")).toBe(49999);
+  expect(orderUsdCents(2340, "USD")).toBe(2340);
+  expect(formatOrder(3627000, "NGN")).toBe("₦36,270.00 NGN");
+  expect(formatOrder(2340, "USD")).toBe("$23.40");
+});

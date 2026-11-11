@@ -1,16 +1,18 @@
 "use client";
 import { Raw } from "@/components/ui/Raw";
 import { BANK_MARK, BRANDS, ICON } from "@/lib/icons";
-import { money } from "@/lib/money";
+import { formatOrder } from "@/lib/money";
+import type { OrderCurrency } from "@/store/demo";
 import { useAccount, type PaymentMethod } from "@/store/account";
 import { useCheckout } from "../useCheckout";
 
 /** Card brand mark or bank icon, as in the prototype's methodMark() */
 export const methodMark = (m: PaymentMethod) => (m.kind === "bank" ? BANK_MARK : m.brand ? BRANDS[m.brand].mark : "");
 
-/** "$23.40 USD" with the currency code styled by .cur */
-export function MoneyU({ cents }: { cents: number }) {
-  return <>{money(cents)} <span className="cur">USD</span></>;
+/** "$23.40 USD" or "₦36,270.00 NGN", with the currency code styled by .cur */
+export function MoneyU({ minor, currency }: { minor: number; currency: OrderCurrency }) {
+  const text = formatOrder(minor, currency);
+  return <>{currency === "NGN" ? text.replace(/ NGN$/, "") : text} <span className="cur">{currency}</span></>;
 }
 
 /** SCREENS['pay'] */
@@ -22,7 +24,7 @@ export function PayScreen() {
   const masked = (() => { const [u, d] = account.email.split("@"); return `${u[0]}••••${u[u.length - 1]}@${d}`; })();
   return (
     <>
-      <h2 className="title">Pay {money(order.amount)} to {order.merchant}</h2>
+      <h2 className="title">Pay {formatOrder(order.amount, order.currency)} to {order.merchant}</h2>
       <p className="sub">
         {!onboarding && <>Signed in as {masked} · <button className="link" onClick={() => showToast("Your Poket isn’t ported yet")}>Your Poket</button></>}
       </p>
@@ -37,12 +39,12 @@ export function PayScreen() {
       </div>
       <button type="button" className="add" onClick={() => go("add-method")}><Raw html={ICON.plus} /> Add a payment method</button>
       <div className="sumbox">
-        <div className="line"><span>Order total</span><span><MoneyU cents={order.amount} /></span></div>
+        <div className="line"><span>Order total</span><span><MoneyU minor={order.amount} currency={order.currency} /></span></div>
         <div className="line"><span>Fees</span><span className="txt">Covered by {order.merchant}</span></div>
-        <div className="line"><span>You pay</span><span><MoneyU cents={order.amount} /></span></div>
+        <div className="line"><span>You pay</span><span><MoneyU minor={order.amount} currency={order.currency} /></span></div>
       </div>
-      {sel?.kind === "bank" && <p className="mandate">By paying, you authorize Poket to debit {sel.name} for {money(order.amount)} USD.</p>}
-      <button className="btn" id="payGo" disabled={!selected} onClick={pay}>Pay {money(order.amount)}</button>
+      {sel?.kind === "bank" && <p className="mandate">By paying, you authorize Poket to debit {sel.name} for {formatOrder(order.amount, order.currency)}{order.currency === "USD" ? " USD" : ""}.</p>}
+      <button className="btn" id="payGo" disabled={!selected} onClick={pay}>Pay {formatOrder(order.amount, order.currency)}</button>
     </>
   );
 }

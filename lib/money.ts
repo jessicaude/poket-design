@@ -23,3 +23,12 @@ export function formatMinor(minor: number, symbol: string, code: string): string
   const sub = String(abs % 100).padStart(2, "0");
   return `${minor < 0 ? "-" : ""}${symbol}${units}.${sub} ${code}`;
 }
+
+/** Demo rate for showing a USD-priced order in naira (the reference's FX: 1 USD = 1,550 NGN). */
+export const DEMO_NGN_PER_USD = 1550;
+
+/** An order amount in its own currency: "$23.40", or "₦36,270.00 NGN" (formatNaira keeps the code, as the naira rules ask). */
+export const formatOrder = (minor: number, currency: "USD" | "NGN") => (currency === "NGN" ? formatNaira(minor) : money(minor));
+
+/** The order amount's USD value in cents, for USD rules such as the $500 ID check. */
+export const orderUsdCents = (minor: number, currency: "USD" | "NGN") => (currency === "NGN" ? Math.round(minor / DEMO_NGN_PER_USD) : minor);
