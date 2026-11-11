@@ -2,14 +2,26 @@ import { create } from "zustand";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, createPayment } from "@/lib/mock-api";
+import { DIRECTORY, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, simulatePoolTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 
 /**
  * Checkout flow controller. Each `screen` has one component in ./screens.
  * Ported from SCREENS[...] in reference/poket-widgets.html.
  */
-export type Screen = "signup" | "pay" | "add-method" | "add-card" | "id-needed" | "processing" | "declined" | "done";
+export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "id-needed" | "processing" | "declined" | "done";
+
+/**
+ * Bank transfer: getting the account, waiting for the transfer, the transfer arriving, then (one-time account) expired,
+ * or (merchant pool, matched by CentryOS) underpaid or overpaid. A matched exact amount goes to the done screen.
+ */
+export type TransferState = "creating" | "waiting" | "arriving" | "expired" | "underpaid" | "overpaid";
+/** Demo: how much of the order's amount the transfer carries. */
+export type TransferAmount = "exact" | "less" | "more";
+
+/** Demo amounts for "Less arrives" / "More arrives": 10% under or over, in whole naira. */
+export const demoTransferAmount = (amount: number, a: TransferAmount) =>
+  a === "exact" ? amount : amount + (a === "less" ? -1 : 1) * Math.round(amount / 10 / 100) * 100;
 
 /** Every Checkout payment under $500 skips the ID check (agreed rule). */
 export const NO_ID_LIMIT: Cents = 50000;
@@ -30,6 +42,7 @@ type State = {
   screen: Screen;
   onboarding: boolean;        // true while a new user signs up: shows the stepper
   selected: string | null;    // selected payment method id
+  transfer: { state: TransferState; va: CheckoutVirtualAccount | null; received?: number };
   cardCurrency: OrderCurrency; // the card being added: an NGN card, or a USD card (paid in USD, converted for an NGN order)
   failed: PaymentMethod | null;
   paid: { ref: string; method: PaymentMethod } | null;
@@ -39,6 +52,9 @@ type State = {
   close: (reason?: string) => void;
   go: (s: Screen) => void;
   addCard: (currency: OrderCurrency) => void;
+  startTransfer: () => Promise<void>;
+  transferArrives: (amount?: TransferAmount) => Promise<void>;
+  expireTransfer: () => void;
   showToast: (msg: string) => void;
   signedUp: (a: Account) => void;
   loggedIn: (a: Account) => void;
@@ -50,7 +66,7 @@ type State = {
 const nextAfterSignIn = (a: Account, o: Order): Screen => (orderUsdCents(o.amount, o.currency) >= NO_ID_LIMIT && a.tier < 1 ? "id-needed" : a.methods.length ? "pay" : "add-method");
 
 export const useCheckout = create<State>((set, get) => ({
-  open: false, order: null, settings: null, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, toast: null,
+  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, toast: null,
 
   start: (order) => {
     const { customer, shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
@@ -71,6 +87,47 @@ export const useCheckout = create<State>((set, get) => ({
   },
   go: (screen) => set({ screen }),
   addCard: (cardCurrency) => set({ cardCurrency, screen: "add-card" }),
+
+  // Bank transfer: "Dynamic" creates a one-time virtual account ("Get a new account" calls this again); "Merchant pool"
+  // shows the merchant's pool account. Both for the exact naira amount.
+  startTransfer: async () => {
+    const { order, settings } = get();
+    if (!order) return;
+    set({ screen: "bank-transfer", transfer: { state: "creating", va: null } });
+    const p = { amount: order.amount, merchant: order.merchant, orderRef: order.orderRef };
+    const va = settings?.bankTransferAccount === "pool" ? await getMerchantPoolAccount(p) : await createCheckoutVirtualAccount(p);
+    if (get().screen === "bank-transfer") set({ transfer: { state: "waiting", va } });
+  },
+  transferArrives: async (amount = "exact") => {
+    const { order, transfer } = get();
+    const va = transfer.va;
+    if (!order || !va || transfer.state !== "waiting") return;
+    set({ transfer: { ...transfer, state: "arriving" } });
+    let id: string;
+    if (va.kind === "pool") {
+      const match = await simulatePoolTransfer(va.id, demoTransferAmount(order.amount, amount));
+      if (match.status !== "paid") {
+        // Short or over: the merchant hears about it; what happens next is [handling]
+        useEvents.getState().emit("payment.amount_mismatch", { widget: "checkout", order_reference: order.orderRef, currency: order.currency,
+          expected_amount: order.amount, received_amount: match.received });
+        set({ transfer: { ...transfer, state: match.status, received: match.received } });
+        return;
+      }
+      id = match.id;
+    } else {
+      try { ({ id } = await simulateCheckoutTransfer(va.id)); } catch { set({ transfer: { ...transfer, state: "expired" } }); return; }
+    }
+    const m: PaymentMethod = { id: va.id, kind: "bank", last4: va.num.slice(-4), name: "Bank transfer", sub: `Account •••• ${va.num.slice(-4)}`, oneTime: true };
+    useAccount.getState().update((a) => ({ ...a,
+      payments: [{ id, merchant: order.merchant, amount: order.amount, currency: order.currency, method: m.name, at: new Date().toISOString(), status: "paid" }, ...a.payments] }));
+    useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: "bank_transfer", identity_verified: (useAccount.getState().account?.tier ?? 0) >= 1 });
+    set({ paid: { ref: id, method: m }, screen: "done", transfer: { state: "creating", va: null } });
+  },
+  expireTransfer: () => {
+    const { transfer } = get();
+    if (transfer.va) expireCheckoutVirtualAccount(transfer.va.id);
+    set({ transfer: { ...transfer, state: "expired" } });
+  },
   showToast: (msg) => { set({ toast: msg }); setTimeout(() => set({ toast: null }), 2400); },
 
   signedUp: (a) => {

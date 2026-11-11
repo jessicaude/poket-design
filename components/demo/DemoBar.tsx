@@ -1,5 +1,6 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useCheckout } from "@/features/checkout/useCheckout";
 import { useDemo, type BankTransferAccount, type CardOutcome, type Customer, type MerchantAccepts, type OrderCurrency, type Theme } from "@/store/demo";
 
 const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [
@@ -12,12 +13,23 @@ const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [
  */
 export function DemoBar({ checkout = false }: { checkout?: boolean }) {
   const { customer, cardOutcome, theme, shareDetails, orderCurrency, merchantAccepts, bankTransferAccount, set } = useDemo();
+  const { open, screen, transfer, transferArrives, expireTransfer } = useCheckout();
+  const onTransfer = checkout && open && screen === "bank-transfer" && (transfer.state === "waiting" || transfer.state === "arriving");
+  // The bar wraps onto more rows when it doesn't fit: keep --bar (page offset, scrim, widget height) equal to its height
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--bar", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty("--bar"); };
+  }, []);
   useEffect(() => {
     if (theme === "centry") document.documentElement.dataset.theme = "centry";
     else delete document.documentElement.dataset.theme;
   }, [theme]);
   return (
-    <div className="pbar" role="region" aria-label="Prototype controls">
+    <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
       <span className="name">Poket design</span>
       <label className="opt-lbl"><span>Customer</span>
         <select aria-label="Customer" value={customer} onChange={(e) => set({ customer: e.target.value as Customer })}>
@@ -56,6 +68,19 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
               <option value="dynamic">Dynamic account</option><option value="pool">Merchant pool</option>
             </select>
           </label>
+        </>
+      )}
+      {onTransfer && transfer.va?.kind === "dynamic" && (
+        <>
+          <button className="pbtn" id="demoTransferArrives" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("exact")}>Transfer arrives</button>
+          <button className="pbtn" id="demoTransferExpire" disabled={transfer.state !== "waiting"} onClick={expireTransfer}>Let it expire</button>
+        </>
+      )}
+      {onTransfer && transfer.va?.kind === "pool" && (
+        <>
+          <button className="pbtn" id="demoPoolExact" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("exact")}>Exact amount arrives</button>
+          <button className="pbtn" id="demoPoolLess" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("less")}>Less arrives</button>
+          <button className="pbtn" id="demoPoolMore" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("more")}>More arrives</button>
         </>
       )}
       <label className="opt-lbl"><span>Theme</span>

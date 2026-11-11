@@ -17,7 +17,7 @@ const USD_RAILS: Rail[] = [
 
 /** SCREENS['add-method']: choose how to pay. Card is ported; the others are next. */
 export function AddMethodScreen() {
-  const { order, settings, go, addCard, showToast } = useCheckout();
+  const { order, settings, go, addCard, startTransfer, showToast } = useCheckout();
   const account = useAccount((s) => s.account);
   if (!account || !order) return null;
 
@@ -32,7 +32,10 @@ export function AddMethodScreen() {
     ];
   }
   const choose = (r: Rail) =>
-    r.id === "card" ? addCard("USD") : r.id === "ngn-card" ? addCard("NGN") : showToast(`${r.title} isn’t ported yet`);
+    r.id === "card" ? addCard("USD")
+    : r.id === "ngn-card" ? addCard("NGN")
+    : r.id === "ngn-bank" ? startTransfer() // a one-time account or the merchant's pool (Bank transfer account)
+    : showToast(`${r.title} isn’t ported yet`);
 
   return (
     <>

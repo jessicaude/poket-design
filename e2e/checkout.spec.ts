@@ -178,10 +178,6 @@ test("NGN order: the naira rails first, then the merchant's other rails marked a
   ]);
   await expect(widget.locator(".method[data-converted] .chip")).toHaveCount(5);
 
-  // Bank transfer has no screen yet
-  await widget.locator('[data-addpm="ngn-bank"]').click();
-  await expect(page.locator(".toast")).toHaveText("Bank transfer isn’t ported yet");
-
   // The NGN card: same form and validation, Verve supported
   await widget.locator('[data-addpm="ngn-card"]').click();
   await expect(widget.getByRole("heading", { name: "Add a card" })).toBeVisible();
@@ -242,4 +238,158 @@ test("NGN order: a dollar card (paid in USD, converted) keeps the ZIP code", asy
   await widget.locator("#cGo").click();
   const methods = await page.evaluate(() => (window as any).__account.getState().account.methods); // eslint-disable-line @typescript-eslint/no-explicit-any
   expect(methods.map((m: { currency?: string }) => m.currency)).toEqual([undefined]);
+});
+
+test("bank transfer (Dynamic): a one-time account for the exact amount; the transfer arriving pays the order", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const widget = await ngnAddMethod(page);
+  await expect(page.locator("#demoTransferArrives")).toHaveCount(0); // only on the transfer screen
+  await widget.locator('[data-addpm="ngn-bank"]').click();
+  await expect(widget.locator("#transferDetails")).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "Pay ₦36,270.00 NGN by bank transfer" })).toBeVisible();
+
+  const fields = await widget.locator(".va-field").allInnerTexts();
+  expect(fields.map((t) => t.replace(/\s+/g, " ").trim())).toEqual([
+    expect.stringMatching(/^Amount to send exactly ₦36,270\.00 NGN Copy$/),
+    expect.stringMatching(/^Account number \d{10} Copy$/),
+    "Bank [Partner bank]",
+    "Account name Ilé Living via Poket Copy",
+  ]);
+  await expect(widget.locator("#transferCount")).toHaveText(/^(30:00|29:5\d)$/);
+  await expect(widget.locator(".sub")).toContainText("[time]");
+  await expect(widget.locator("#transferWaiting")).toHaveText("We’ll confirm as soon as it arrives");
+
+  const num = (await widget.locator(".va-field").nth(1).locator(".va-v").innerText()).trim();
+  await widget.locator('[data-transfercopy="1"]').click();
+  await expect(widget.locator('[data-transfercopy="1"]')).toHaveText("Copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(num);
+  await widget.locator('[data-transfercopy="3"]').click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Ilé Living via Poket");
+
+  await page.locator("#demoTransferArrives").click();
+  await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator(".sumbox")).toContainText("Bank transfer");
+  await expect(page.getByTestId("events")).toContainText('"method":"bank_transfer"');
+  await expect(page.locator("#demoTransferArrives")).toHaveCount(0);
+});
+
+test("bank transfer (Dynamic): an expired account offers a new one", async ({ page }) => {
+  const widget = await ngnAddMethod(page);
+  await widget.locator('[data-addpm="ngn-bank"]').click();
+  await expect(widget.locator("#transferDetails")).toBeVisible();
+  const first = (await widget.locator(".va-field").nth(1).locator(".va-v").innerText()).trim();
+
+  await page.locator("#demoTransferExpire").click();
+  await expect(widget.getByRole("heading", { name: "This account expired" })).toBeVisible();
+  await expect(page.locator("#demoTransferArrives")).toHaveCount(0);
+
+  await widget.locator("#transferAgain").click();
+  await expect(widget.locator("#transferDetails")).toBeVisible();
+  const second = (await widget.locator(".va-field").nth(1).locator(".va-v").innerText()).trim();
+  expect(second).not.toBe(first);
+  await expect(widget.locator("#transferCount")).toHaveText(/^(30:00|29:5\d)$/);
+});
+
+test("bank transfer (Dynamic): the countdown running out expires the account", async ({ page }) => {
+  await page.clock.install();
+  const widget = await ngnAddMethod(page);
+  await widget.locator('[data-addpm="ngn-bank"]').click();
+  await page.clock.runFor(1500); // the account is created
+  await expect(widget.locator("#transferCount")).toHaveText(/^(30:00|29:5\d)$/);
+  await page.clock.runFor(30 * 60 * 1000);
+  await expect(widget.getByRole("heading", { name: "This account expired" })).toBeVisible();
+});
+
+/** NGN order, Merchant pool, on the bank transfer screen. */
+async function poolTransfer(page: import("@playwright/test").Page) {
+  const widget = await ngnAddMethod(page, () => page.getByLabel("Bank transfer account").selectOption("pool").then(() => {}));
+  await widget.locator('[data-addpm="ngn-bank"]').click();
+  await expect(widget.locator("#transferDetails")).toBeVisible();
+  return widget;
+}
+const fieldTexts = (widget: import("@playwright/test").Locator) =>
+  widget.locator(".va-field").allInnerTexts().then((a) => a.map((t) => t.replace(/\s+/g, " ").trim()));
+
+test("bank transfer (Merchant pool): the merchant's account and the exact amount, no countdown; the exact amount pays", async ({ page }) => {
+  const widget = await poolTransfer(page);
+  expect(await fieldTexts(widget)).toEqual([
+    "Amount to send exactly ₦36,270.00 NGN Copy",
+    "Account number 2045118830 Copy",
+    "Bank [Partner bank]",
+    "Account name Ilé Living via Poket Copy",
+  ]);
+  await expect(widget.locator(".sub")).toHaveText("From any Nigerian bank app.");
+  await expect(widget.locator("#transferCount")).toHaveCount(0);
+  await expect(widget.locator("#transferWaiting")).toHaveText("We’ll confirm as soon as it arrives");
+  // The one-time account's actions don't apply to the pool
+  await expect(page.locator("#demoTransferExpire")).toHaveCount(0);
+  await expect(page.locator("#demoTransferArrives")).toHaveCount(0);
+
+  await page.locator("#demoPoolExact").click();
+  await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 NGN to Ilé Living" })).toBeVisible();
+  await expect(widget.locator(".sumbox")).toContainText("Bank transfer");
+  await expect(page.getByTestId("events")).toContainText('"method":"bank_transfer"');
+});
+
+test("bank transfer (Merchant pool): less than the order shows what arrived and [handling]", async ({ page }) => {
+  const widget = await poolTransfer(page);
+  await page.locator("#demoPoolLess").click();
+  await expect(widget.locator("#transferResult")).toHaveText("We received ₦32,643.00 NGN. [handling]");
+  await expect(widget.locator("#transferWaiting")).toHaveCount(0);
+  await expect(page.locator("#demoPoolExact")).toHaveCount(0); // matched: no more transfers to simulate
+  await expect(page.getByTestId("events")).not.toContainText("payment.succeeded");
+  // The merchant hears about it: expected and received amounts, and the order reference
+  const mismatch = page.getByTestId("events").locator("li", { hasText: "payment.amount_mismatch" });
+  await expect(mismatch).toContainText('"order_reference":"ILV-10482"');
+  await expect(mismatch).toContainText('"expected_amount":3627000');
+  await expect(mismatch).toContainText('"received_amount":3264300');
+  // Close under the note
+  await widget.locator("#transferClose").click();
+  await expect(widget).toHaveCount(0);
+  await expect(page.getByTestId("events")).toContainText('"reason":"amount_mismatch"');
+});
+
+test("bank transfer (Merchant pool): more than the order shows what arrived and [handling]", async ({ page }) => {
+  const widget = await poolTransfer(page);
+  await page.locator("#demoPoolMore").click();
+  await expect(widget.locator("#transferResult")).toHaveText("We received ₦39,897.00 NGN. [handling]");
+  await expect(page.getByTestId("events")).not.toContainText("payment.succeeded");
+  await expect(page.getByTestId("events")).toContainText('"expected_amount":3627000,"received_amount":3989700');
+  await expect(widget.locator("#transferClose")).toHaveText("Close");
+});
+
+test("demo bar: wraps onto a second row instead of cutting labels off; the page sits below it", async ({ page }) => {
+  const measure = () => page.evaluate(() => {
+    const bar = document.querySelector<HTMLElement>(".pbar")!;
+    const cut = [...bar.querySelectorAll("select")].filter((s) => s.scrollWidth > s.clientWidth + 1).map((s) => s.getAttribute("aria-label"));
+    return { h: bar.offsetHeight, v: getComputedStyle(document.documentElement).getPropertyValue("--bar").trim(), overflow: bar.scrollWidth > bar.clientWidth, cut,
+      caption: getComputedStyle(bar.querySelector(".pbar-group-lbl")!).display !== "none" };
+  });
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/demo/ile-living");
+  await expect.poll(measure).toEqual({ h: 44, v: "44px", overflow: false, cut: [], caption: true }); // one row
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const widget = await poolTransfer(page);
+  const m = await measure();
+  expect(m.h).toBeGreaterThan(44); // a second row
+  expect(m).toMatchObject({ v: `${m.h}px`, overflow: false, cut: [], caption: true });
+  expect(await page.locator(".scrim").evaluate((e) => e.getBoundingClientRect().top)).toBe(m.h);
+  await expect(widget).toBeInViewport();
+});
+
+test("mock: CentryOS matches a pool transfer to the order by amount", async () => {
+  const { getMerchantPoolAccount, simulatePoolTransfer } = await import("@/lib/mock-api");
+  const { demoTransferAmount } = await import("@/features/checkout/useCheckout");
+  const p = { amount: 3627000, merchant: "Ilé Living", orderRef: "ILV-10482" };
+  expect(demoTransferAmount(3627000, "less")).toBe(3264300);
+  expect(demoTransferAmount(3627000, "more")).toBe(3989700);
+  let va = await getMerchantPoolAccount(p);
+  expect(va).toMatchObject({ kind: "pool", num: "2045118830", expiresAt: null, accountName: "Ilé Living via Poket" });
+  expect(await simulatePoolTransfer(va.id, 3627000)).toMatchObject({ status: "paid", received: 3627000 });
+  await expect(simulatePoolTransfer(va.id, 3627000)).rejects.toThrow("no_pool_account"); // matched once
+  va = await getMerchantPoolAccount(p);
+  expect(await simulatePoolTransfer(va.id, 3264300)).toMatchObject({ status: "underpaid", received: 3264300 });
+  va = await getMerchantPoolAccount(p);
+  expect(await simulatePoolTransfer(va.id, 3989700)).toMatchObject({ status: "overpaid", received: 3989700 });
 });

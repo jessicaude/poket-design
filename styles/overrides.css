@@ -12,3 +12,24 @@
 .pbar .pbar-check{gap:4px;cursor:pointer}
 .pbar .pbar-check span{color:#fff}
 .pbar .pbar-check input{margin:0;accent-color:var(--brand)}
+
+/* Checkout bank transfer: the wallet's NUBAN card (styles/wallet.css .va-details, .va-field, .va-copy), on the checkout's tokens */
+.wg .va-details{border:1px solid var(--bdr);border-radius:12px;overflow:hidden;margin:6px 0 14px}
+.wg .va-field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--bdr2)}
+.wg .va-field:last-child{border-bottom:0}
+.wg .va-k{font-size:11.5px;color:var(--txt3)}
+.wg .va-v{font-size:14px;color:var(--txt);margin-top:2px;word-break:break-all}
+.wg .va-copy{border:1px solid var(--bdr);background:#fff;color:var(--brand-600);font:inherit;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:999px;cursor:pointer;flex:none;min-width:58px}
+.wg .va-copy:hover{border-color:var(--brand)}
+.wg .va-wait{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12.5px;color:var(--txt2);margin:4px 0 0}
+.wg .va-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);animation:va-pulse 1.4s ease-in-out infinite}
+@keyframes va-pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.wg .badge.va-expired{background:var(--n-100);color:var(--txt2)}
+.wg .badge.va-expired svg{width:22px;height:22px}
+.wg .va-result{font-size:13px;padding:10px 12px;border-radius:10px;margin:4px 0 0;background:var(--warn-50);color:var(--warn)}
+.pbar .pbtn{white-space:nowrap}
+
+/* Checkout demo bar (DemoBar, .pbar.wrap): wraps onto more rows instead of cutting labels off. DemoBar sets --bar to its
+   real height, so the page, the scrim and the widget sit below it. */
+.pbar.wrap{height:auto;min-height:44px;flex-wrap:wrap;row-gap:6px;padding-top:8px;padding-bottom:8px}
+.pbar.wrap select{max-width:none}

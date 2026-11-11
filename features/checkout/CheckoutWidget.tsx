@@ -7,6 +7,7 @@ import { SignupScreen } from "./screens/SignupScreen";
 import { PayScreen } from "./screens/PayScreen";
 import { AddMethodScreen } from "./screens/AddMethodScreen";
 import { AddCardScreen } from "./screens/AddCardScreen";
+import { BankTransferScreen } from "./screens/BankTransferScreen";
 import { DeclinedScreen, DoneScreen, IdNeededScreen, ProcessingScreen } from "./screens/StatusScreens";
 
 /** One component per screen; `step` is the stepper position (null hides the stepper), as in the prototype. */
@@ -16,6 +17,7 @@ const SCREENS: Record<Screen, { C: ComponentType; step: number | null }> = {
   pay: { C: PayScreen, step: 1 },
   "add-method": { C: AddMethodScreen, step: 1 },
   "add-card": { C: AddCardScreen, step: 1 },
+  "bank-transfer": { C: BankTransferScreen, step: 1 },
   processing: { C: ProcessingScreen, step: 1 },
   declined: { C: DeclinedScreen, step: 1 },
   done: { C: DoneScreen, step: null },
