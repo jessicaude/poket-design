@@ -1,5 +1,5 @@
 import { WICON } from "@/lib/icons";
-import { formatMinor, formatNaira } from "@/lib/money";
+import { DEMO_NGN_PER_USD, formatMinor, formatNaira } from "@/lib/money";
 import type { PayoutCurrency, PayoutRecipient } from "@/lib/mock-api";
 
 /**
@@ -26,7 +26,7 @@ export const fmtCurrency = (minor: number, cur: PayoutCurrency) => (cur === "NGN
  * $12.90) is only a demo value so the step can be reached from the demo balances.
  */
 export const STEP_UP_PLACEHOLDER = "\u20a6[step-up]";
-export const STEP_UP_DEMO_USD_CENTS = 2000000 / 1550;
+export const STEP_UP_DEMO_USD_CENTS = 2000000 / DEMO_NGN_PER_USD;
 export const needsStepUp = (usdCents: number) => usdCents > STEP_UP_DEMO_USD_CENTS;
 
 /** How long a first NGN payment to a new account is held before it sends: not decided, so a placeholder (ngn.mdc). */

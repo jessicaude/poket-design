@@ -1,4 +1,5 @@
 import { WICON } from "@/lib/icons";
+import { DEMO_NGN_PER_USD } from "@/lib/money";
 import { fmtCurrency } from "../payout/payoutMath";
 import { useNgn } from "../ngn/useNgn";
 import {
@@ -32,7 +33,7 @@ export const CV_FEES: Record<CvType, { pct: number; flat?: number; label: string
 };
 
 /** The reference's fxToUSD (USD per unit) and currencyInfo icons. */
-const FX_TO_USD: Record<CashCurrency, number> = { USD: 1, NGN: 1 / 1550, EUR: 1.08, GBP: 1.27, GHS: 1 / 15.5 };
+const FX_TO_USD: Record<CashCurrency, number> = { USD: 1, NGN: 1 / DEMO_NGN_PER_USD, EUR: 1.08, GBP: 1.27, GHS: 1 / 15.5 };
 const CURRENCY: Record<CashCurrency, { name: string; icon: keyof typeof WICON }> = {
   USD: { name: "US Dollar", icon: "usFlag" },
   NGN: { name: "Nigerian Naira", icon: "ngFlag" },

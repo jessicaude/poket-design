@@ -150,3 +150,5 @@ export const EXPLORE_NETWORK_LOGO = {
 };
 /** The asset filter icon on the wallet home (tWalletHome #assetSettingsGear), verbatim. */
 export const FILTER_ICON = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"M4 6h16M7 12h10M10 18h4\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>";
+/** icons.idcard from the reference's wallet engine (reference/poket-widgets.html), verbatim: the manual-review badge. */
+export const IDCARD_ICON = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2.5\" stroke=\"currentColor\" stroke-width=\"1.6\"/><circle cx=\"8\" cy=\"12\" r=\"2\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M13 10h6M13 14h4\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\"/></svg>";

@@ -1,5 +1,5 @@
 ---
-description: NGN (naira) wallet rules. Apply to every NGN screen and change.
+description: NGN (naira) rules for the wallet and Checkout. Apply to every NGN screen and change.
 alwaysApply: true
 ---
 
@@ -7,16 +7,20 @@ alwaysApply: true
 - Source for NGN screens: reference/poket-unified.html. Search for tVaNgn, tDepositMethod,
   ngnTempCreate, ngnIdCheck and VA_SPEC.NGN. Match its copy, states and behaviour exactly.
 - Naira format: ₦ symbol, two decimals, thousands separators, followed by the grey code,
-  e.g. "₦25,000.00 NGN". Amounts are integer kobo (cents), never floats.
+  e.g. "₦25,000.00 NGN". Amounts are integer kobo (cents), never floats. (Checkout's running text drops the code: see
+  Checkout below.)
+- One demo rate everywhere: ₦1,550 per $1 (DEMO_NGN_PER_USD in lib/money.ts), never the checkout prototype's 1/1540.
 - Partner-neutral: never name a bank. Use the placeholder "[Partner bank]".
 - Values not decided yet stay as visible placeholders: ₦[limit], ₦[minimum], [time], [handling], [hold], ₦[fee].
-- NGN is funded only by bank transfer or conversion, never by card.
+- Wallet only: NGN is funded only by bank transfer or conversion, never by card. (Paying a merchant with a naira card
+  at Checkout isn't funding a balance.)
 - Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a temporary account
   created per top-up, valid 30 minutes [time], for one exact amount.
 - Tier 1 and above: a dedicated NGN account needs BVN, NIN, NRBVN (or passport and residence
   permit, partner permitting), matched to the verified name and date of birth.
 - Failed ID matches share Veriff's limit of 3 attempts. After 3, the account is locked for this step.
-- Credits from someone other than the account holder are held for review.
+- Wallet only: credits from someone other than the account holder are held for review. (Checkout bank transfers don't
+  check who sent them.)
 - Keep the wallet's existing visual language. No new colours; use the wallet's tokens.
 
 ## Where NGN screens live
@@ -178,3 +182,52 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
     "View transaction". The receipt is the reference's transaction detail (features/wallet/withdrawals/TxDetail.tsx):
     label icons, monospace right-aligned values, green bold "Completed", the date's " - " part in italics, and the
     Reference chip that copies. Stablecoin amounts there add " on {network}".
+
+## Checkout (WGT-06: pay at checkout with NGN rails)
+- Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
+  methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:
+  /demo/ile-living. Checkout uses the prototype's classes (styles/prototype.css); the account card's va-* classes are
+  copied into styles/overrides.css on the checkout's own colour tokens.
+- Demo bar (components/demo/DemoBar.tsx, `checkout`): Order currency USD / NGN (the page's USD prices × ₦1,550), Merchant
+  accepts (NGN card, NGN bank transfer, Conversion) and Bank transfer account (Dynamic / Merchant pool). The widget reads
+  the merchant settings once, when it opens (useCheckout.settings). In the product CentryOS chooses Dynamic or pool;
+  the demo bar stands in for that choice.
+- Naira format at Checkout: titles, buttons, notes and the merchant page show naira without the code ("Pay ₦36,270.00
+  to Ilé Living": formatOrder / formatNairaShort). Amount rows and cards keep the grey code (MoneyU: `.cur`).
+- Rails offered (add-method) on an NGN order: only the naira rails the merchant accepts, first: "Card" (Nigerian debit
+  or credit card) and "Bank transfer" (Pay into an account we show you). With Conversion on, the merchant's other rails
+  follow (Card, Pay by Bank, Apple Pay, Google Pay, Cash App Pay), each marked with the chip "Paid in USD, converted".
+  None accepted: "{merchant} can’t take payment for this order right now." A USD order keeps the usual list.
+- Naira card: the same card form and validation (Verve supported), but number, expiry and CVC only, no ZIP. The saved
+  method has currency "NGN". Dollar cards keep ZIP.
+- Bank transfer shows an account card (Amount to send exactly, Account number, [Partner bank], Account name
+  "{merchant} via Poket", Copy buttons) and "We’ll confirm as soon as it arrives". CentryOS matches each transfer to the
+  order automatically (simulateCheckoutTransfer in lib/mock-api.ts). States: creating ("Getting your account"),
+  waiting, arriving, paid (the done screen), underpaid / overpaid ("We received ₦X. [handling]" with Close), and, for
+  the one-time account only, expired.
+  - One-time ("Dynamic", createCheckoutVirtualAccount): one exact amount, a countdown from 30:00 [time]
+    (NGN_TEMP_MINUTES), and the note "Use it once. A transfer for a different amount, or after it expires, is
+    [handling]." Expired: "This account expired", "Don’t send to the old account number.", "Get a new account" (a new
+    number and countdown). Demo actions: Transfer arrives, Less arrives, More arrives, Let it expire.
+  - Merchant pool (getMerchantPoolAccount): the merchant's account, same card, no countdown and no "use it once" note.
+    Demo actions: Exact amount arrives, Less arrives, More arrives.
+  - Less / more in the demo is 10% under or over, in whole naira (demoTransferAmount).
+- Paying in USD, converted (Conversion on, a dollar method on an NGN order): the pay screen shows the quote card before
+  Pay: the rate ("1 USD ≈ 1,550.00 NGN") with the countdown ring, "Fee Covered by {merchant}" (the merchant covers
+  conversion fees at Checkout), "You pay $X USD for ₦Y NGN", and "Rate held for 0:30". At 0 it reads "Rate expired.
+  Refresh to get a new rate." and "Refresh rate" replaces Pay (a new quote moves up to ±0.2%); an expired rate can't
+  pay. The dollars are rounded up to the cent. The summary's You pay, the button ("Pay $X"), a US bank's debit line
+  ("…debit Chase checking ••• 6789 for $23.40 USD."), the processing screen and done ("You paid $X USD", Rate, Total
+  ₦Y NGN) all use the quoted dollars.
+- The wallet's naira conversion caps and checks (₦[limit], ₦[minimum], evaluateLimit) don't apply at Checkout.
+- Conversion off on an NGN order: dollar methods on the pay screen are disabled (`.method.off`, aria-disabled) with
+  "{merchant} only accepts naira for this order." and can't be selected; the first method that can pay is selected.
+- Events to the merchant: payment.succeeded adds `rail` ("ngn_card", "ngn_bank_transfer"; dollar methods have none),
+  `account_type` ("dynamic" or "pool", bank transfers) and, converted, `charged_amount`, `charged_currency`, `fx_rate`
+  (naira per dollar). `amount` and `currency` stay the naira order. A short or over transfer sends
+  payment.amount_mismatch with `order_reference`, `expected_amount`, `received_amount`, `rail` and `account_type`; its
+  Close sends widget.closed with reason "amount_mismatch".
+- Tier 0 rule: any payment under $500 needs no ID check, using the USD value of the naira total (orderUsdCents, rounded
+  down); $500 or more verifies identity first (details, vendor, verifying, id-done; see docs/flows/checkout.md), then
+  pays on the naira rails as usual.
+- Tests: e2e/ngn-checkout.spec.ts.

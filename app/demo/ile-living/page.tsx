@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DemoBar } from "@/components/demo/DemoBar";
 import { EventsPanel } from "@/components/demo/EventsPanel";
 import { Raw } from "@/components/ui/Raw";
@@ -7,6 +7,8 @@ import { POKET_MARK } from "@/lib/icons";
 import { CheckoutWidget } from "@/features/checkout/CheckoutWidget";
 import { useCheckout } from "@/features/checkout/useCheckout";
 import { useDemo } from "@/store/demo";
+import { useAccount } from "@/store/account";
+import { DEMO_NGN_PER_USD, formatOrder } from "@/lib/money";
 
 /** Ilé Living: the merchant's checkout page (the host). Markup from renderHost() in reference/poket-widgets.html. */
 const HOST = { name: "Ilé Living", orderRef: "ILV-10482" };
@@ -15,17 +17,26 @@ const ITEMS = [
   { name: "Adire throw cushion", detail: "Indigo · Qty 2", amount: 1580, swatch: "#2a3557" },
   { name: "Raffia table runner", detail: "Natural · Qty 1", amount: 640, swatch: "#c9b48a" },
 ];
-const fmt = (c: number) => "$" + (c / 100).toFixed(2);
+/** Prices are set in USD cents; an NGN order shows them in naira at the demo rate (demo bar: Order currency). */
+const toOrder = (usdCents: number, cur: "USD" | "NGN") => (cur === "NGN" ? usdCents * DEMO_NGN_PER_USD : usdCents);
+/** The prototype's "Order over $500" (pOrder 'large') adds this rug. */
+const LARGE_ITEM = { name: "Handwoven aso-oke rug", detail: "Ochre · Qty 1", amount: 59800, swatch: "#b9773a" };
 
 export default function IleLivingPage() {
   const { start, showToast } = useCheckout();
   const shareDetails = useDemo((s) => s.shareDetails);
+  const currency = useDemo((s) => s.orderCurrency);
+  const orderSize = useDemo((s) => s.orderSize);
+  const items = orderSize === "large" ? [...ITEMS, LARGE_ITEM] : ITEMS;
+  const fmt = (usdCents: number) => formatOrder(toOrder(usdCents, currency), currency);
   const [ship, setShip] = useState<"standard" | "express">("standard");
-  const total = ITEMS.reduce((s, i) => s + i.amount, 0) + SHIPPING[ship];
+  const total = items.reduce((s, i) => s + i.amount, 0) + SHIPPING[ship];
+  // Demo/test hooks: e2e tests read the widget's state and set the demo bar through these.
+  useEffect(() => { Object.assign(window, { __checkout: useCheckout, __demo: useDemo, __account: useAccount }); }, []);
 
   return (
     <>
-      <DemoBar />
+      <DemoBar checkout />
       <main className="host">
         <div className="store-head">
           <span className="store-logo">Ilé <b>Living</b></span>
@@ -73,7 +84,7 @@ export default function IleLivingPage() {
           <div className="panel pay-area"><h3>Payment</h3>
             <p>Pay with your saved cards and banks. New to Poket? You can set it up in a minute.</p>
             <button className="poket-btn" type="button" id="payWithPoket"
-              onClick={() => start({ merchant: HOST.name, orderRef: HOST.orderRef, amount: total,
+              onClick={() => start({ merchant: HOST.name, orderRef: HOST.orderRef, amount: toOrder(total, currency), currency,
                 customer: shareDetails ? { email: "kemi.adeyemi@gmail.com", first: "Kemi", last: "Adeyemi" } : undefined })}>
               <Raw html={POKET_MARK} /><span>Pay with Poket</span>
             </button>
@@ -81,11 +92,11 @@ export default function IleLivingPage() {
           </div>
         </section>
         <aside className="panel summary"><h3>Order summary</h3>
-          {ITEMS.map((i) => (
+          {items.map((i) => (
             <div key={i.name} className="item"><span className="sw" style={{ background: i.swatch }} /><span className="meta">{i.name}<small>{i.detail}</small></span><span className="amt">{fmt(i.amount)}</span></div>
           ))}
           <div className="line"><span>Shipping · {ship === "standard" ? "Standard" : "Express"}</span><span>{fmt(SHIPPING[ship])}</span></div>
-          <div className="line total"><span>Total</span><span>{fmt(total)}</span></div>
+          <div className="line total"><span>Total</span><span id="orderTotal">{fmt(total)}</span></div>
         </aside>
       </main>
       <EventsPanel host={HOST.name} />

@@ -22,6 +22,16 @@ export const DIRECTORY: Record<string, Account> = {
 
 export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
 
+/** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */
+export function registerAccount(a: Account) {
+  DIRECTORY[a.email.trim().toLowerCase()] = structuredClone(a);
+}
+/** The account as the server keeps it (tier, failed ID checks, a block, methods, payments) after a change in a widget. */
+export function saveAccount(a: Account) {
+  const key = a.email.trim().toLowerCase();
+  if (DIRECTORY[key]) DIRECTORY[key] = structuredClone(a);
+}
+
 /** POST /v1/auth/verify. In the demo any 6 digits work; 000000 is a wrong code. */
 export async function verifyCode(code: string): Promise<void> {
   await wait(700);
@@ -33,6 +43,61 @@ export async function createPayment(method: PaymentMethod, outcome: CardOutcome)
   await wait(1200);
   if (outcome === "declined" && method.kind === "card") throw new Error("card_declined");
   return { id: "pay_" + Math.random().toString(36).slice(2, 10) };
+}
+
+/**
+ * The account Checkout shows for a bank transfer. "Dynamic": a one-time virtual account for one exact naira amount and one
+ * order, valid NGN_TEMP_MINUTES [time]. "Merchant pool": the merchant's shared account; it doesn't expire (expiresAt null),
+ * and CentryOS matches each transfer to its order.
+ */
+export type CheckoutVirtualAccount = { id: string; kind: "dynamic" | "pool"; num: string; amount: number; accountName: string; orderRef: string; expiresAt: number | null };
+const checkoutServer: { va: CheckoutVirtualAccount | null } = { va: null };
+
+/** POST /v1/checkout/virtual-accounts. Replaces any earlier account for this checkout. */
+export async function createCheckoutVirtualAccount(p: { amount: number; merchant: string; orderRef: string }): Promise<CheckoutVirtualAccount> {
+  if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("amount must be positive integer kobo");
+  await wait(1000);
+  const va = { id: "va_" + Math.random().toString(36).slice(2, 10), kind: "dynamic" as const, num: String(Math.floor(1e9 + Math.random() * 8.9e9)), amount: p.amount,
+    accountName: `${p.merchant} via Poket`, orderRef: p.orderRef, expiresAt: Date.now() + NGN_TEMP_MINUTES * 60000 };
+  checkoutServer.va = va;
+  return va;
+}
+
+
+/** Each merchant's pool account number (demo values, stable per merchant). */
+const POOL_NUMBERS: Record<string, string> = { "Ilé Living": "2045118830" };
+
+/** GET /v1/checkout/pool-account: the merchant's pool account, with this order's exact amount to send. */
+export async function getMerchantPoolAccount(p: { amount: number; merchant: string; orderRef: string }): Promise<CheckoutVirtualAccount> {
+  if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("amount must be positive integer kobo");
+  await wait(600);
+  const va = { id: "pool_" + p.orderRef, kind: "pool" as const, num: POOL_NUMBERS[p.merchant] ?? "2045110000", amount: p.amount,
+    accountName: `${p.merchant} via Poket`, orderRef: p.orderRef, expiresAt: null };
+  checkoutServer.va = va;
+  return va;
+}
+
+/** What CentryOS made of a transfer into a checkout account: matched to the order, then paid, short or over. */
+export type TransferMatch = { status: "paid" | "underpaid" | "overpaid"; received: number; id: string };
+
+/**
+ * Demo only: a transfer of `received` kobo reaches the one-time account or the pool, and CentryOS matches it to the order
+ * automatically. Each account is used once; a one-time account refuses transfers after it expires.
+ */
+export async function simulateCheckoutTransfer(id: string, received: number): Promise<TransferMatch> {
+  const va = checkoutServer.va;
+  if (!va || va.id !== id) throw new Error("no_virtual_account");
+  if (va.expiresAt !== null && Date.now() > va.expiresAt) throw new Error("virtual_account_expired");
+  if (!Number.isInteger(received) || received <= 0) throw new Error("received must be positive integer kobo");
+  await wait(1200);
+  checkoutServer.va = null;
+  const status = received === va.amount ? "paid" : received < va.amount ? "underpaid" : "overpaid";
+  return { status, received, id: "pay_" + Math.random().toString(36).slice(2, 10) };
+}
+
+/** Demo only: "Let it expire". */
+export function expireCheckoutVirtualAccount(id: string) {
+  if (checkoutServer.va?.id === id) checkoutServer.va = { ...checkoutServer.va, expiresAt: Date.now() - 1 };
 }
 
 /* ---------- NGN (naira) ----------
