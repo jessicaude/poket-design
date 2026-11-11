@@ -8,26 +8,37 @@ import { PayScreen } from "./screens/PayScreen";
 import { AddMethodScreen } from "./screens/AddMethodScreen";
 import { AddCardScreen } from "./screens/AddCardScreen";
 import { BankTransferScreen } from "./screens/BankTransferScreen";
-import { DeclinedScreen, DoneScreen, IdNeededScreen, ProcessingScreen } from "./screens/StatusScreens";
+import { DeclinedScreen, DoneScreen, ProcessingScreen } from "./screens/StatusScreens";
+import { BlockedScreen, DetailsScreen, IdDoneScreen, IdRetryScreen, IdReviewScreen, VendorScreen, VerifyingScreen } from "./screens/IdentityScreens";
 
-/** One component per screen; `step` is the stepper position (null hides the stepper), as in the prototype. */
+/**
+ * One component per screen; `step` is the stepper position as in the prototype's stepper(): Account 0, Identity 1,
+ * Payment 2. null hides the stepper.
+ */
 const SCREENS: Record<Screen, { C: ComponentType; step: number | null }> = {
   signup: { C: SignupScreen, step: 0 },
-  "id-needed": { C: IdNeededScreen, step: 1 },
-  pay: { C: PayScreen, step: 1 },
-  "add-method": { C: AddMethodScreen, step: 1 },
-  "add-card": { C: AddCardScreen, step: 1 },
-  "bank-transfer": { C: BankTransferScreen, step: 1 },
-  processing: { C: ProcessingScreen, step: 1 },
-  declined: { C: DeclinedScreen, step: 1 },
+  details: { C: DetailsScreen, step: 1 },
+  vendor: { C: VendorScreen, step: 1 },
+  verifying: { C: VerifyingScreen, step: 1 },
+  "id-review": { C: IdReviewScreen, step: 1 },
+  "id-retry": { C: IdRetryScreen, step: 1 },
+  "id-done": { C: IdDoneScreen, step: 1 },
+  blocked: { C: BlockedScreen, step: null },
+  pay: { C: PayScreen, step: 2 },
+  "add-method": { C: AddMethodScreen, step: 2 },
+  "add-card": { C: AddCardScreen, step: 2 },
+  "bank-transfer": { C: BankTransferScreen, step: 2 },
+  processing: { C: ProcessingScreen, step: 2 },
+  declined: { C: DeclinedScreen, step: 2 },
   done: { C: DoneScreen, step: null },
 };
-/** Under $500 there's no identity step, so the stepper shows two steps. */
-const STEPS = ["Account", "Payment"];
+/** Under $500 there's no identity step, so the stepper shows two steps (Payment moves to position 1). */
+const STEPS_ID = ["Account", "Identity", "Payment"];
+const STEPS_NO_ID = ["Account", "Payment"];
 
 /** The widget frame: .scrim > .wg with header, stepper and the current screen. Markup from reference/poket-widgets.html. */
 export function CheckoutWidget() {
-  const { open, screen, onboarding, close, toast } = useCheckout();
+  const { open, screen, onboarding, close, toast, skipId } = useCheckout();
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +48,9 @@ export function CheckoutWidget() {
     return () => { document.body.classList.remove("wg-open"); window.removeEventListener("keydown", onKey); };
   }, [open, close]);
 
-  const { C, step } = SCREENS[screen];
+  const { C, step: rawStep } = SCREENS[screen];
+  const labels = skipId ? STEPS_NO_ID : STEPS_ID;
+  const step = rawStep === null ? null : skipId && rawStep === 2 ? 1 : rawStep;
   return (
     <>
       <div className={`scrim ${open ? "open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
@@ -51,8 +64,8 @@ export function CheckoutWidget() {
             </div>
             <div className="wg-body" key={screen}>
               {onboarding && step !== null && (
-                <div className="steps two" role="list" aria-label="Progress">
-                  {STEPS.map((l, i) => (
+                <div className={`steps ${labels.length === 2 ? "two" : ""}`} role="list" aria-label="Progress">
+                  {labels.map((l, i) => (
                     <div key={l} role="listitem" className={i < step ? "done" : i === step ? "now" : ""} aria-current={i === step ? "step" : undefined}><i />{l}</div>
                   ))}
                 </div>

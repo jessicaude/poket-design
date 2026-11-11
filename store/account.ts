@@ -21,6 +21,11 @@ export type Account = {
   first: string;
   last: string;
   tier: 0 | 1 | 2;  // Checkout payments under $500 need no ID check
+  country?: string; // where the person lives; identity verification asks for it (US: SSN and a Plaid selfie, others: Veriff)
+  /** Failed ID checks so far: Veriff's limit of 3 attempts is shared across checks and checkouts. */
+  idFailures?: number;
+  /** Identity verification ended in a block (under 18, declined or out of attempts, sanctions): never offered again. */
+  idBlocked?: "age" | "id_declined" | "sanctions";
   methods: PaymentMethod[];
   payments: Payment[];
 };

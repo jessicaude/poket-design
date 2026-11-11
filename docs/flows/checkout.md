@@ -12,16 +12,41 @@ Status: **ported**, matching `reference/poket-widgets.html`. Demo: `/demo/ile-li
 | `processing` | `screens/StatusScreens.tsx` | Paying the merchant: the order amount, or the dollars charged when converted. |
 | `declined` | `screens/StatusScreens.tsx` | Card declined; "Choose another way to pay". |
 | `done` | `screens/StatusScreens.tsx` | Paid with, order, reference, total; converted adds "You paid $X USD" and the rate. Protection note. |
-| `id-needed` | `screens/StatusScreens.tsx` | **Placeholder** for identity verification ($500 or more; for an NGN order, the USD value of the naira total). |
+| `details` | `screens/IdentityScreens.tsx` | Orders of $500 or more (an NGN order: the USD value of the naira total), before Tier 1: "Verify your identity". Country (a new account starts in Nigeria, the location check), prefilled legal name, date of birth; United States adds an SSN (masked, Show / Hide) and "I don't have an SSN". Under 18 is blocked. "Finish later" closes. |
+| `vendor` | `screens/IdentityScreens.tsx` | The ID handoff: Veriff (ID and selfie), or Plaid (selfie) for a US SSN. QR code, then "Continue on your phone". DEMO pill: Open on phone, Finish on phone. |
+| `verifying` | `screens/IdentityScreens.tsx` | "Checking your ID", then the demo bar's ID check outcome. |
+| `id-review` | `screens/IdentityScreens.tsx` | Manual review (copy from the reference's wallet engine, tVfSlow): "Your ID needs a closer look", Finish later. DEMO pill: Approve review. |
+| `id-retry` | `screens/IdentityScreens.tsx` | Needs retry (tVfRetry): the reason and tries left out of Veriff's 3, Try again. |
+| `id-done` | `screens/IdentityScreens.tsx` | "You're verified" (Tier 1); Continue goes back to paying (Pay, or add a method first). |
+| `blocked` | `screens/IdentityScreens.tsx` | Under 18, ID declined (including the 3rd failed check), or a sanctions match (copy from tSanctionsDeclined). "You haven’t been charged." Back to the merchant. |
 
 Flow logic: `features/checkout/useCheckout.ts`; conversion quote and which methods can pay: `features/checkout/quote.ts`.
-Mock backend: `lib/mock-api.ts` (`createCheckoutVirtualAccount`, `getMerchantPoolAccount`, `simulateCheckoutTransfer`).
+Mock backend: `lib/mock-api.ts` (`registerAccount`, `saveAccount`, `createCheckoutVirtualAccount`, `getMerchantPoolAccount`,
+`simulateCheckoutTransfer`).
+
+Identity verification (Tier 1), for orders of $500 or more:
+- Stepper: Account, Identity, Payment (under $500: Account, Payment).
+- Accounts are remembered: a sign-up is registered, and the account's changes are kept (`saveAccount`). Checking out
+  again with the same email logs in ("This email already has a Poket account.").
+- A verified (Tier 1) user is never asked again: later checkouts of $500 or more go straight to Pay.
+- Veriff's limit of 3 attempts is shared across failed checks and checkouts: each "needs retry" adds one to the
+  account's `idFailures`, and the tries left carry over to the next checkout. The 3rd failure is a decline.
+- A block (under 18, declined or out of attempts, sanctions) stays on the account (`idBlocked`), and a blocked account
+  can't pay at any amount: Pay with Poket shows its blocked screen straight after sign-in, before Pay, even under $500,
+  with the same copy whatever the demo outcome. The store refuses payments and bank transfers from it too.
+- In the product, the wallet's naira ID matches and Checkout's ID checks share **one** Veriff attempt count (3) per
+  person. The demo has separate users (the wallet demo's user isn't a Checkout account), so here each keeps its own
+  count: `useNgn.attempts` in the wallet, the account's `idFailures` in Checkout.
+- Events: `user.verified` (`tier: 1`), `user.blocked` (`reason`: `age`, `id_declined`, `sanctions`).
 
 Naira: running text (titles, buttons, notes, the merchant page) shows "₦36,270.00" without the code; amount rows and
 cards keep the grey code. Rate: ₦1,550 per $1. Full NGN rules: `.cursor/rules/ngn.mdc` (Checkout).
 
 Demo controls (the bar wraps onto a second row when needed):
-- Customer (new / Ada), Card (approved / declined), Details (shared / not), Theme (Poket / CentryOS).
+- Customer (new / Ada), ID check (passes, manual review, needs retry, declined, under 18 at date of birth, sanctions
+  match), Card (approved / declined), Order (under $500 / over $500: adds the $598.00 rug, $621.40 or ₦963,170.00),
+  Details (shared / not), Theme (Poket / CentryOS).
+- Screen actions show in the prototype's DEMO pill: Open on phone, Finish on phone (vendor), Approve review.
 - Order currency (USD / NGN), Merchant accepts (NGN card, NGN bank transfer, Conversion), Bank transfer account
   (Dynamic / Merchant pool). The widget reads the merchant settings when it opens.
 - On the bank transfer screen while waiting: one-time account: Transfer arrives, Less arrives, More arrives, Let it
@@ -30,12 +55,14 @@ Demo controls (the bar wraps onto a second row when needed):
 Events to the merchant (events panel): `widget.opened`, `user.account_created`, `payment.succeeded` (NGN adds `rail`,
 `account_type` for bank transfers, and `charged_amount`, `charged_currency`, `fx_rate` when converted),
 `payment.amount_mismatch` (`order_reference`, `expected_amount`, `received_amount`, `rail`, `account_type`),
-`payment.failed`, `widget.closed`.
+`payment.failed`, `user.verified`, `user.blocked`, `widget.closed`.
 
-Tests: `e2e/checkout.spec.ts` (USD checkout), `e2e/ngn-checkout.spec.ts` (NGN checkout).
+Tests: `e2e/checkout.spec.ts` (USD checkout), `e2e/ngn-checkout.spec.ts` (NGN checkout), `e2e/checkout-id.spec.ts`
+(identity verification: every outcome, the shared attempt limit, verified and blocked accounts in later checkouts, and
+naira orders of $500 or more).
 
 ## Not ported yet (from reference/poket-widgets.html)
-- Identity verification: `details`, `vendor`, `verifying`, `id-done`
+- The prototype's picker sheet for selects (the details screen uses native selects)
 - Pay by Bank: `add-bank`, `bank-verify`, `bank-pick`, `bank-login`, `bank-accounts`
 - Apple Pay, Google Pay, Cash App Pay: `connect-wallet`
 - Phone sign-up ("Use phone")

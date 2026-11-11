@@ -483,7 +483,7 @@ test("$500 rule (Tier 0): a naira total worth under $500 needs no ID check", asy
 test("$500 rule (Tier 0): a naira total worth $500 or more goes to the ID check", async ({ page }) => {
   let widget = await newUserNgnOrder(page, 77500000); // ₦775,000.00 = $500.00
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();
-  await expect(widget).toContainText("Payments of $500 or more need a quick ID check (this one is ₦775,000.00).");
+  await expect(widget.locator("#dGo")).toHaveText("Continue to ID check"); // identity verification (checkout-id.spec.ts)
 
   widget = await newUserNgnOrder(page, 155000000); // ₦1,550,000.00 = $1,000
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();

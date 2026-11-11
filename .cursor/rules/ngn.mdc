@@ -133,5 +133,6 @@ alwaysApply: true
   payment.amount_mismatch with `order_reference`, `expected_amount`, `received_amount`, `rail` and `account_type`; its
   Close sends widget.closed with reason "amount_mismatch".
 - Tier 0 rule: any payment under $500 needs no ID check, using the USD value of the naira total (orderUsdCents, rounded
-  down); $500 or more goes to id-needed (still a placeholder).
+  down); $500 or more verifies identity first (details, vendor, verifying, id-done; see docs/flows/checkout.md), then
+  pays on the naira rails as usual.
 - Tests: e2e/ngn-checkout.spec.ts.

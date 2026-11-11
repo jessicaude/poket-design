@@ -21,6 +21,16 @@ export const DIRECTORY: Record<string, Account> = {
 
 export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
 
+/** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */
+export function registerAccount(a: Account) {
+  DIRECTORY[a.email.trim().toLowerCase()] = structuredClone(a);
+}
+/** The account as the server keeps it (tier, failed ID checks, a block, methods, payments) after a change in a widget. */
+export function saveAccount(a: Account) {
+  const key = a.email.trim().toLowerCase();
+  if (DIRECTORY[key]) DIRECTORY[key] = structuredClone(a);
+}
+
 /** POST /v1/auth/verify. In the demo any 6 digits work; 000000 is a wrong code. */
 export async function verifyCode(code: string): Promise<void> {
   await wait(700);

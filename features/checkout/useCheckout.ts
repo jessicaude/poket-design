@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
+import { DIRECTORY, registerAccount, saveAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
 
@@ -10,7 +10,6 @@ import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quot
  * Checkout flow controller. Each `screen` has one component in ./screens.
  * Ported from SCREENS[...] in reference/poket-widgets.html.
  */
-export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "id-needed" | "processing" | "declined" | "done";
 
 /**
  * Bank transfer: getting the account, waiting for the transfer, the transfer arriving, then (CentryOS matches it)
@@ -23,6 +22,45 @@ export type TransferAmount = "exact" | "less" | "more";
 /** Demo amounts for "Less arrives" / "More arrives": 10% under or over, in whole naira. */
 export const demoTransferAmount = (amount: number, a: TransferAmount) =>
   a === "exact" ? amount : amount + (a === "less" ? -1 : 1) * Math.round(amount / 10 / 100) * 100;
+export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "details" | "vendor" | "verifying" | "id-review"
+  | "id-retry" | "id-done" | "blocked" | "processing" | "declined" | "done";
+
+/** SCREENS['blocked'] reasons: the prototype's age and id_declined, plus a sanctions match (copy from tSanctionsDeclined). */
+export type BlockReason = "age" | "id_declined" | "sanctions";
+
+/** The reference's VF_MAX_TRIES and VF_RETRY_REASONS (wallet engine, reference/poket-widgets.html). */
+export const ID_MAX_TRIES = 3;
+export const ID_RETRY_REASONS = [
+  "The photo is blurry. Retake it in good light.",
+  "There was glare on your ID. Avoid direct light.",
+  "Part of your ID was cut off. Fit all four corners in the frame.",
+];
+
+/** Identity verification state for this checkout (the reference's S.det, S.noSsn, S.vendor, S.vstage). Failed checks
+ * are counted on the account (idFailures), not here, so the limit carries across checkouts. */
+export type Idv = {
+  det: { d: string; m: string; y: string; ssn: string };
+  noSsn: boolean;
+  vendor: "veriff" | "plaid";
+  vstage: "start" | "phone";
+  retryReason: string | null;
+};
+const NEW_IDV: Idv = { det: { d: "", m: "", y: "", ssn: "" }, noSsn: false, vendor: "veriff", vstage: "start", retryReason: null };
+
+/** Where the location check puts a new account (the reference's GEO_COUNTRY), and the details screen's countries. */
+export const GEO_COUNTRY = "Nigeria";
+export const ID_COUNTRIES = ["United States", "Nigeria", "United Kingdom", "Ghana", "Canada"];
+
+/** Age from a date of birth (the details screen's age()); null until the date is complete. */
+export function ageFrom(d: string, m: string, y: string, now = new Date()): number | null {
+  const Y = +y, M = +m, D = +d;
+  if (!Y || !M || !D || y.length < 4) return null;
+  let a = now.getFullYear() - Y;
+  if (now.getMonth() + 1 < M || (now.getMonth() + 1 === M && now.getDate() < D)) a--;
+  return a;
+}
+/** A US SSN: 9 digits, not starting 000, 666 or 9. */
+export const ssnOk = (v: string) => { const d = v.replace(/\D/g, ""); return d.length === 9 && !/^(000|666|9)/.test(d); };
 
 /** Every Checkout payment under $500 skips the ID check (agreed rule). */
 export const NO_ID_LIMIT: Cents = 50000;
@@ -50,6 +88,9 @@ type State = {
   quote: Quote | null;        // USD method on an NGN order (Conversion): the held rate
   charging: Cents | null;     // converted payment in progress: the dollars being charged (processing screen)
   toast: string | null;
+  skipId: boolean;            // the order is under $500: the stepper shows Account and Payment only
+  idv: Idv;
+  blockReason: BlockReason | null;
 
   start: (order: Order) => void;
   close: (reason?: string) => void;
@@ -64,16 +105,40 @@ type State = {
   select: (id: string) => void;
   refreshQuote: () => void;
   pay: () => Promise<void>;
+
+  // Identity verification (SCREENS details, vendor, verifying, id-done, blocked)
+  setIdv: (patch: Partial<Idv>) => void;
+  submitDetails: (p: { first: string; last: string; country: string; age: number }) => void;
+  openOnPhone: () => void;
+  finishOnPhone: () => void;
+  approveReview: () => void;
+  tryAgain: () => void;
+  finishLater: (reason: string) => void;
+  verifiedContinue: () => void;
+  block: (reason: BlockReason) => void;
 };
 
 /**
  * After sign-in: pay, unless the amount needs an ID the person doesn't have yet. Tier 0 rule: under $500 needs no ID
- * check, using the USD value of a naira total (orderUsdCents); $500 or more goes to id-needed.
+ * check, using the USD value of a naira total (orderUsdCents); $500 or more verifies first (SCREENS['details']).
  */
-const nextAfterSignIn = (a: Account, o: Order): Screen => (orderUsdCents(o.amount, o.currency) >= NO_ID_LIMIT && a.tier < 1 ? "id-needed" : a.methods.length ? "pay" : "add-method");
+const needsId = (o: Order) => orderUsdCents(o.amount, o.currency) >= NO_ID_LIMIT;
+/** A blocked account (under 18, declined or out of attempts, sanctions) can't pay at any amount: straight to its blocked
+ * screen after sign-in, before Pay. A verified (Tier 1) user is never asked again. */
+const nextAfterSignIn = (a: Account, o: Order): Screen =>
+  idBlockOf(a) ? "blocked" : needsId(o) && a.tier < 1 ? "details" : a.methods.length ? "pay" : "add-method";
+const idBlockOf = (a: Account): BlockReason | null => a.idBlocked ?? ((a.idFailures ?? 0) >= ID_MAX_TRIES ? "id_declined" : null);
+/** Where sign-in lands, with the block reason when it's the blocked screen. */
+const afterSignIn = (a: Account, o: Order) => {
+  const screen = nextAfterSignIn(a, o);
+  return { screen, blockReason: screen === "blocked" ? idBlockOf(a) : null };
+};
+
+let verifyTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useCheckout = create<State>((set, get) => ({
   open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null,
+  skipId: true, idv: NEW_IDV, blockReason: null,
 
   start: (order) => {
     const { customer, shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
@@ -82,13 +147,16 @@ export const useCheckout = create<State>((set, get) => ({
     if (customer === "returning") {
       const a = structuredClone(DIRECTORY["ada@osun.co"]);
       useAccount.getState().signIn(a);
-      set({ open: true, order, settings, quote: null, onboarding: false, screen: nextAfterSignIn(a, order), selected: firstUsable(a.methods, order, settings), failed: null, paid: null });
+      set({ open: true, order, settings, quote: null, onboarding: false, ...afterSignIn(a, order), selected: firstUsable(a.methods, order, settings), failed: null, paid: null,
+        skipId: !needsId(order), idv: NEW_IDV });
       return;
     }
     useAccount.getState().signOut();
-    set({ open: true, order, settings, quote: null, onboarding: true, screen: "signup", selected: null, failed: null, paid: null });
+    set({ open: true, order, settings, quote: null, onboarding: true, screen: "signup", selected: null, failed: null, paid: null,
+      skipId: !needsId(order), idv: NEW_IDV, blockReason: null });
   },
   close: (reason = "closed") => {
+    if (verifyTimer) { clearTimeout(verifyTimer); verifyTimer = null; }
     useEvents.getState().emit("widget.closed", { widget: "checkout", reason });
     set({ open: false });
   },
@@ -99,7 +167,8 @@ export const useCheckout = create<State>((set, get) => ({
   // shows the merchant's pool account. Both for the exact naira amount.
   startTransfer: async () => {
     const { order, settings } = get();
-    if (!order) return;
+    const account = useAccount.getState().account;
+    if (!order || (account && idBlockOf(account))) return; // a blocked account can't pay
     set({ screen: "bank-transfer", transfer: { state: "creating", va: null } });
     const p = { amount: order.amount, merchant: order.merchant, orderRef: order.orderRef };
     const va = settings?.bankTransferAccount === "pool" ? await getMerchantPoolAccount(p) : await createCheckoutVirtualAccount(p);
@@ -137,13 +206,18 @@ export const useCheckout = create<State>((set, get) => ({
   showToast: (msg) => { set({ toast: msg }); setTimeout(() => set({ toast: null }), 2400); },
 
   signedUp: (a) => {
-    useAccount.getState().signIn(a);
+    const account = { country: GEO_COUNTRY, ...a };
+    registerAccount(account); // the same email logs in next time
+    useAccount.getState().signIn(account);
     useEvents.getState().emit("user.account_created", { widget: "checkout" });
-    set({ screen: nextAfterSignIn(a, get().order!) });
+    set(afterSignIn(account, get().order!));
   },
+  // A returning person: verified, they pay; still Tier 0 on an order that needs an ID, they verify (with the stepper,
+  // as the reference's afterSignIn does); blocked before, the blocked screen
   loggedIn: (a) => {
     useAccount.getState().signIn(a);
-    set({ onboarding: false, selected: firstUsable(a.methods, get().order, get().settings), screen: nextAfterSignIn(a, get().order!) });
+    const next = afterSignIn(a, get().order!);
+    set({ ...next, onboarding: next.screen === "details", selected: firstUsable(a.methods, get().order, get().settings) });
   },
   select: (id) => {
     const m = useAccount.getState().account?.methods.find((x) => x.id === id);
@@ -156,7 +230,7 @@ export const useCheckout = create<State>((set, get) => ({
     const { order, selected } = get();
     const account = useAccount.getState().account;
     const m = account?.methods.find((x) => x.id === selected);
-    if (!order || !account || !m || isBlockedMethod(order, get().settings, m)) return;
+    if (!order || !account || !m || isBlockedMethod(order, get().settings, m) || idBlockOf(account)) return; // a blocked account can't pay
     // Converting: pay only on a rate that's still held; the debit is the quote's dollar amount
     const q = get().quote;
     const converting = isConverting(order, get().settings, m);
@@ -180,4 +254,63 @@ export const useCheckout = create<State>((set, get) => ({
       set({ failed: m, screen: "declined", quote: null, charging: null });
     }
   },
+
+  setIdv: (patch) => set((st) => ({ idv: { ...st.idv, ...patch } })),
+  // dGo: save the name and country; under 18 is blocked; US residents (with an SSN) go to Plaid, others to Veriff
+  submitDetails: ({ first, last, country, age }) => {
+    useAccount.getState().update((a) => ({ ...a, first, last, country }));
+    if (age < 18 || useDemo.getState().idOutcome === "under18") { get().block("age"); return; }
+    const us = country === "United States" && !get().idv.noSsn;
+    set((st) => ({ idv: { ...st.idv, vendor: us ? "plaid" : "veriff", vstage: "start" }, screen: "vendor" }));
+  },
+  // The vendor screen's demo actions: "Open on phone", then "Finish on phone" (verifying, then the result after 1.4s)
+  openOnPhone: () => set((st) => ({ idv: { ...st.idv, vstage: "phone" } })),
+  finishOnPhone: () => {
+    set({ screen: "verifying" });
+    if (verifyTimer) clearTimeout(verifyTimer);
+    verifyTimer = setTimeout(() => { verifyTimer = null; idResult(); }, 1400);
+  },
+  approveReview: () => { if (get().screen === "id-review") verified(); },
+  tryAgain: () => set((st) => ({ idv: { ...st.idv, vstage: "start", retryReason: null }, screen: "vendor" })),
+  finishLater: (reason) => get().close(reason),
+  // id-done's Continue: the widget's start(), back to Pay (or add a method first)
+  verifiedContinue: () => {
+    const a = useAccount.getState().account;
+    if (!a) return;
+    set({ selected: firstUsable(a.methods, get().order, get().settings), screen: a.methods.length ? "pay" : "add-method" });
+  },
+  block: (reason) => {
+    useAccount.getState().update((a) => ({ ...a, idBlocked: reason })); // kept on the account: never offered again
+    useEvents.getState().emit("user.blocked", { widget: "checkout", reason });
+    set({ blockReason: reason, screen: "blocked" });
+  },
 }));
+
+/** The server keeps the signed-in account's changes (tier, failed checks, block, methods, payments). */
+useAccount.subscribe((st) => { if (st.account) saveAccount(st.account); });
+
+/** Tier 1: the reference's idResult() success path. */
+function verified() {
+  useAccount.getState().update((a) => ({ ...a, tier: 1 }));
+  useEvents.getState().emit("user.verified", { widget: "checkout", tier: 1 });
+  useCheckout.setState({ screen: "id-done" });
+}
+
+/** idResult(): the demo bar's ID check outcome decides what happens after "Checking your ID". */
+function idResult() {
+  const st = useCheckout.getState();
+  if (st.screen !== "verifying") return;
+  const outcome = useDemo.getState().idOutcome;
+  if (outcome === "declined") { st.block("id_declined"); return; }
+  if (outcome === "sanctions") { st.block("sanctions"); return; }
+  if (outcome === "review") { useCheckout.setState({ screen: "id-review" }); return; }
+  if (outcome === "retry") {
+    // Veriff's shared limit: every failed check counts, on the account, across checkouts; the 3rd is a decline
+    const failures = (useAccount.getState().account?.idFailures ?? 0) + 1;
+    useAccount.getState().update((a) => ({ ...a, idFailures: failures }));
+    if (failures >= ID_MAX_TRIES) { st.block("id_declined"); return; }
+    useCheckout.setState({ idv: { ...st.idv, retryReason: ID_RETRY_REASONS[(failures - 1) % ID_RETRY_REASONS.length] }, screen: "id-retry" });
+    return;
+  }
+  verified(); // pass (under 18 is caught on the details screen)
+}

@@ -19,14 +19,18 @@ const ITEMS = [
 ];
 /** Prices are set in USD cents; an NGN order shows them in naira at the demo rate (demo bar: Order currency). */
 const toOrder = (usdCents: number, cur: "USD" | "NGN") => (cur === "NGN" ? usdCents * DEMO_NGN_PER_USD : usdCents);
+/** The prototype's "Order over $500" (pOrder 'large') adds this rug. */
+const LARGE_ITEM = { name: "Handwoven aso-oke rug", detail: "Ochre · Qty 1", amount: 59800, swatch: "#b9773a" };
 
 export default function IleLivingPage() {
   const { start, showToast } = useCheckout();
   const shareDetails = useDemo((s) => s.shareDetails);
   const currency = useDemo((s) => s.orderCurrency);
+  const orderSize = useDemo((s) => s.orderSize);
+  const items = orderSize === "large" ? [...ITEMS, LARGE_ITEM] : ITEMS;
   const fmt = (usdCents: number) => formatOrder(toOrder(usdCents, currency), currency);
   const [ship, setShip] = useState<"standard" | "express">("standard");
-  const total = ITEMS.reduce((s, i) => s + i.amount, 0) + SHIPPING[ship];
+  const total = items.reduce((s, i) => s + i.amount, 0) + SHIPPING[ship];
   // Demo/test hooks: e2e tests read the widget's state and set the demo bar through these.
   useEffect(() => { Object.assign(window, { __checkout: useCheckout, __demo: useDemo, __account: useAccount }); }, []);
 
@@ -88,7 +92,7 @@ export default function IleLivingPage() {
           </div>
         </section>
         <aside className="panel summary"><h3>Order summary</h3>
-          {ITEMS.map((i) => (
+          {items.map((i) => (
             <div key={i.name} className="item"><span className="sw" style={{ background: i.swatch }} /><span className="meta">{i.name}<small>{i.detail}</small></span><span className="amt">{fmt(i.amount)}</span></div>
           ))}
           <div className="line"><span>Shipping · {ship === "standard" ? "Standard" : "Express"}</span><span>{fmt(SHIPPING[ship])}</span></div>

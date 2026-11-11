@@ -58,15 +58,3 @@ export function DoneScreen() {
     </>
   );
 }
-
-/** Placeholder for identity verification ($500 or more). Port SCREENS['details'], ['vendor'], ['verifying'], ['id-done']. */
-export function IdNeededScreen() {
-  const order = useCheckout((s) => s.order);
-  return (
-    <>
-      <h2 className="title">Verify your identity</h2>
-      <p className="sub">Payments of $500 or more need a quick ID check{order ? ` (this one is ${formatOrder(order.amount, order.currency)})` : ""}.</p>
-      <p className="err">Not ported yet. See docs/prompting-guide.md.</p>
-    </>
-  );
-}
