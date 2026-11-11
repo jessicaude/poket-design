@@ -63,6 +63,34 @@ test("Poket users from merchant-held or card-funded money: the tag carries to th
   expect(getPoketUserBalances("pu1")).toEqual({ "NGN:merchant": 100000, "USD:fiat": 500, "NGN:open": 2000 });
 });
 
+test("quick check: a first payment of $500 or more to a new card, wallet or Poket user; banks and your own card aren't checked", async () => {
+  const { reservePayout, createPayout, saveDebitCard, getPoketUserBalances } = await import("@/lib/mock-api");
+  const send = async (kind: "card" | "wallet" | "poket" | "bank", recipientId: string, usdOut: number, sourceKey = "coin:USDC:Base") => {
+    const r = await reservePayout({ currency: "USD", amount: usdOut });
+    return createPayout({ currency: "USD", amount: usdOut, fee: 0, recipientId, reservationId: r.id, kind, recipientName: "x", sourceKey, sourceTotal: usdOut, reservedIn: "source", usdOut });
+  };
+  const card = await saveDebitCard({ number: "4242424242424242", name: "Kemi Adeyemi", zip: "10001", saved: true, verifiedName: "Ada Osun" });
+  expect(card.isSelf).toBe(false);
+  expect(await send("card", card.id, 49999)).toMatchObject({ status: "sending" }); // under $500
+  const card2 = await saveDebitCard({ number: "5200828282828210", name: "Kemi Adeyemi", zip: "10001", saved: true, verifiedName: "Ada Osun" });
+  expect(await send("card", card2.id, 50000)).toMatchObject({ status: "review", quickCheck: true });
+  expect(await send("card", card2.id, 50000)).toMatchObject({ status: "sending" }); // paid before now
+  const own = await saveDebitCard({ number: "4000056655665556", name: "OSUN ADA", zip: "10001", saved: true, verifiedName: "Ada Osun" });
+  expect(own.isSelf).toBe(true); // in the verified name: Your accounts
+  expect(await send("card", own.id, 90000)).toMatchObject({ status: "sending" }); // your own card isn't checked
+  expect(await send("wallet", "sw1", 60000)).toMatchObject({ status: "review", quickCheck: true });
+  expect(await send("wallet", "wallet-new-1", 60000)).toMatchObject({ status: "review", quickCheck: true }); // unsaved: new
+  // A held Poket send is credited only once it's paid
+  const held = await send("poket", "pu2", 70000, "cash:USD:fiat");
+  expect(held).toMatchObject({ status: "review", quickCheck: true, tag: "FIAT-ONLY" });
+  expect(getPoketUserBalances("pu2")).toEqual({});
+  const { setWithdrawalStatus } = await import("@/lib/mock-api");
+  await setWithdrawalStatus(held.id, "paid");
+  expect(getPoketUserBalances("pu2")).toEqual({ "USD:fiat": 70000 });
+  // Bank accounts keep the first-payment hold (Scheduled), whatever the amount
+  expect((await send("bank", "r4", 90000)).status).toBe("scheduled");
+});
+
 test("Max: the whole balance (the NGN fee is undecided)", () => {
   const p = () => usePayout.getState();
   p().sendTo(recipient("r6"));
@@ -114,7 +142,7 @@ test("name enquiry mock and name matching", async () => {
 });
 
 test("debit cards: only USD pays them; Visa and Mastercard debit only (credit cards refused)", async () => {
-  const card = { kind: "card" as const, id: "card:x", card: { id: "x", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const } };
+  const card = { kind: "card" as const, id: "card:x", self: false, card: { id: "x", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const } };
   expect(["cash:USD:open", "cash:USD:fiat"].every((k) => sourceAllowed(k, card, false))).toBe(true);
   expect(["cash:NGN:open", "cash:NGN:merchant", "coin:USDC:Base", "cash:GBP:open"].some((k) => sourceAllowed(k, card, false))).toBe(false);
   const { saveDebitCard } = await import("@/lib/mock-api");

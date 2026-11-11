@@ -16,6 +16,12 @@ export const STATUS_META: Record<WithdrawalStatus, { chip: string; tone: "" | "m
   reversed: { chip: "Reversed", tone: "err", message: "Funds returned to your balance" },
 };
 
+/**
+ * A first payment of $500 or more to a new card, wallet or Poket user is held (status "review") for a quick check:
+ * the exploration's copy, in place of "Held for review".
+ */
+export const QUICK_CHECK = { chip: "Held for a quick check", message: "First payment to a new recipient. Usually under 15 minutes." };
+
 /** Statuses whose amount is still reserved out of the balance ("on hold"). */
 export const isOnHold = (s: WithdrawalStatus) => s === "scheduled" || s === "review" || s === "sending";
 

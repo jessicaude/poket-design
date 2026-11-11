@@ -55,7 +55,7 @@ test("matched: the name is the user's, so it's saved as their own account", asyn
   await save.click();
 
   // Straight on to the amount; back in Send it's listed under Your accounts
-  await expect(page.locator("#panelBody")).toContainText("To: Ada Osun");
+  await expect(page.locator("#sendToTitle")).toHaveText("Send to Ada Osun"); // your own account: its whole name
   await page.locator("#backToPayoutRecipient2").click();
   const mine = page.locator("#panelBody .field-label", { hasText: "Your accounts" });
   await expect(mine).toBeVisible();
@@ -82,7 +82,7 @@ test("different name: shown, and it must be confirmed as a third-party payee", a
   await save.click();
 
   // Straight on to the amount: the fee is the placeholder, not a number
-  await expect(page.locator("#panelBody")).toContainText(`To: ${payee}`);
+  await expect(page.locator("#sendToTitle")).toHaveText(`Send to ${payee.split(" ")[0]}`); // the first name
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
   await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
   await page.locator("#backToPayoutRecipient2").click();
@@ -132,7 +132,7 @@ test("an account already saved is used, not duplicated", async ({ page }) => {
   await page.locator("#ngnAcctInput").fill("0123456789"); // the seeded "Naira account"
   await expect(page.locator("#ngnAcctName")).toHaveText("Ada Osun");
   await page.locator("#ngnAcctSave").click();
-  await expect(page.locator("#panelBody")).toContainText("To: Naira account");
+  await expect(page.locator("#sendToTitle")).toHaveText("Send to Naira account");
   await page.locator("#backToPayoutRecipient2").click();
   await expect(page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "GTBank · •••• 6789" })).toHaveCount(2); // Naira account and Ngozi Eze, no new row
 });

@@ -65,8 +65,10 @@ function NewRow({ id, label, onClick }: { id: string; label: string; onClick: ()
 export function SendRecipientsScreen() {
   const { recipients, search, setSearch, back, newRecipient, source } = useSend();
   const bucket = source?.split(":")[2];
-  const yours = recipients.filter((r) => r.kind === "bank" && r.self);
-  const saved = recipients.filter((r) => !(r.kind === "bank" && r.self));
+  // Your own bank accounts and debit cards (a card in your verified name)
+  const isYours = (r: SendRecipient) => (r.kind === "bank" || r.kind === "card") && r.self;
+  const yours = recipients.filter(isYours);
+  const saved = recipients.filter((r) => !isYours(r));
   const q = search.trim().toLowerCase();
   const match = (r: SendRecipient) => !q || `${nameOf(r)} ${subOf(r)}`.toLowerCase().includes(q);
   const yoursShown = yours.filter(match), savedShown = saved.filter(match);
@@ -101,7 +103,7 @@ export function SendNewRecipientScreen() {
   const kinds: { kind: "bank" | "card" | "poket" | "wallet"; label: string; sub: string; icon: string }[] = [
     { kind: "bank", label: "Bank account", sub: "", icon: WICON.bank },
     { kind: "card", label: "Debit card", sub: "", icon: WICON.card },
-    { kind: "poket", label: "Poket user", sub: "Email, phone or wallet address", icon: WICON.user },
+    { kind: "poket", label: "Poket user", sub: "@handle, email or phone", icon: WICON.user },
     { kind: "wallet", label: "Stablecoin wallet", sub: "", icon: WICON.usdc },
   ];
   return (

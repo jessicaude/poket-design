@@ -172,18 +172,22 @@ export function listPayoutRecipients(): PayoutRecipient[] {
   return payoutServer.recipients.map((r) => ({ ...r }));
 }
 
+/** A name for comparing: case, spacing and word order don't matter ("OSUN ADA" is "Ada Osun"). */
+const nameKey = (n: string) => n.toLowerCase().split(/[\s,.-]+/).filter(Boolean).sort().join(" ");
+
 /**
  * POST /v1/send/recipients/cards: a debit card to send to (the explore prototype's card fields). Only Visa and
  * Mastercard debit cards: credit cards can't receive payouts (docs/decisions.md). Only the last 4 digits are kept.
  */
-export async function saveDebitCard(c: { number: string; name: string; zip: string; saved: boolean }): Promise<PayoutRecipient> {
+export async function saveDebitCard(c: { number: string; name: string; zip: string; saved: boolean; /** The verified user's name: a card in that name is theirs. */ verifiedName?: string }): Promise<PayoutRecipient> {
   await wait(500);
   const n = c.number.replace(/\D/g, ""), brand = detectBrand(n);
   if ((brand !== "visa" && brand !== "mc") || n.length !== 16) throw new Error("unsupported_card");
   if (fundingOf(n) === "credit") throw new Error("credit_card");
   if (!/^\d{5}$/.test(c.zip) || c.name.trim().length < 2) throw new Error("invalid_request");
+  const isSelf = !!c.verifiedName && nameKey(c.name) === nameKey(c.verifiedName);
   const saved: PayoutRecipient = {
-    id: "dc" + Date.now(), isSelf: false, name: c.name.trim(), holderName: c.name.trim(), currency: "USD", methodType: "card",
+    id: "dc" + Date.now(), isSelf, name: c.name.trim(), holderName: c.name.trim(), currency: "USD", methodType: "card",
     bankName: brand === "visa" ? "Visa" : "Mastercard", accountNumber: n.slice(-4), zip: c.zip, saved: c.saved, paidBefore: false,
   };
   payoutServer.recipients.push(saved);
@@ -243,6 +247,8 @@ export type Withdrawal = {
   eta?: string;
   /** A Poket user paid from merchant-held naira or card-funded USD: the tag their money keeps. */
   tag?: "MERCHANT-HELD" | "FIAT-ONLY";
+  /** Held (status "review") for a quick check: a first payment of $500 or more to a new card, wallet or Poket user. */
+  quickCheck?: boolean;
   sourceKey?: string; sourceTotal?: number;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
@@ -261,6 +267,8 @@ export async function createPayout(p: {
   amountText?: string; feeText?: string; arrival?: string; eta?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
   /** A US bank send: the speed chosen for it (rtp, ach, wire) and, for a wire, the recipient's address. */
   speed?: string; wireAddress?: { street: string; city: string; state: string; zip: string };
+  /** The USD value leaving the source, in cents: a first payment of $500 or more to a new card, wallet or Poket user is held for a quick check. */
+  usdOut?: number;
 }): Promise<Withdrawal> {
   const kind = p.kind ?? "bank";
   if (p.speed === "wire" && !p.wireAddress) throw new Error("address_required");
@@ -279,16 +287,21 @@ export async function createPayout(p: {
     kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
     status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
   };
+  // A first payment of $500 or more to a new card, stablecoin wallet or Poket user: held for a quick check (the
+  // exploration's applySend). Bank accounts have the first-payment hold instead; your own card isn't checked.
+  const poketUser = kind === "poket" ? POKET_USERS.find((u) => u.id === p.recipientId) : undefined;
+  const wallet = kind === "wallet" ? STABLECOIN_WALLETS.find((x) => x.id === p.recipientId) : undefined;
+  const isNew = kind === "card" ? !recipient!.isSelf && !recipient!.paidBefore : kind === "poket" ? !poketUser?.paidBefore : kind === "wallet" ? !wallet?.paidBefore : false;
+  if (isNew && (p.usdOut ?? 0) >= QUICK_CHECK_USD_CENTS) { w.status = "review"; w.quickCheck = true; }
   if (recipient) recipient.paidBefore = true;
-  // A Poket user is credited at once, in the source's currency; merchant-held and card-funded money keep their tag
+  if (poketUser) poketUser.paidBefore = true;
+  if (wallet) wallet.paidBefore = true;
+  // A Poket user is credited in the source's currency once paid (at once, unless held for a quick check);
+  // merchant-held and card-funded money keep their tag
   if (kind === "poket") {
-    const [k, cur, bucket] = (p.sourceKey ?? "cash:NGN:open").split(":");
-    const tagged = k === "cash" && (bucket === "merchant" || bucket === "fiat") ? (bucket as "merchant" | "fiat") : "open";
-    const asset = k === "cash" ? cur : `${cur} (${bucket})`;
-    if (tagged !== "open") w.tag = tagged === "merchant" ? "MERCHANT-HELD" : "FIAT-ONLY";
-    const book = (poketBalances[p.recipientId] ??= {});
-    const key = `${asset}:${tagged}`;
-    book[key] = (book[key] ?? 0) + p.amount;
+    const bucket = (p.sourceKey ?? "cash:NGN:open").split(":")[2];
+    if (p.sourceKey?.startsWith("cash:") && (bucket === "merchant" || bucket === "fiat")) w.tag = bucket === "merchant" ? "MERCHANT-HELD" : "FIAT-ONLY";
+    if (w.status === "paid") creditPoketUser(w);
   }
   withdrawals.unshift(w);
   return { ...w };
@@ -296,6 +309,16 @@ export async function createPayout(p: {
 
 /** Poket users' balances, as credited by sends: "{currency}:{open | merchant | fiat}" → minor units. */
 const poketBalances: Record<string, Record<string, number>> = {};
+/** A paid send to a Poket user lands in their balance, in the source's currency, keeping its tag. */
+function creditPoketUser(w: Withdrawal) {
+  const [k, cur, bucket] = (w.sourceKey ?? "cash:NGN:open").split(":");
+  const tagged = k === "cash" && (bucket === "merchant" || bucket === "fiat") ? bucket : "open";
+  const asset = k === "cash" ? cur : `${cur} (${bucket})`;
+  const book = (poketBalances[w.recipientId] ??= {});
+  book[`${asset}:${tagged}`] = (book[`${asset}:${tagged}`] ?? 0) + w.amount;
+}
+/** $500.00: a first payment at least this much (USD value) to a new card, wallet or Poket user is held for a quick check. */
+export const QUICK_CHECK_USD_CENTS = 50000;
 /** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "NGN:merchant": 100000 }). */
 export const getPoketUserBalances = (id: string) => ({ ...(poketBalances[id] ?? {}) });
 
@@ -328,6 +351,7 @@ export async function setWithdrawalStatus(id: string, to: WithdrawalStatus): Pro
   if (!w) throw new Error("unknown_withdrawal");
   if (!WITHDRAWAL_TRANSITIONS[w.status].includes(to)) throw new Error(`cannot_${w.status}_to_${to}`);
   w.status = to;
+  if (to === "paid" && w.kind === "poket") creditPoketUser(w);
   return { ...w };
 }
 
@@ -368,6 +392,7 @@ export function resetPayoutServer() {
   reservations.clear();
   withdrawals.length = 0;
   for (const k of Object.keys(poketBalances)) delete poketBalances[k];
+  for (const x of [...POKET_USERS, ...STABLECOIN_WALLETS]) delete x.paidBefore;
   payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
   payoutServer.pin = null;
   payoutServer.pinAttempts = 0;
@@ -466,12 +491,12 @@ export function resetConversionServer() { conversionServer.list = []; conversion
    Send is recipient-first (docs/decisions.md). Bank accounts are the payout recipients above (your own and saved);
    Poket users and stablecoin wallets are seeded from reference/poket-wallet-explore.html (DIRECTORY, SAVED.external). */
 
-export type PoketUser = { id: string; name: string; handle: string; initials: string };
+export type PoketUser = { id: string; name: string; handle: string; initials: string; /** Has been sent money before. */ paidBefore?: boolean };
 export type WalletNetwork = "Base" | "Polygon" | "Solana" | "Ethereum";
-export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork };
+export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork; /** Has been sent money before. */ paidBefore?: boolean };
 export type SendRecipient =
   | { kind: "bank"; id: string; self: boolean; bank: PayoutRecipient }
-  | { kind: "card"; id: string; card: PayoutRecipient }
+  | { kind: "card"; id: string; self: boolean; card: PayoutRecipient }
   | { kind: "poket"; id: string; user: PoketUser }
   | { kind: "wallet"; id: string; wallet: StablecoinWallet };
 
@@ -484,14 +509,17 @@ const STABLECOIN_WALLETS: StablecoinWallet[] = [
   { id: "sw1", name: "Ledger", address: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC", network: "Base" },
 ];
 
-/** GET /v1/send/recipients: your own bank accounts, then saved bank accounts, debit cards, Poket users and stablecoin wallets. */
+/**
+ * GET /v1/send/recipients: your own bank accounts and debit cards (self), then saved bank accounts, debit cards, Poket
+ * users and stablecoin wallets.
+ */
 export function listSendRecipients(): SendRecipient[] {
   const banks = payoutServer.recipients.filter((r) => r.methodType === "bank" && r.saved !== false);
   const cards = payoutServer.recipients.filter((r) => r.methodType === "card" && r.saved !== false);
   return [
     ...banks.filter((r) => r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: true, bank: { ...r } })),
     ...banks.filter((r) => !r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: false, bank: { ...r } })),
-    ...cards.map((r) => ({ kind: "card" as const, id: `card:${r.id}`, card: { ...r } })),
+    ...cards.map((r) => ({ kind: "card" as const, id: `card:${r.id}`, self: r.isSelf, card: { ...r } })),
     ...POKET_USERS.map((u) => ({ kind: "poket" as const, id: `poket:${u.id}`, user: { ...u } })),
     ...STABLECOIN_WALLETS.map((w) => ({ kind: "wallet" as const, id: `wallet:${w.id}`, wallet: { ...w } })),
   ];

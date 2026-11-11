@@ -49,15 +49,27 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   → NGN opens the bank-account step (usePayout.sendToNewBank). Back and "Change" return to Send.
 - Previews: /demo/wallet?send=<stage>, a Send stage (recipients, new, unavailable...) or a later step of a send to
   Ngozi Eze (amount, review, pin, done...; ngn-account for a new Nigerian bank account).
-- Every kind of send (any bank account, a Poket user, a stablecoin wallet) uses the same amount, review, PIN,
-  reservation and status screens (usePayout.executeSend; one summary in features/wallet/send/sendSummary.ts). Review
-  rows: To, They get, You send and Rate (converting), Fee (placeholders where undecided: ₦[fee] for Nigerian banks,
-  [fee] for conversions involving NGN), Delivery, Total charged; then the first-payment notice for a new bank account.
+- Every kind of send (any bank account, a debit card, a Poket user, a stablecoin wallet) uses the same amount,
+  review, PIN, reservation and status screens (usePayout.executeSend; one summary in
+  features/wallet/send/sendSummary.ts). The amount screen's title is "Send to {first name}" (your own accounts and
+  wallets by their whole name), with Change. Review rows: To, Account holder (when the nickname differs), Speed (US
+  banks), They get, You send and Rate (converting), Network (a coin: the wallet's, else the paying coin's), Fee
+  (placeholders where undecided: ₦[fee] for Nigerian banks, [fee] for conversions involving NGN), Delivery, Total
+  charged; then the first-payment notice for a new bank account. The button reads "Send {amount}" (what leaves
+  the source).
   - Arrival: a first payment to any bank account is "After [hold]" and Scheduled; Nigerian banks "Usually within
     seconds"; US banks by the speed chosen for this send on the amount screen (Instant $1.50 if the bank supports
     it, Standard free by default, Wire $15.00 with the recipient's address); other banks "Within minutes"; debit
     cards "Instantly", fee $[fee] (undecided, 0 in the maths), status Sending; Poket users "Instantly" and straight
     to Paid; stablecoin wallets "About 1 minute", fee 1.50 in the coin.
+  - Quick check (the exploration's): a first payment of $500 or more (USD value leaving the source) to a new debit
+    card, stablecoin wallet or Poket user is held (status "review", Withdrawal.quickCheck) and reads "Held for a
+    quick check" with "First payment to a new recipient. Usually under 15 minutes." on done and status. Bank
+    accounts keep the first-payment hold instead; your own card isn't checked. A held Poket send is credited once
+    it's paid.
+  - A debit card in the verified user's name (any case or word order) is theirs: saved under Your accounts.
+  - A new Nigerian bank account takes an optional nickname once the name is found; the enquiry's name stays the
+    account holder.
   - Max is the whole balance less a decided fee (a US speed's, a wallet's); placeholder fees count as 0.
   - The review's total is what leaves the source, in the source's currency: the amount plus every decided fee (a
     wallet's 1.50 USDC paid from NGN shows as its naira), then " + ₦[fee]" (or $[fee], [fee] USDC) for an undecided
@@ -89,7 +101,9 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   Its copy is generic, for every kind of send: "Approves this payment.", "…to keep sending.", "Use it next time you
   send." Don't say withdraw or withdrawal there.
 - Nigerian banks only: NGN can't pay a non-Nigerian bank account (the chip never offers it, sources.ts), so naira to
-  a bank is never converted on the way.
+  a bank is never converted on the way. Opened from a naira balance (open or merchant-held), a recipient naira can't
+  pay says why on the amount screen, with the paying balance's code (NEW copy): a bank outside Nigeria "Naira can
+  only go to Nigerian banks. Paying from USD.", a debit card "Naira can't pay a card. Paying from USD."
 - Name enquiry: a bank account is added on ngn-account (bank from NG_BANKS in lib/mock-api.ts, 10-digit number,
   automatic nameEnquiry()). A name that matches the verified user saves as their own account; any other name must be
   confirmed as a third-party payee. Without a successful name enquiry, an account can't be added.

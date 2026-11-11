@@ -16,6 +16,7 @@ import { asSendRecipient, sameAsTarget, sendSources, targetKeyFor } from "./sour
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
+import { useSend } from "./useSend";
 import { routingBank, usSpeeds, wireAddressOk } from "./sendMath";
 import { fmtCurrency } from "../payout/payoutMath";
 
@@ -51,6 +52,13 @@ export function SendAmountScreen() {
   const q = converting ? cvQuote(payFrom, target, payCents, jitter) : null;
   const avail = cvAvail(src);
   const usBank = r.methodType === "bank" && r.currency === "USD";
+  const opened = useSend.getState().source;
+  // Opened from a naira balance for a recipient naira can't pay (a bank outside Nigeria, a debit card): say why
+  // another balance is paying. Merchant-held naira choosing a bank never gets here (Send's "not available" step).
+  const nairaBlocked = r.methodType === "card" ? "Naira can't pay a card."
+    : r.methodType === "bank" && r.currency !== "NGN" ? "Naira can only go to Nigerian banks."
+    : null;
+  const nairaRedirected = !!nairaBlocked && !!opened?.startsWith("cash:NGN:") && !payFrom.startsWith("cash:NGN:");
   // The total (with a decided fee, e.g. a US speed's or a wallet's) must fit the balance
   const over = summary.sourceTotal > avail;
   const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !(usBank && speed === "wire" && !wireAddressOk(wire));
@@ -65,9 +73,17 @@ export function SendAmountScreen() {
             : <div className="badge" style={{ width: "36px", height: "36px", background: "var(--brand-50)", color: "var(--brand-600)", fontWeight: 700, fontSize: "13px" }}>{r.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}</div>}
         </div>
       )}
+      {/* The exploration's "Send to {first name}" (your own accounts and wallets by their whole name) */}
+      <div className="step-title" id="sendToTitle" style={{ textAlign: "center", marginBottom: "2px" }}>Send to {r.isSelf || r.methodType === "wallet" ? r.name : r.name.split(/\s+/)[0]}</div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: 0 }}>
-        To: <span className="mono">{r.name}</span> <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
+        <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
+      {nairaRedirected && (
+        // Why another balance is paying, and which (NEW copy)
+        <div className="alert info" id="nairaOnlyNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.info} /><span>{nairaBlocked} Paying from {src.k === "cash" ? src.cur : src.asset}.</span>
+        </div>
+      )}
 
       <label className="field-label" style={{ marginTop: "14px" }}>You send</label>
       <div className="cv-box">

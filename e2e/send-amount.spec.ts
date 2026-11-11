@@ -90,7 +90,9 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   await page.locator("#payoutReview").click();
   await page.clock.runFor(600);
   const rows = page.locator("#panelBody .receipt-row");
-  await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "You send", "Rate", "Fee", "Arrives", "Debited from balance"]);
+  await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "You send", "Rate", "Network", "Fee", "Arrives", "Debited from balance"]);
+  await expect(rows.filter({ hasText: "Network" }).locator(".r-value")).toHaveText("Base"); // the paying coin's
+  await expect(page.locator("#confirmPayout")).toHaveText("Send 10.00 USDC");
   await expect(rows.filter({ hasText: "You send" }).locator(".r-value")).toHaveText("10.00 USDC");
   await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("10.00 USDC + [fee] USDC");
   // Review holds the same quote: its countdown, and on expiry Refresh rate before Send
@@ -147,14 +149,15 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN or merc
   await expect(page.locator("#theyGet")).toHaveText("$10.00 USD");
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
-  await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
-  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$10.00 USD", "$1.50 USD", "After [hold]", "$11.50 USD"]); // first payment: held
+  await expect(rows.locator(".r-label")).toHaveText(["To", "Speed", "They get", "Fee", "Delivery", "Total charged"]);
+  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "Instant", "$10.00 USD", "$1.50 USD", "After [hold]", "$11.50 USD"]); // first payment: held
+  await expect(page.locator("#confirmPayout")).toHaveText("Send $10.00 USD");
   await expect(page.locator("#panelBody")).toContainText("First payment to a new account sends after [hold]");
   // Back to the amount: Standard is free
   await page.locator("#backToPayoutAmount").click();
   await page.locator('[data-speed="ach"]').click();
   await page.locator("#payoutReview").click();
-  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$10.00 USD", "Free", "After [hold]", "$10.00 USD"]);
+  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "Standard", "$10.00 USD", "Free", "After [hold]", "$10.00 USD"]);
   await approve(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Jordan Blake after [hold]");
   // Taken from open USD until it's paid, given back if it fails
@@ -184,7 +187,7 @@ test("a US bank by wire: $15.00 and the recipient's address, sent with it", asyn
   await page.locator("#usZip").fill("78701");
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
-  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$20.00 USD", "$15.00 USD", "After [hold]", "$35.00 USD"]);
+  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "Wire", "$20.00 USD", "$15.00 USD", "After [hold]", "$35.00 USD"]);
   // $35.00 leaves the USD balance: over the step-up limit (judged on the USD value leaving, fee included)
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -199,7 +202,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await page.goto("/demo/wallet?send=card");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#cardNum").fill("4242424242424242");
-  await page.locator("#cardName").fill("Ada Osun");
+  await page.locator("#cardName").fill("Kemi Adeyemi"); // someone else's card
   await page.locator("#cardZip").fill("10001");
   await page.locator("#cardContinue").click();
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
@@ -218,7 +221,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await page.locator("#stepupIntroContinue").click(); // $25.00 leaves USD: over the step-up limit
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ada Osun");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Kemi Adeyemi");
   await expect.poll(() => usd(page)).toEqual({ usd: 4060, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");

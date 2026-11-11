@@ -4,7 +4,7 @@ import {
   type PoketUser, type SendRecipient, type WalletNetwork,
 } from "@/lib/mock-api";
 import { usePayout } from "../payout/usePayout";
-import { useNgn } from "../ngn/useNgn";
+import { holderName, useNgn } from "../ngn/useNgn";
 import { toPayoutRecipient } from "./sources";
 import { cardIssue, handleKind, initialsOf, routingBank, sortBank, validAddress } from "./sendMath";
 
@@ -187,7 +187,8 @@ export const useSend = create<State>((set, get) => {
     continueCard: async () => {
       const d = get().card;
       if (!cardReady(d)) return;
-      const saved = await saveDebitCard({ number: d.num, name: d.name, zip: d.zip, saved: d.save });
+      // A card in the verified user's name is theirs: it's saved under Your accounts
+      const saved = await saveDebitCard({ number: d.num, name: d.name, zip: d.zip, saved: d.save, verifiedName: holderName() });
       set({ stage: null }); // keep the source; on to the amount (USD only)
       usePayout.getState().sendTo(saved);
     },

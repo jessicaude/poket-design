@@ -64,11 +64,9 @@ test("a saved stablecoin wallet: Tier 2 first; then the address is screened befo
   await expect(page.locator("#theyGet")).toHaveText("5.00 USDC");
   await page.locator("#payoutReview").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Checking this address");
-  await expect(rows(page).locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
-  await expect(rows(page).locator(".r-value").nth(1)).toHaveText("5.00 USDC");
-  await expect(rows(page).locator(".r-value").nth(2)).toHaveText("1.50 USDC");
-  await expect(rows(page).locator(".r-value").nth(3)).toHaveText("About 1 minute");
-  await expect(rows(page).locator(".r-value").nth(4)).toHaveText("6.50 USDC");
+  await expect(rows(page).locator(".r-label")).toHaveText(["To", "They get", "Network", "Fee", "Delivery", "Total charged"]);
+  await expect(rows(page).locator(".r-value")).toHaveText(["0x3Fa9cE…D58e12", "5.00 USDC", "Base", "1.50 USDC", "About 1 minute", "6.50 USDC"]);
+  await expect(page.locator("#confirmPayout")).toHaveText("Send 5.00 USDC");
   await confirmWithPin(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ledger");
   await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 350, ngn: 5000000, reserved: 0 });
@@ -174,4 +172,46 @@ test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", 
   await expect.poll(() => page.evaluate(() => { const h = (window as any).__holdings.getState(); return [h.cash.USD, h.fiatOnly.USD]; })).toEqual([6060, 1060]); // eslint-disable-line @typescript-eslint/no-explicit-any
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalTag")).toHaveText("FIAT-ONLY");
+});
+
+test("a first payment of $500 or more to a new Poket user is held for a quick check; the next one isn't", async ({ page }) => {
+  await start(page);
+  await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 200000 }, USDT: { Polygon: 0, Base: 0 } } }); // 2,000.00 USDC
+  await page.locator("#actSend").click();
+  await page.locator('[data-sendrecipient="poket:pu1"]').click();
+  await page.locator("#payFromChip").click();
+  await page.locator('[data-payfrom="coin:USDC:Base"]').click();
+  await keys(page, "50000"); // 500.00 USDC = $500.00
+  await page.locator("#payoutReview").click();
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await page.locator("#stepupIntroContinue").click();
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  await expect(page.locator("#quickCheck")).toHaveText("Held for a quick check");
+  await expect(page.locator("#quickCheckNote")).toHaveText("First payment to a new recipient. Usually under 15 minutes.");
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("To Tobi Bello");
+  await expect(rows(page).filter({ hasText: "Estimated delivery" })).toHaveCount(0);
+  await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 150000 }); // taken from USDC until it clears
+  await page.locator("#viewPayoutTx").click();
+  await expect(page.locator("#withdrawalStatus")).toHaveText("Held for a quick check");
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("First payment to a new recipient. Usually under 15 minutes.");
+  await page.getByRole("button", { name: "Mark paid" }).click();
+  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
+
+  // Tobi has been paid now: the next $500 isn't held
+  await page.locator("#backFromTxDetail").click();
+  await page.locator("#actSend").click();
+  await page.locator('[data-sendrecipient="poket:pu1"]').click();
+  await page.locator("#payFromChip").click();
+  await page.locator('[data-payfrom="coin:USDC:Base"]').click();
+  await keys(page, "50000");
+  await page.locator("#payoutReview").click();
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await page.locator("#stepupIntroContinue").click();
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Sent to Tobi Bello");
+  await expect(page.locator("#quickCheck")).toHaveCount(0);
 });

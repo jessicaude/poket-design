@@ -80,7 +80,7 @@ const keyOf = (o: Side) => (o.k === "cash" ? `cash:${o.cur}:${o.bucket}` : `coin
 /** The send flow's recipient (bank, Poket user or wallet) as a Send recipient, for these rules. */
 export function asSendRecipient(r: PayoutRecipient): SendRecipient {
   if (r.methodType === "poket") return { kind: "poket", id: `poket:${r.id}`, user: { id: r.id, name: r.name, handle: r.handle ?? "", initials: "" } };
-  if (r.methodType === "card") return { kind: "card", id: `card:${r.id}`, card: r };
+  if (r.methodType === "card") return { kind: "card", id: `card:${r.id}`, self: r.isSelf, card: r };
   if (r.methodType === "wallet") return { kind: "wallet", id: `wallet:${r.id}`, wallet: { id: r.id, name: r.name, address: r.walletAddress ?? "", asset: r.asset ?? "USDC", network: r.network ?? "Base" } };
   return { kind: "bank", id: `bank:${r.id}`, self: r.isSelf, bank: r };
 }

@@ -42,8 +42,12 @@ export type Enquiry =
   | { status: "idle" } | { status: "resolving" } | { status: "not_found" } | { status: "unavailable" }
   | { status: "matched"; name: string } | { status: "other"; name: string };
 /** ngn-account's fields. */
-export type NgnAccountDraft = { bank: NgBank | null; number: string; enquiry: Enquiry; thirdPartyOk: boolean; /** "Save recipient" (from Send). */ save: boolean };
-const EMPTY_ACCOUNT: NgnAccountDraft = { bank: null, number: "", enquiry: { status: "idle" }, thirdPartyOk: false, save: true };
+export type NgnAccountDraft = {
+  bank: NgBank | null; number: string; enquiry: Enquiry; thirdPartyOk: boolean;
+  /** Nickname (optional, the exploration's), shown once the name is found. */ nick: string;
+  /** "Save recipient". */ save: boolean;
+};
+const EMPTY_ACCOUNT: NgnAccountDraft = { bank: null, number: "", enquiry: { status: "idle" }, thirdPartyOk: false, nick: "", save: true };
 
 /** Same person: case, spacing and word order don't matter ("OSUN ADA" is "Ada Osun"). */
 export const sameName = (a: string, b: string) => {
@@ -76,7 +80,7 @@ type State = {
   ack: boolean;
   lastRef: string | null;
   /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
-  sent: { id: string; amount: number; fee: number; status: WithdrawalStatus } | null;
+  sent: { id: string; amount: number; fee: number; status: WithdrawalStatus; quickCheck?: boolean } | null;
   pinStage: PinStage;
   /** "reset" after Reset PIN with passcode (S.pinPurpose). */
   pinPurpose: "payout" | "reset";
@@ -134,6 +138,7 @@ type State = {
   lookUpName: () => Promise<void>;
   setThirdPartyOk: (ok: boolean) => void;
   setAccountSave: (save: boolean) => void;
+  setAccountNick: (nick: string) => void;
   saveNgnAccount: () => Promise<void>;
   setEnquiryDown: (down: boolean) => void;
 
@@ -257,12 +262,12 @@ export const usePayout = create<State>((set, get) => {
       const w = await createPayout({
         currency: r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
         kind: s.kind, recipientName: r.name, amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
-        sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion,
+        sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
         ...(usBank ? { speed, ...(speed === "wire" ? { wireAddress: wire } : {}) } : {}),
       });
       if (w.status === "paid" && fromNgn) moveReserved(-s.sourceTotal, 0); // paid at once: nothing left on hold
       useWithdrawals.getState().refresh();
-      set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status }, recipients: listPayoutRecipients() });
+      set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status, quickCheck: w.quickCheck }, recipients: listPayoutRecipients() });
     } catch {
       await releaseReservation(rsv.id);
       if (fromNgn) moveReserved(-s.sourceTotal, -s.sourceTotal); else adjustBalance(payFrom, s.sourceTotal);
@@ -409,15 +414,17 @@ export const usePayout = create<State>((set, get) => {
     },
     setThirdPartyOk: (ok) => set((s) => ({ account: { ...s.account, thirdPartyOk: ok } })),
     setAccountSave: (save) => set((s) => ({ account: { ...s.account, save } })),
+    setAccountNick: (nick) => set((s) => ({ account: { ...s.account, nick } })),
 
     /** Saves the account as yours (matched) or as a third-party recipient (other, once confirmed), selects it and returns to the list. */
     saveNgnAccount: async () => {
-      const { bank, number, enquiry, thirdPartyOk, save } = get().account;
+      const { bank, number, enquiry, thirdPartyOk, save, nick } = get().account;
       if (!bank || !(enquiry.status === "matched" || (enquiry.status === "other" && thirdPartyOk))) return;
       const isSelf = enquiry.status === "matched";
       const existing = get().recipients.find((r) => r.currency === "NGN" && r.bankName === bank.name && r.accountNumber === number);
       const saved = existing ?? await savePayoutRecipient({
-        isSelf, name: enquiry.name, holderName: enquiry.name, currency: "NGN", methodType: "bank", bankName: bank.name, accountNumber: number, routingNumber: "",
+        // The nickname names it; the account holder stays the enquiry's name (shown on review when they differ)
+        isSelf, name: nick.trim() || enquiry.name, holderName: enquiry.name, currency: "NGN", methodType: "bank", bankName: bank.name, accountNumber: number, routingNumber: "",
         // From Send, "Save recipient" unticked keeps it for this send only.
         ...(!save ? { saved: false } : {}),
       });
