@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, simulatePoolTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
+import { DIRECTORY, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
 
@@ -13,8 +13,8 @@ import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quot
 export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "id-needed" | "processing" | "declined" | "done";
 
 /**
- * Bank transfer: getting the account, waiting for the transfer, the transfer arriving, then (one-time account) expired,
- * or (merchant pool, matched by CentryOS) underpaid or overpaid. A matched exact amount goes to the done screen.
+ * Bank transfer: getting the account, waiting for the transfer, the transfer arriving, then (CentryOS matches it)
+ * paid (the done screen), underpaid or overpaid; a one-time account can also expire.
  */
 export type TransferState = "creating" | "waiting" | "arriving" | "expired" | "underpaid" | "overpaid";
 /** Demo: how much of the order's amount the transfer carries. */
@@ -48,6 +48,7 @@ type State = {
   failed: PaymentMethod | null;
   paid: { ref: string; method: PaymentMethod; charged?: { amount: Cents; currency: "USD"; rate: string; fxRate: number } } | null;
   quote: Quote | null;        // USD method on an NGN order (Conversion): the held rate
+  charging: Cents | null;     // converted payment in progress: the dollars being charged (processing screen)
   toast: string | null;
 
   start: (order: Order) => void;
@@ -65,11 +66,14 @@ type State = {
   pay: () => Promise<void>;
 };
 
-/** After sign-in: pay, unless the amount needs an ID the person doesn't have yet. */
+/**
+ * After sign-in: pay, unless the amount needs an ID the person doesn't have yet. Tier 0 rule: under $500 needs no ID
+ * check, using the USD value of a naira total (orderUsdCents); $500 or more goes to id-needed.
+ */
 const nextAfterSignIn = (a: Account, o: Order): Screen => (orderUsdCents(o.amount, o.currency) >= NO_ID_LIMIT && a.tier < 1 ? "id-needed" : a.methods.length ? "pay" : "add-method");
 
 export const useCheckout = create<State>((set, get) => ({
-  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, toast: null,
+  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null,
 
   start: (order) => {
     const { customer, shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
@@ -106,24 +110,23 @@ export const useCheckout = create<State>((set, get) => ({
     const va = transfer.va;
     if (!order || !va || transfer.state !== "waiting") return;
     set({ transfer: { ...transfer, state: "arriving" } });
-    let id: string;
-    if (va.kind === "pool") {
-      const match = await simulatePoolTransfer(va.id, demoTransferAmount(order.amount, amount));
-      if (match.status !== "paid") {
-        // Short or over: the merchant hears about it; what happens next is [handling]
-        useEvents.getState().emit("payment.amount_mismatch", { widget: "checkout", order_reference: order.orderRef, currency: order.currency,
-          expected_amount: order.amount, received_amount: match.received });
-        set({ transfer: { ...transfer, state: match.status, received: match.received } });
-        return;
-      }
-      id = match.id;
-    } else {
-      try { ({ id } = await simulateCheckoutTransfer(va.id)); } catch { set({ transfer: { ...transfer, state: "expired" } }); return; }
+    // CentryOS matches the transfer to the order, for either account (a late one-time transfer is refused: expired)
+    let match;
+    try { match = await simulateCheckoutTransfer(va.id, demoTransferAmount(order.amount, amount)); }
+    catch { set({ transfer: { ...transfer, state: "expired" } }); return; }
+    if (match.status !== "paid") {
+      // Short or over: the merchant hears about it; what happens next is [handling]
+      useEvents.getState().emit("payment.amount_mismatch", { widget: "checkout", order_reference: order.orderRef, currency: order.currency,
+        expected_amount: order.amount, received_amount: match.received, rail: "ngn_bank_transfer", account_type: va.kind });
+      set({ transfer: { ...transfer, state: match.status, received: match.received } });
+      return;
     }
+    const id = match.id;
     const m: PaymentMethod = { id: va.id, kind: "bank", last4: va.num.slice(-4), name: "Bank transfer", sub: `Account •••• ${va.num.slice(-4)}`, oneTime: true };
     useAccount.getState().update((a) => ({ ...a,
       payments: [{ id, merchant: order.merchant, amount: order.amount, currency: order.currency, method: m.name, at: new Date().toISOString(), status: "paid" }, ...a.payments] }));
-    useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: "bank_transfer", identity_verified: (useAccount.getState().account?.tier ?? 0) >= 1 });
+    useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: "bank_transfer",
+      rail: "ngn_bank_transfer", account_type: va.kind, identity_verified: (useAccount.getState().account?.tier ?? 0) >= 1 });
     set({ paid: { ref: id, method: m }, screen: "done", transfer: { state: "creating", va: null } });
   },
   expireTransfer: () => {
@@ -159,7 +162,7 @@ export const useCheckout = create<State>((set, get) => ({
     const converting = isConverting(order, get().settings, m);
     if (converting && (!q || quoteLeft(q) <= 0)) return;
     const charged = converting && q ? { amount: quoteUsdCents(order.amount, q), currency: "USD" as const, rate: quoteRateText(q), fxRate: quoteFxRate(q) } : undefined;
-    set({ screen: "processing" });
+    set({ screen: "processing", charging: charged?.amount ?? null });
     try {
       const { id } = await createPayment(m, useDemo.getState().cardOutcome);
       useAccount.getState().update((a) => ({
@@ -169,11 +172,12 @@ export const useCheckout = create<State>((set, get) => ({
           ...(charged ? { charged: { amount: charged.amount, currency: charged.currency } } : {}) }, ...a.payments],
       }));
       useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: m.kind, identity_verified: account.tier >= 1,
+        ...(m.currency === "NGN" ? { rail: "ngn_card" } : {}),
         ...(charged ? { charged_amount: charged.amount, charged_currency: charged.currency, fx_rate: charged.fxRate } : {}) });
-      set({ paid: { ref: id, method: m, charged }, screen: "done", quote: null });
+      set({ paid: { ref: id, method: m, charged }, screen: "done", quote: null, charging: null });
     } catch {
       useEvents.getState().emit("payment.failed", { widget: "checkout", amount: order.amount, currency: order.currency, reason: "card_declined" });
-      set({ failed: m, screen: "declined", quote: null });
+      set({ failed: m, screen: "declined", quote: null, charging: null });
     }
   },
 }));

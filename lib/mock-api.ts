@@ -52,15 +52,6 @@ export async function createCheckoutVirtualAccount(p: { amount: number; merchant
   return va;
 }
 
-/** Demo only: the customer's transfer reaches the virtual account; the order is paid. Used once; refused after expiry. */
-export async function simulateCheckoutTransfer(id: string): Promise<{ id: string }> {
-  const va = checkoutServer.va;
-  if (!va || va.id !== id) throw new Error("no_virtual_account");
-  if (va.expiresAt !== null && Date.now() > va.expiresAt) throw new Error("virtual_account_expired");
-  await wait(1200);
-  checkoutServer.va = null;
-  return { id: "pay_" + Math.random().toString(36).slice(2, 10) };
-}
 
 /** Each merchant's pool account number (demo values, stable per merchant). */
 const POOL_NUMBERS: Record<string, string> = { "Ilé Living": "2045118830" };
@@ -75,13 +66,17 @@ export async function getMerchantPoolAccount(p: { amount: number; merchant: stri
   return va;
 }
 
-/** What CentryOS made of a transfer into the pool: matched to the order, then paid, short or over. */
-export type PoolMatch = { status: "paid" | "underpaid" | "overpaid"; received: number; id: string };
+/** What CentryOS made of a transfer into a checkout account: matched to the order, then paid, short or over. */
+export type TransferMatch = { status: "paid" | "underpaid" | "overpaid"; received: number; id: string };
 
-/** Demo only: a transfer of `received` kobo reaches the pool and CentryOS matches it to the order automatically. */
-export async function simulatePoolTransfer(id: string, received: number): Promise<PoolMatch> {
+/**
+ * Demo only: a transfer of `received` kobo reaches the one-time account or the pool, and CentryOS matches it to the order
+ * automatically. Each account is used once; a one-time account refuses transfers after it expires.
+ */
+export async function simulateCheckoutTransfer(id: string, received: number): Promise<TransferMatch> {
   const va = checkoutServer.va;
-  if (!va || va.id !== id || va.kind !== "pool") throw new Error("no_pool_account");
+  if (!va || va.id !== id) throw new Error("no_virtual_account");
+  if (va.expiresAt !== null && Date.now() > va.expiresAt) throw new Error("virtual_account_expired");
   if (!Number.isInteger(received) || received <= 0) throw new Error("received must be positive integer kobo");
   await wait(1200);
   checkoutServer.va = null;

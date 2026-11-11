@@ -1,16 +1,17 @@
 "use client";
 import { Raw } from "@/components/ui/Raw";
 import { BANK_MINI, BRANDS, CHECK_DRAW, ICON, PROTECT_NOTE } from "@/lib/icons";
-import { formatOrder } from "@/lib/money";
+import { formatOrder, money } from "@/lib/money";
 import { useAccount } from "@/store/account";
 import { useCheckout } from "../useCheckout";
 import { MoneyU } from "./PayScreen";
 
 /** SCREENS['processing'] */
 export function ProcessingScreen() {
-  const order = useCheckout((s) => s.order);
+  const { order, charging } = useCheckout();
   if (!order) return null;
-  return <div className="center"><div className="spinner" /><h2 className="title">Paying {order.merchant}</h2><p className="sub">{formatOrder(order.amount, order.currency)}</p></div>;
+  // Converted: the dollars being charged, not the naira total
+  return <div className="center"><div className="spinner" /><h2 className="title">Paying {order.merchant}</h2><p className="sub" id="processingAmount">{charging !== null ? money(charging) : formatOrder(order.amount, order.currency)}</p></div>;
 }
 
 /** SCREENS['declined'] */
@@ -24,7 +25,7 @@ export function DeclinedScreen() {
       <div className="center">
         <div className="badge err"><Raw html={ICON.x} /></div>
         <h2 className="title">Your card was declined</h2>
-        <p className="sub">{failed.name} didn&apos;t go through. Choose another way to pay, or contact your card issuer.</p>
+        <p className="sub">{failed.name} didn’t go through. Choose another way to pay, or contact your card issuer.</p>
       </div>
       <button className="btn" onClick={() => { if (other) { select(other.id); go("pay"); } else go("add-method"); }}>Choose another way to pay</button>
     </>

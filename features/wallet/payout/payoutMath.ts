@@ -1,5 +1,5 @@
 import { WICON } from "@/lib/icons";
-import { formatMinor, formatNaira } from "@/lib/money";
+import { DEMO_NGN_PER_USD, formatMinor, formatNaira } from "@/lib/money";
 import type { PayoutCurrency, PayoutRecipient } from "@/lib/mock-api";
 import { NGN_VA } from "../ngn/useNgn";
 
@@ -24,7 +24,7 @@ export const fmtCurrency = (minor: number, cur: PayoutCurrency) => (cur === "NGN
  * fxToUSD as exact fractions [num, den] (USD per unit), so conversions stay in integer maths:
  * NGN 1/1550, EUR 1.08, GBP 1.27, GHS 1/15.5.
  */
-const FX_TO_USD: Record<PayoutCurrency, [number, number]> = { USD: [1, 1], NGN: [1, 1550], EUR: [108, 100], GBP: [127, 100], GHS: [2, 31] };
+const FX_TO_USD: Record<PayoutCurrency, [number, number]> = { USD: [1, 1], NGN: [1, DEMO_NGN_PER_USD], EUR: [108, 100], GBP: [127, 100], GHS: [2, 31] };
 
 /** convertAmount(cents, from, to), rounded to the nearest minor unit. */
 export function convertAmount(minor: number, from: PayoutCurrency, to: PayoutCurrency): number {
@@ -41,7 +41,7 @@ export function fxRateLabel(from: PayoutCurrency, to: PayoutCurrency): string {
 }
 
 /** The reference prices NGN fees as the naira equivalent of a USD fee, at 1,550. */
-const usdEquiv = (cur: PayoutCurrency, usdCents: number) => (cur === "NGN" ? usdCents * 1550 : usdCents);
+const usdEquiv = (cur: PayoutCurrency, usdCents: number) => (cur === "NGN" ? usdCents * DEMO_NGN_PER_USD : usdCents);
 
 /** sendFee(cur): a flat $1.00 equivalent, for payouts to someone else. */
 export const sendFee = (cur: PayoutCurrency) => usdEquiv(cur, 100);

@@ -73,6 +73,8 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
       {onTransfer && transfer.va?.kind === "dynamic" && (
         <>
           <button className="pbtn" id="demoTransferArrives" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("exact")}>Transfer arrives</button>
+          <button className="pbtn" id="demoTransferLess" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("less")}>Less arrives</button>
+          <button className="pbtn" id="demoTransferMore" disabled={transfer.state !== "waiting"} onClick={() => transferArrives("more")}>More arrives</button>
           <button className="pbtn" id="demoTransferExpire" disabled={transfer.state !== "waiting"} onClick={expireTransfer}>Let it expire</button>
         </>
       )}

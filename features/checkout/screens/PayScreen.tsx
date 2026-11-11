@@ -13,8 +13,8 @@ export const methodMark = (m: PaymentMethod) => (m.kind === "bank" ? BANK_MARK :
 
 /** "$23.40 USD" or "₦36,270.00 NGN", with the currency code styled by .cur */
 export function MoneyU({ minor, currency }: { minor: number; currency: OrderCurrency }) {
-  const text = formatOrder(minor, currency);
-  return <>{currency === "NGN" ? text.replace(/ NGN$/, "") : text} <span className="cur">{currency}</span></>;
+  // Amount rows and cards: the amount, then the grey code
+  return <>{formatOrder(minor, currency)} <span className="cur">{currency}</span></>;
 }
 
 /** SCREENS['pay'] */
@@ -78,7 +78,7 @@ export function PayScreen() {
           </div>
         </div>
       )}
-      {sel?.kind === "bank" && <p className="mandate">By paying, you authorize Poket to debit {sel.name} for {converting ? `${money(usd)} USD` : `${formatOrder(order.amount, order.currency)}${order.currency === "USD" ? " USD" : ""}`}.</p>}
+      {sel?.kind === "bank" && <p className="mandate">By paying, you authorize Poket to debit {sel.name} for {converting ? `${money(usd)} USD` : `${formatOrder(order.amount, order.currency)} ${order.currency}`}.</p>}
       {expired
         ? <button className="btn" id="quoteRefresh" onClick={() => { refreshQuote(); setNow(Date.now()); }}>Refresh rate</button>
         : <button className="btn" id="payGo" disabled={!selected} onClick={pay}>Pay {converting ? money(usd) : formatOrder(order.amount, order.currency)}</button>}
