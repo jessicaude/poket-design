@@ -12,9 +12,10 @@ import { useHoldings } from "@/features/wallet/useHoldings";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
 
 /**
- * The body is the open payout or NGN screen, else the NGN balance with Withdraw (WalletBody).
- * Open a screen with ?ngn=<stage> (e.g. ?ngn=deposit-method), ?payout=<stage> (e.g. ?payout=recipient) or
- * ?convert=<stage> (e.g. ?convert=form) or ?send=<stage> (e.g. ?send=recipients).
+ * The body is the open flow (Send, NGN, Convert), else the wallet home (WalletBody).
+ * Open a screen with ?ngn=<stage> (e.g. ?ngn=deposit-method), ?convert=<stage> (e.g. ?convert=form) or
+ * ?send=<stage>: a Send stage (e.g. ?send=recipients), or a later step of a send to Ngozi Eze (e.g. ?send=review;
+ * ?send=ngn-account opens a new Nigerian bank account).
  */
 export function WalletDemo({ css }: { css: string }) {
   // The tab bar: Wallet (home) and Activity; Card isn't ported, so it keeps the home.
@@ -25,12 +26,16 @@ export function WalletDemo({ css }: { css: string }) {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
     Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome });
     const q = new URLSearchParams(window.location.search);
-    const s = q.get("ngn"), p = q.get("payout"), c = q.get("convert"), sd = q.get("send");
+    const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);
-    if (isPayoutStage(p)) { usePayout.getState().open("NGN"); usePayout.getState().go(p); }
     if (isConvertStage(c)) { useConvert.getState().start(); useConvert.setState({ stage: c }); }
-    // Send has no entry on this branch's home yet: preview it with ?send=recipients (or another stage).
     if (isSendStage(sd)) { useSend.getState().open(); useSend.setState({ stage: sd }); }
+    if (isPayoutStage(sd)) {
+      // Every send starts in Send; later steps preview a send to a saved recipient (Ngozi Eze).
+      useSend.getState().open();
+      useSend.getState().choose(useSend.getState().recipients.find((r) => r.id === "bank:r6")!);
+      if (sd === "ngn-account") usePayout.getState().sendToNewBank(); else usePayout.getState().go(sd);
+    }
   }, [open]);
   // The prototype bar is fixed at the top: --pk-bar tells the wallet's stage to leave room for it, as in the reference.
   return (

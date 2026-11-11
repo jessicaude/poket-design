@@ -155,6 +155,11 @@ test("merchant-held balance: not available to withdraw, Convert instead", async 
   await expect(page.locator("#withdrawUseConvert")).toHaveText("Convert");
   await expect(page.locator("#payoutRecipientContinue")).toHaveCount(0);
   await page.locator("#backFromWithdraw").click();
+  await expect(page.locator("#sendFrom")).toHaveText("From Nigerian NairaMERCHANT-HELD"); // back on Send, same source
+  await page.locator('[data-sendrecipient="poket:pu1"]').click(); // a Poket user can be paid from merchant-held naira
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");
+  await page.locator("#backToPayoutRecipient2").click();
+  await page.locator("#backFromSend").click();
   await expect(page.locator("#holdingAmount")).toHaveText("₦12,000.00 NGN"); // back on the merchant-held balance
   await page.locator("#backFromDetail").click();
   // The open balance still sends as normal (its row opens the NGN balance screen)

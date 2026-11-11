@@ -29,7 +29,9 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - Deposits and top-ups can't be disputed.
 - Card-funded money is tagged **FIAT-ONLY**: it can be spent or withdrawn, but can't become stablecoin.
 - Sending to external wallets needs Tier 2.
-- Send replaces the wallet's Transfer and Payout actions (not the Payout (Get paid) widget). Sending is recipient-first: pick a saved recipient or add one (bank account, Poket user, stablecoin wallet), then the amount (you send, they get). Withdrawing to your own bank is sending to yourself.
+- Send replaces the wallet's Transfer and Payout actions (not the Payout (Get paid) widget). Sending is recipient-first: pick a saved recipient or add one (bank account, debit card, Poket user, stablecoin wallet), then the amount (you send, they get). Withdrawing to your own bank is sending to yourself.
+- Send to a debit card: Visa or Mastercard debit only (credit cards can't receive payouts), paid only from USD, arrives instantly. Fee not decided ($[fee]).
+- A US bank send's speed (Standard, Instant, Wire) is chosen per send on the amount screen, not saved with the recipient. Naira keeps one speed.
 
 ## Merchants
 - A merchant without a logo shows its **initials** on a colour derived from its name, in the same rounded square as a logo.

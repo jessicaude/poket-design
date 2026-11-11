@@ -37,14 +37,36 @@ alwaysApply: true
 These rules apply to every NGN transfer to a bank account, whether to the user's own account or someone else's
 (docs/decisions.md: withdrawing to your own bank is sending to yourself). "Payout" means only the Get paid widget;
 don't use it for this in copy or new names. The current code still uses older names (features/wallet/payout/,
-usePayout, createPayout, payoutFee, withdrawals.ts); read them as "send to a bank account".
-- Code: features/wallet/payout/ (usePayout.ts: stages are the reference's tPayout stages plus the checkout's PIN
-  screens pin, pinLocked, pinResetOtp, moneyDone; payoutMath.ts: fees, FX, formatting; screens/). WalletBody picks the
-  open flow, else the wallet home. Preview at /demo/wallet?payout=<stage>.
-- Entry is Send (features/wallet/send/): the wallet home and every balance screen have Send instead of Transfer and
-  Payout. A balance screen passes itself as the source (useSend.open(source)): NGN sends to Nigerian banks as below;
-  merchant-held naira choosing a bank shows the "not available" screen with Convert; other balances say sending from
-  them isn't ported yet. A saved Nigerian bank account goes straight to the amount; Back and "Change" return to Send.
+usePayout, createPayout, withdrawals.ts); read them as "send".
+- Code: features/wallet/send/ chooses the recipient (useSend); features/wallet/payout/ runs the send from the amount
+  on (usePayout.ts: amount, review, stepup, the checkout's PIN screens pin, pinLocked, pinResetOtp, moneyDone, then
+  processing and done; ngn-account and ngn-bank for a new Nigerian bank account; payoutMath.ts: formatting and
+  placeholders; screens/). WalletBody picks the open flow, else the wallet home.
+- Send is the only way in: the wallet home and every balance screen have Send (no Transfer, Payout or Withdraw
+  flows, and no separate recipient list or "Link a payout method" form). A balance screen passes itself as the source
+  (useSend.open(source)). Merchant-held naira choosing a bank shows Send's "not available" step with Convert (Back
+  returns to Send). A saved recipient goes straight to the amount (usePayout.sendTo); "+ New recipient" → Bank account
+  → NGN opens the bank-account step (usePayout.sendToNewBank). Back and "Change" return to Send.
+- Previews: /demo/wallet?send=<stage>, a Send stage (recipients, new, unavailable...) or a later step of a send to
+  Ngozi Eze (amount, review, pin, done...; ngn-account for a new Nigerian bank account).
+- Every kind of send (any bank account, a Poket user, a stablecoin wallet) uses the same amount, review, PIN,
+  reservation and status screens (usePayout.executeSend; one summary in features/wallet/send/sendSummary.ts). Review
+  rows: To, They get, You send and Rate (converting), Fee (placeholders where undecided: ₦[fee] for Nigerian banks,
+  [fee] for conversions involving NGN), Delivery, Total charged; then the first-payment notice for a new bank account.
+  - Arrival: a first payment to any bank account is "After [hold]" and Scheduled; Nigerian banks "Usually within
+    seconds"; US banks by the speed chosen for this send on the amount screen (Instant $1.50 if the bank supports
+    it, Standard free by default, Wire $15.00 with the recipient's address); other banks "Within minutes"; debit
+    cards "Instantly", fee $[fee] (undecided, 0 in the maths), status Sending; Poket users "Instantly" and straight
+    to Paid; stablecoin wallets "About 1 minute", fee 1.50 in the coin.
+  - Max is the whole balance less a decided fee (a US speed's, a wallet's); placeholder fees count as 0.
+  - Debit cards (Send → New recipient → Debit card, the explore prototype's card fields): Visa and Mastercard debit
+    only ("Only Visa and Mastercard debit cards."; a credit card shows "This is a credit card. Use a debit card." and
+    the mock API refuses it). Only USD (open or card-funded) can pay a card; no conversion, no first-payment hold.
+  - Reservation at the PIN: from NGN into "on hold" as below; from any other balance the total is taken out and given
+    back if the send fails or is reversed (Withdrawal.reservedIn "source").
+  - Stablecoin wallets need Tier 2 (saved or new), and the address is screened before review (the reference's
+    "Checking this address"; a flagged address shows "We can't send to this address").
+  - A Poket user starts on the NGN balance when opened from the home.
 - Send's amount screen (features/wallet/send/SendAmountScreens.tsx): "You send" in the paying balance (a chip with
   Max), then "They get" in the recipient's currency. The source defaults to the balance it was opened from if that can
   pay, else the recipient's currency. Another currency converts inline with the quote card (rate, fee as ₦[fee] or the
@@ -58,8 +80,8 @@ usePayout, createPayout, payoutFee, withdrawals.ts); read them as "send to a ban
 - Copy: the button is "Send", processing is "Sending…", activity and status read "To {name}", and a reversal's
   notification is "Transfer reversed". Don't reintroduce "Payout" in this flow's copy.
 - Sending is approved with the checkout's 4-digit PIN (tPin), not the reference's 6-digit passcode 'authorize' stage.
-- Nigerian banks only: sending from an NGN balance lists only Nigerian bank accounts (recipientsFor). No international
-  recipients, and no exchange rate or "Recipient gets" conversion (isCrossBorder is never true for NGN).
+- Nigerian banks only: NGN can't pay a non-Nigerian bank account (the chip never offers it, sources.ts), so naira to
+  a bank is never converted on the way.
 - Name enquiry: a bank account is added on ngn-account (bank from NG_BANKS in lib/mock-api.ts, 10-digit number,
   automatic nameEnquiry()). A name that matches the verified user saves as their own account; any other name must be
   confirmed as a third-party payee. Without a successful name enquiry, an account can't be added.

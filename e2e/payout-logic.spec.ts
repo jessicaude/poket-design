@@ -1,51 +1,43 @@
 import { test, expect } from "@playwright/test";
-import { convertAmount, fmtCurrency, fmtFee, fmtWithFee, fxRateLabel, hasSpeeds, isCrossBorder, maxPayout, payoutEta, payoutFee, recipientsFor, sendFee, withdrawFee } from "@/features/wallet/payout/payoutMath";
+import { fmtCurrency, fmtFee } from "@/features/wallet/payout/payoutMath";
+import { sendSummary } from "@/features/wallet/send/sendSummary";
+import { asSendRecipient, sourceAllowed } from "@/features/wallet/send/sources";
 import { listPayoutRecipients } from "@/lib/mock-api";
-import { setPin, verifyPin, verifyPinResetCode, hasPin, resetPayoutServer, type PayoutRecipient } from "@/lib/mock-api";
+import { setPin, verifyPin, verifyPinResetCode, hasPin, resetPayoutServer } from "@/lib/mock-api";
 import { usePayout } from "@/features/wallet/payout/usePayout";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
 import { reservationEffect, isOnHold } from "@/features/wallet/payout/withdrawals";
 
-/** Payout maths and PIN logic, without a browser. Values follow the reference's sendFee / withdrawFee / fxToUSD. */
+/** Send's maths (fees, totals, arrival, sources) and PIN logic, without a browser. */
 test.beforeEach(() => { resetPayoutServer(); usePayout.getState().reset(); useNgn.getState().reset(); });
 
-const self = { isSelf: true, methodType: "bank" } as PayoutRecipient;
-const other = { isSelf: false, methodType: "bank" } as PayoutRecipient;
+const recipient = (id: string) => listPayoutRecipients().find((r) => r.id === id)!;
+const asSend = (id: string) => asSendRecipient(recipient(id));
 
-test("NGN fees are undecided: shown as ₦[fee], left out of the maths", () => {
-  expect(payoutFee("NGN", self, "standard", 1250000)).toBe(0);
-  expect(payoutFee("NGN", other, "standard", 1250000)).toBe(0);
+test("NGN fees are undecided: shown as ₦[fee], left out of the maths; other banks keep their fees", () => {
+  // Naira account (lb2) has been paid before
+  const ngn = sendSummary(recipient("lb2"), "cash:NGN:open", 1250000, 1250000, 1);
+  expect(ngn).toMatchObject({ feeTarget: 0, feeText: "₦[fee]", sourceTotal: 1250000, totalText: "₦12,500.00 NGN + ₦[fee]", arrival: "Usually within seconds" });
   expect(fmtFee(0, "NGN")).toBe("₦[fee]");
-  expect(fmtWithFee(1250000, 0, "NGN")).toBe("₦12,500.00 NGN + ₦[fee]");
-  // Other currencies keep the reference's fees
-  expect(payoutFee("USD", other, "standard", 1000)).toBe(100);
   expect(fmtFee(50, "USD")).toBe("$0.50 USD");
-  expect(fmtWithFee(1000, 100, "USD")).toBe("$11.00 USD");
-});
-
-test("the reference's fee functions (kept for when NGN fees are decided)", () => {
-  expect(sendFee("NGN")).toBe(155000);
-  expect(sendFee("USD")).toBe(100);
-  expect(withdrawFee("NGN", "standard", 9999999)).toBe(77500);
-  expect(withdrawFee("NGN", "instant", 1000000)).toBe(155000); // 1.5% is below the minimum
-  expect(withdrawFee("NGN", "instant", 20000000)).toBe(300000);
-});
-
-test("FX: integer conversion and the 4-decimal rate label", () => {
-  expect(convertAmount(155000, "NGN", "USD")).toBe(100);
-  expect(convertAmount(100, "USD", "NGN")).toBe(155000);
-  expect(convertAmount(1000, "GBP", "EUR")).toBe(1176);
-  expect(fxRateLabel("NGN", "USD")).toBe("1 NGN = 0.0006 USD");
-  expect(fxRateLabel("USD", "NGN")).toBe("1 USD = 1,550 NGN");
   expect(fmtCurrency(3026, "USD")).toBe("$30.26 USD");
+  // A US bank: the fee and arrival of the speed chosen for this send
+  const us = (speed: string) => sendSummary({ ...recipient("r4"), paidBefore: true }, "cash:USD:open", 1000, 1000, 1, speed);
+  expect(us("rtp")).toMatchObject({ feeTarget: 150, feeText: "$1.50 USD", sourceTotal: 1150, totalText: "$11.50 USD", arrival: "Within minutes, any day" });
+  expect(us("ach")).toMatchObject({ feeTarget: 0, feeText: "Free", sourceTotal: 1000, arrival: "1 to 3 business days" });
+  expect(us("wire")).toMatchObject({ feeTarget: 1500, feeText: "$15.00 USD", sourceTotal: 2500, arrival: "Same day if sent before 5 PM ET" });
+  // A debit card: $[fee], undecided (0 in the maths), instant
+  const card = { id: "dc1", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const, bankName: "Visa", accountNumber: "4242" };
+  expect(sendSummary(card, "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "Instantly", firstPayment: false });
 });
 
-test("Max: the whole NGN balance while the fee is undecided; otherwise room for the fee, as in the reference", () => {
-  expect(maxPayout("NGN", other, "standard", 5000000)).toBe(5000000);
-  expect(maxPayout("NGN", self, "instant", 5000000)).toBe(5000000);
-  expect(maxPayout("USD", other, "standard", 10000)).toBe(9900);
-  expect(maxPayout("USD", self, "instant", 10000)).toBe(9852);
-  expect(maxPayout("USD", self, "standard", 10000)).toBe(10000);
+test("Max: the whole balance (the NGN fee is undecided)", () => {
+  const p = () => usePayout.getState();
+  p().sendTo(recipient("r6"));
+  expect(p().payFrom).toBe("cash:NGN:open");
+  p().max();
+  expect(p().payCents).toBe(5000000);
+  expect(p().cents).toBe(5000000);
 });
 
 test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
@@ -61,8 +53,7 @@ test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
 test("store: the PIN reserves the amount; a first payment to an account is Scheduled", async () => {
   const p = () => usePayout.getState();
   p().seedPin("1234");
-  p().open("NGN");
-  p().selectRecipient(p().recipients.find((r) => r.id === "r6")!);
+  p().sendTo(recipient("r6")); // as Send does for a saved recipient
   for (const k of "500000") p().key(k);
   p().setAck(true);
   p().confirm();
@@ -90,17 +81,22 @@ test("name enquiry mock and name matching", async () => {
   await expect(reservePayout({ currency: "NGN", amount: 100, source: "merchant" })).rejects.toThrow("balance_not_withdrawable");
 });
 
-test("NGN: one speed, Nigerian bank accounts only, no conversion", () => {
-  const all = listPayoutRecipients();
-  expect(recipientsFor(all, "NGN").map((r) => r.id)).toEqual(["lb2", "r6"]);
-  expect(recipientsFor(all, "USD")).toHaveLength(all.length);
-  expect(hasSpeeds("NGN")).toBe(false);
-  expect(hasSpeeds("USD")).toBe(true);
-  expect(payoutEta("NGN", self, "instant")).toBe("Usually within seconds");
-  expect(payoutEta("USD", self, "standard")).toBe("1-3 business days");
-  const usd = all.find((r) => r.id === "r4")!;
-  expect(isCrossBorder("NGN", usd)).toBe(false);
-  expect(isCrossBorder("GBP", usd)).toBe(true);
+test("debit cards: only USD pays them; Visa and Mastercard debit only (credit cards refused)", async () => {
+  const card = { kind: "card" as const, id: "card:x", card: { id: "x", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const } };
+  expect(["cash:USD:open", "cash:USD:fiat"].every((k) => sourceAllowed(k, card, false))).toBe(true);
+  expect(["cash:NGN:open", "cash:NGN:merchant", "coin:USDC:Base", "cash:GBP:open"].some((k) => sourceAllowed(k, card, false))).toBe(false);
+  const { saveDebitCard } = await import("@/lib/mock-api");
+  await expect(saveDebitCard({ number: "4111 1111 1111 1111", name: "Ada Osun", zip: "10001", saved: true })).rejects.toThrow("credit_card");
+  await expect(saveDebitCard({ number: "6011 0000 0000 0004", name: "Ada Osun", zip: "10001", saved: true })).rejects.toThrow("unsupported_card");
+  const saved = await saveDebitCard({ number: "4242 4242 4242 4242", name: "Ada Osun", zip: "10001", saved: true });
+  expect(saved).toMatchObject({ methodType: "card", currency: "USD", bankName: "Visa", accountNumber: "4242" });
+});
+
+test("NGN: one speed, Nigerian bank accounts only; a first payment is held", () => {
+  expect(sourceAllowed("cash:NGN:open", asSend("r6"), false)).toBe(true);
+  expect(sourceAllowed("cash:NGN:open", asSend("r4"), false)).toBe(false); // a US bank account
+  expect(sourceAllowed("cash:NGN:merchant", asSend("r6"), false)).toBe(false); // merchant-held: not to a bank
+  expect(sendSummary(recipient("r6"), "cash:NGN:open", 100, 100, 1)).toMatchObject({ arrival: "After [hold]", firstPayment: true, converting: false });
 });
 
 test("reservations: a first NGN payment is Scheduled, others Sending; a used or mismatched reservation is refused", async () => {

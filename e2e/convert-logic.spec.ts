@@ -5,7 +5,11 @@ import { useHoldings } from "@/features/wallet/useHoldings";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
 
 /** Convert's pure helpers (convertMath.ts), against the reference's rules. */
-test.beforeEach(() => { useHoldings.getState().reset(); useNgn.getState().reset(); useSpend.getState().reset(); });
+test.beforeEach(() => {
+  useHoldings.getState().reset(); useNgn.getState().reset(); useSpend.getState().reset();
+  // The reference's demo balances: all USD card-funded (the wallet demo also holds $50.00 of open USD)
+  useHoldings.getState().set({ cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
+});
 
 test("pair types and the FIAT-ONLY block", () => {
   const p = cvParse;

@@ -1,18 +1,18 @@
 "use client";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
-import { useNgn } from "../../ngn/useNgn";
-import { fmtCurrency } from "../payoutMath";
-import { BackRow, Grey } from "../parts";
-import { usePayout } from "../usePayout";
-import { useConvert } from "../../convert/useConvert";
+import { useNgn } from "../ngn/useNgn";
+import { fmtCurrency } from "../payout/payoutMath";
+import { BackRow, Grey } from "../payout/parts";
+import { useConvert } from "../convert/useConvert";
+import { useSend } from "./useSend";
 
 /**
- * 'unavailable': a merchant-held balance can't be withdrawn to a bank; Convert is the alternative.
- * Not in the reference. Laid out like tHoldingDetail's header (flag, name with tag, amount).
+ * Send stage 'unavailable': a bank account chosen with merchant-held naira as the source. It can't be sent to a bank;
+ * Convert is the alternative. Not in the reference. Laid out like tHoldingDetail's header (flag, name with tag, amount).
  */
-export function WithdrawUnavailableScreen() {
-  const back = usePayout((s) => s.back);
+export function SendUnavailableScreen() {
+  const back = useSend((s) => s.back);
   const held = useNgn((s) => s.ngnMerchantBalance);
   return (
     <>
@@ -26,7 +26,7 @@ export function WithdrawUnavailableScreen() {
       </div>
       <div className="alert warn" role="alert" style={{ marginTop: "14px" }}><Raw html={WICON.alert} /><span>Not available: this balance can&apos;t be sent to a bank</span></div>
       {/* Merchant-held naira converts to USD or USDC. */}
-      <button className="btn-primary" id="withdrawUseConvert" onClick={() => { usePayout.getState().close(); useConvert.getState().start({ from: "cash:NGN:merchant" }); }}>Convert</button>
+      <button className="btn-primary" id="withdrawUseConvert" onClick={() => { useSend.getState().close(); useConvert.getState().start({ from: "cash:NGN:merchant" }); }}>Convert</button>
     </>
   );
 }

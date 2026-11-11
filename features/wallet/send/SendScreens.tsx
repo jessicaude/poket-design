@@ -2,12 +2,13 @@
 import { Raw } from "@/components/ui/Raw";
 import { EXPLORE_NETWORK_LOGO, WICON } from "@/lib/icons";
 import { RECENT_POKET_CONTACTS, type PoketUser, type SendRecipient, type WalletNetwork } from "@/lib/mock-api";
-import { fmtCurrency, payoutMethodSub } from "../payout/payoutMath";
-import { BackRow, Grey, SpinButton } from "../payout/parts";
+import { payoutMethodSub } from "../payout/payoutMath";
+import { BackRow, SpinButton } from "../payout/parts";
 import { useNgn } from "../ngn/useNgn";
 import { showNotPorted } from "../useWalletToast";
-import { addressParts, formatSortCode, routingBank, sortBank, usSpeeds, validAddress } from "./sendMath";
-import { sourceName, ukReady, usReady, useSend, type SendStage } from "./useSend";
+import { addressParts, cardBrandLabel, cardIssue, formatCardDigits, formatSortCode, routingBank, sortBank, validAddress } from "./sendMath";
+import { cardReady, sourceName, ukReady, usReady, useSend, type SendStage } from "./useSend";
+import { SendUnavailableScreen } from "./SendUnavailableScreen";
 
 /** The explore prototype's shortAddr: "0x3Fa9cE…D58e12". */
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
@@ -18,12 +19,16 @@ const netLogo = (n: WalletNetwork) => (n === "Base" ? WICON.base : n === "Polygo
 /** Search in the list once there are more than 5 saved recipients (savedPage: all.length > 5). */
 export const SEARCH_FROM = 6;
 
-const nameOf = (r: SendRecipient) => (r.kind === "bank" ? r.bank.name : r.kind === "poket" ? r.user.name : r.wallet.name);
-const subOf = (r: SendRecipient) => (r.kind === "bank" ? payoutMethodSub(r.bank) : r.kind === "poket" ? r.user.handle : shortAddr(r.wallet.address));
+const nameOf = (r: SendRecipient) => (r.kind === "bank" ? r.bank.name : r.kind === "card" ? r.card.name : r.kind === "poket" ? r.user.name : r.wallet.name);
+const subOf = (r: SendRecipient) =>
+  r.kind === "bank" ? payoutMethodSub(r.bank) : r.kind === "card" ? payoutMethodSub(r.card) : r.kind === "poket" ? r.user.handle : shortAddr(r.wallet.address);
+/** A grey icon in a badge (the reference's payoutMethodBadgeHtml for non-logo methods). */
+const greyIcon = (icon: string) => `<span style="display:inline-flex;color:var(--txt2)">${icon}</span>`;
 
-/** A recipient's mark: a bank's country flag, a Poket user's initials, a wallet's coin with its network. */
+/** A recipient's mark: a bank's country flag, a card, a Poket user's initials, a wallet's coin with its network. */
 function Mark({ r }: { r: SendRecipient }) {
   if (r.kind === "bank") return <div className="badge" dangerouslySetInnerHTML={{ __html: WICON[BANK_FLAG[r.bank.currency] ?? "globe"] }} />;
+  if (r.kind === "card") return <div className="badge" dangerouslySetInnerHTML={{ __html: greyIcon(WICON.card) }} />;
   if (r.kind === "poket") return <div className="badge" style={{ background: "var(--brand-50)", color: "var(--brand-600)", fontWeight: 700, fontSize: "13px" }}>{r.user.initials}</div>;
   return (
     <div className="asset-icon-wrap">
@@ -93,8 +98,9 @@ export function SendRecipientsScreen() {
 /** "+ New recipient": what to send to (the explore prototype's "Send to" options for a new recipient). */
 export function SendNewRecipientScreen() {
   const { back, addKind } = useSend();
-  const kinds: { kind: "bank" | "poket" | "wallet"; label: string; sub: string; icon: string }[] = [
+  const kinds: { kind: "bank" | "card" | "poket" | "wallet"; label: string; sub: string; icon: string }[] = [
     { kind: "bank", label: "Bank account", sub: "", icon: WICON.bank },
+    { kind: "card", label: "Debit card", sub: "", icon: WICON.card },
     { kind: "poket", label: "Poket user", sub: "Email, phone or wallet address", icon: WICON.user },
     { kind: "wallet", label: "Stablecoin wallet", sub: "", icon: WICON.usdc },
   ];
@@ -104,7 +110,7 @@ export function SendNewRecipientScreen() {
       <div className="step-title">New recipient</div>
       {kinds.map((k) => (
         <div className="select-row" key={k.kind} data-newkind={k.kind} role="button" tabIndex={0} onClick={() => addKind(k.kind)} onKeyDown={(e) => { if (e.key === "Enter") addKind(k.kind); }}>
-          <div className="badge" dangerouslySetInnerHTML={{ __html: k.kind === "wallet" ? k.icon : `<span style="display:inline-flex;color:var(--txt2)">${k.icon}</span>` }} />
+          <div className="badge" dangerouslySetInnerHTML={{ __html: k.kind === "wallet" ? k.icon : greyIcon(k.icon) }} />
           <div className="meta"><div className="t1">{k.label}</div>{k.sub && <div className="t2">{k.sub}</div>}</div>
           <span className="va-chev">{"›"}</span>
         </div>
@@ -148,7 +154,10 @@ export function SendBankCurrencyScreen() {
   );
 }
 
-/** New bank account in USD: the explore prototype's US fields (routing number with the bank's name, account number, holder, nickname, speed, the address for a wire). */
+/**
+ * New bank account in USD: the explore prototype's US fields (routing number with the bank's name, account number,
+ * holder, nickname). Its speed (and a wire's address) is chosen per send, on the amount screen.
+ */
 export function SendUsBankScreen() {
   const { us: d, back, editUs, continueUs } = useSend();
   const rb = routingBank(d.routing);
@@ -175,31 +184,36 @@ export function SendUsBankScreen() {
       <input className="field-input" id="usName" autoComplete="off" value={d.name} onChange={(e) => editUs({ name: e.target.value })} />
       <label className="field-label" htmlFor="usNick">Nickname (optional)</label>
       <input className="field-input" id="usNick" autoComplete="off" value={d.nick} onChange={(e) => editUs({ nick: e.target.value })} />
-      {rb && (
-        <>
-          <label className="field-label" style={{ marginTop: "6px" }}>Speed</label>
-          {usSpeeds(rb.instant).map((x) => (
-            <div key={x.id} className={`select-row ${d.speed === x.id ? "sel" : ""}`} data-speed={x.id} role="radio" aria-checked={d.speed === x.id} tabIndex={0} onClick={() => editUs({ speed: x.id })}>
-              <div className="meta"><div className="t1">{x.label}</div><div className="t2">{x.eta}</div></div>
-              <span className="mono" style={{ fontSize: "13px", fontWeight: 600 }}><Grey>{x.fee ? fmtCurrency(x.fee, "USD") : "Free"}</Grey></span>
-              <div className="radio" />
-            </div>
-          ))}
-        </>
-      )}
-      {d.speed === "wire" && (
-        <>
-          <label className="field-label" style={{ marginTop: "12px" }}>Recipient&rsquo;s address</label>
-          <input className="field-input" id="usStreet" placeholder="Street address" value={d.street} onChange={(e) => editUs({ street: e.target.value })} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 96px", gap: "8px" }}>
-            <input className="field-input" id="usCity" placeholder="City" value={d.city} onChange={(e) => editUs({ city: e.target.value })} />
-            <input className="field-input" id="usState" placeholder="State" maxLength={2} value={d.state} onChange={(e) => editUs({ state: e.target.value.toUpperCase() })} />
-            <input className="field-input" id="usZip" placeholder="ZIP" inputMode="numeric" maxLength={5} value={d.zip} onChange={(e) => editUs({ zip: digits(e.target.value, 5) })} />
-          </div>
-        </>
-      )}
       <SaveRecipient checked={d.save} onChange={(v) => editUs({ save: v })} />
       <SpinButton id="usBankContinue" disabled={!usReady(d)} delay={400} onClick={continueUs}>Continue</SpinButton>
+    </>
+  );
+}
+
+/**
+ * New debit card: the explore prototype's card fields (number with the brand in the field, name on card, billing
+ * ZIP). Visa and Mastercard debit cards only: credit cards can't receive payouts (docs/decisions.md).
+ */
+export function SendCardScreen() {
+  const { card: d, back, editCard, continueCard } = useSend();
+  const brand = cardBrandLabel(d.num), issue = cardIssue(d.num);
+  return (
+    <>
+      <BackRow id="backFromCard" onClick={back} />
+      <div className="step-title">Debit card</div>
+      <label className="field-label" htmlFor="cardNum">Card number</label>
+      <div style={{ position: "relative", marginBottom: "14px" }}>
+        <input className="field-input mono" id="cardNum" inputMode="numeric" maxLength={19} autoComplete="cc-number" style={{ paddingRight: "96px", marginBottom: 0 }}
+          value={d.num} onChange={(e) => editCard({ num: formatCardDigits(e.target.value) })} aria-invalid={!!issue} aria-describedby="cardBrand" />
+        <span id="cardBrand" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", fontWeight: 800, fontSize: "11px", color: "var(--txt2)" }}>{brand}</span>
+      </div>
+      {issue && <div className="field-err" role="alert" id="cardErr">{issue}</div>}
+      <label className="field-label" htmlFor="cardName">Name on card</label>
+      <input className="field-input" id="cardName" autoComplete="cc-name" value={d.name} onChange={(e) => editCard({ name: e.target.value })} />
+      <label className="field-label" htmlFor="cardZip">Billing ZIP</label>
+      <input className="field-input mono" id="cardZip" inputMode="numeric" maxLength={5} autoComplete="postal-code" value={d.zip} onChange={(e) => editCard({ zip: e.target.value.replace(/\D/g, "").slice(0, 5) })} />
+      <SaveRecipient checked={d.save} onChange={(v) => editCard({ save: v })} />
+      <SpinButton id="cardContinue" disabled={!cardReady(d)} delay={400} onClick={continueCard}>Continue</SpinButton>
     </>
   );
 }
@@ -370,8 +384,8 @@ export function SendTier2Screen() {
 }
 
 const STAGE_SCREEN: Record<SendStage, () => React.ReactElement> = {
-  recipients: SendRecipientsScreen, new: SendNewRecipientScreen, bankCurrency: SendBankCurrencyScreen, usBank: SendUsBankScreen, ukBank: SendUkBankScreen,
-  poketUser: SendPoketUserScreen, wallet: SendWalletScreen, coinPicker: SendCoinPickerScreen, tier2: SendTier2Screen,
+  recipients: SendRecipientsScreen, new: SendNewRecipientScreen, bankCurrency: SendBankCurrencyScreen, usBank: SendUsBankScreen, ukBank: SendUkBankScreen, card: SendCardScreen,
+  poketUser: SendPoketUserScreen, wallet: SendWalletScreen, coinPicker: SendCoinPickerScreen, tier2: SendTier2Screen, unavailable: SendUnavailableScreen,
 };
 
 /** The current Send screen, for WalletShell's #panelBody. */

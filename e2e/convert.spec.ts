@@ -2,7 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Convert (tConvert in reference/poket-unified.html) with the NGN rules, in the wallet demo. Balances, as in the
- * reference's demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins.
+ * reference's demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins. The wallet demo
+ * also holds $50.00 of open USD, so these tests take it out first (referenceBalances).
  * NGN fees are ₦[fee] and left out of the maths, so ₦10,000.00 → 6.45 USDC (10,000 / 1,550).
  */
 
@@ -14,9 +15,15 @@ const state = (page: Page) => page.evaluate(() => {
   return { ngn: n.ngnBalance as number, merchant: n.ngnMerchantBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
 });
 const setHoldings = (page: Page, patch: object) => page.evaluate((p) => (window as any).__holdings.getState().set(p), patch); // eslint-disable-line @typescript-eslint/no-explicit-any
+/** The reference's demo balances: all USD card-funded ($15.60 FIAT-ONLY), none open. */
+async function referenceBalances(page: Page) {
+  await page.waitForFunction(() => "__holdings" in window);
+  await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
+}
 
 async function open(page: Page, tier?: string) {
   await page.goto("/demo/wallet");
+  await referenceBalances(page);
   if (tier) await page.getByLabel("Tier").selectOption(tier);
   await page.locator("#actConvert").click();
   await expect(title(page)).toHaveText("Convert");
@@ -112,6 +119,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
 
 test("opening with NGN as the target and nothing to convert from: NGN stays, with Deposit", async ({ page }) => {
   await page.goto("/demo/wallet?ngn=deposit-method");
+  await referenceBalances(page);
   await page.locator("#dmConvert").click();
   await expect(title(page)).toHaveText("Convert");
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("NGN");
@@ -169,6 +177,7 @@ test("quote card from a coin: the fee is the coin equivalent, [fee] USDC", async
 
 test("NGN to stablecoins blocked (demo): USD by default; choosing USDC or USDT explains and offers USD", async ({ page }) => {
   await page.goto("/demo/wallet");
+  await referenceBalances(page);
   await page.getByLabel("NGN to stablecoins").selectOption("blocked");
   await page.locator("#actConvert").click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USD");
@@ -229,6 +238,7 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
 
 test("merchant-held naira converts to USD or USDC; the merchant-held Convert button opens it as the source", async ({ page }) => {
   await page.goto("/demo/wallet");
+  await referenceBalances(page);
   await page.getByLabel("Tier").selectOption("1");
   await page.getByLabel("Merchant-held balance").selectOption("yes");
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab

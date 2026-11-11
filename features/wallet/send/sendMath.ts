@@ -1,4 +1,5 @@
 import type { WalletNetwork } from "@/lib/mock-api";
+import { detectBrand, fundingOf } from "@/lib/card";
 
 /**
  * New-recipient helpers, ported from reference/poket-wallet-explore.html: ROUTING / MORE_BANKS / abaValid / routingBank
@@ -64,3 +65,18 @@ export function handleKind(q: string): "tag" | "email" | "phone" | null {
 }
 /** Initials for a name: "Tobi Bello" → "TB". */
 export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
+/** The card's brand as the explore prototype shows it in the number field: Visa or Mastercard, else nothing. */
+export function cardBrandLabel(num: string): string {
+  const b = detectBrand(num.replace(/\D/g, ""));
+  return b === "visa" ? "Visa" : b === "mc" ? "Mastercard" : "";
+}
+/** What's wrong with a debit card number, or null: not Visa or Mastercard (from 4 digits), or a credit card (at 16). */
+export function cardIssue(num: string): string | null {
+  const n = num.replace(/\D/g, "");
+  if (n.length >= 4 && !cardBrandLabel(n)) return "Only Visa and Mastercard debit cards.";
+  if (n.length === 16 && fundingOf(n) === "credit") return "This is a credit card. Use a debit card.";
+  return null;
+}
+/** A card number as typed: digits only, in groups of 4. */
+export const formatCardDigits = (v: string) => (v.replace(/\D/g, "").slice(0, 16).match(/.{1,4}/g) || []).join(" ");

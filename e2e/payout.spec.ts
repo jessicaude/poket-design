@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-/** Payout (tPayout) from the NGN balance, with the checkout's PIN steps, in the wallet demo. */
+/** Sending to a Nigerian bank account (tPayout's amount, review and done), with the checkout's PIN steps, in the wallet demo. */
 
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
 
@@ -25,16 +25,18 @@ async function typePin(page: Page, pin: string) {
   await page.keyboard.type(pin);
 }
 
-// The send-to-bank flow's own recipient list (no longer reached from the wallet, which uses Send; kept for ?payout= previews).
-test("send-to-bank recipient list (preview): Nigerian bank accounts only", async ({ page }) => {
-  await page.goto("/demo/wallet?payout=recipient");
-  const body = page.locator("#panelBody");
-  await expect(body.locator(".step-sub")).toHaveText("Pay out Nigerian Naira to your own account or someone else's.");
-  await expect(body.locator(".select-row .t1")).toHaveText(["Naira account", "Ngozi Eze"]); // NGN: Nigerian bank accounts only
-  await expect(body.locator(".select-row .t2")).toHaveText(["GTBank · •••• 6789", "GTBank · •••• 6789"]);
-  await expect(page.locator("#payoutRecipientContinue")).toBeDisabled();
-  await page.locator("#backToPayoutCurrency").click();
-  await expect(page.locator("#actSend")).toBeVisible();
+// Later steps of a send can be previewed with ?send=<stage>: a send to a saved recipient (Ngozi Eze) from the NGN balance.
+test("previews: ?send=review and ?send=ngn-account start in Send", async ({ page }) => {
+  await page.goto("/demo/wallet?send=review");
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("to Ngozi Eze");
+  await page.locator("#backToPayoutAmount").click();
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
+  await page.locator("#backToPayoutRecipient2").click();
+  await expect(title(page)).toHaveText("Send");
+  await page.goto("/demo/wallet?send=ngn-account");
+  await expect(title(page)).toHaveText("Add a bank account");
+  await page.locator("#backToPayoutRecipient").click();
+  await expect(title(page)).toHaveText("Currency"); // Send's currency step for a new bank account
 });
 
 test("to your own account: amount, review, create the PIN, done", async ({ page }) => {
@@ -51,8 +53,8 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // Naira account has been paid before
   await page.locator("#payoutReview").click();
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
-  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "Fee", "Arrives", "Debited from balance"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦[fee]", "Usually within seconds", "₦12,500.00 NGN + ₦[fee]"]);
+  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Arrives", "Debited from balance"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦12,500.00 NGN", "₦[fee]", "Usually within seconds", "₦12,500.00 NGN + ₦[fee]"]);
   await expect(body.locator(".status-pill")).toHaveCount(0); // no Standard / Instant for NGN
   await expect(body.locator(".fine-print")).toHaveCount(0);
   await expect(page.locator("#confirmPayout")).toBeDisabled();
@@ -89,8 +91,8 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await typeAmount(page, "500000");
   await page.locator("#payoutReview").click();
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "Fee", "Delivery", "Total charged"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦[fee]", "After [hold]", "₦5,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
+  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦5,000.00 NGN", "₦[fee]", "After [hold]", "₦5,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
   await expect(body).toContainText("I've reviewed the destination, fee, and delivery estimate above.");
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -143,32 +145,6 @@ test("Cancel on the locked PIN returns to the wallet", async ({ page }) => {
   await expect(page.locator("#actSend")).toBeVisible();
 });
 
-// The reference's Link a payout method form, used for non-NGN methods. NGN bank accounts use the name-enquiry step instead.
-test("link your own method (non-NGN form): the holder must match the verified name", async ({ page }) => {
-  await page.goto("/demo/wallet?payout=recipient");
-  await expect(title(page)).toHaveText("Recipient"); // the demo hooks are set
-  // As startAdd(true) does for a non-NGN payout method.
-  await page.evaluate(() => (window as any).__payout.setState({ currency: "USD", addingSelf: true, draft: { currency: "USD", methodType: "bank" }, stage: "add-recipient" })); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await expect(title(page)).toHaveText("Link a payout method");
-  const hint = page.locator("#payoutHolderMatchHint");
-  await expect(hint).toBeHidden();
-  await page.locator("#payoutHolderNameInput").fill("Ada O");
-  await expect(hint).toHaveText("Must match account holder: Ada Osun");
-  await page.locator("#payoutHolderNameInput").fill("ada osun");
-  await expect(hint).toHaveText("Matches verified account holder");
-  // Method: Cash App needs only a cashtag
-  await page.locator('[data-dropdown-toggle="payoutSelfMethod"]').click();
-  await page.locator('[data-dropdown-option="payoutSelfMethod::cashapp"]').click();
-  await page.locator("#payoutCashtagInput").fill("$adaosun");
-  const save = page.locator("#savePayoutRecipientBtn");
-  await expect(save).toBeDisabled(); // no nickname yet
-  await page.locator("#payoutNameInput").fill("My Cash App");
-  await save.click();
-  const added = page.locator("#panelBody .select-row.sel");
-  await expect(added.locator(".t1")).toHaveText("My Cash App Instant"); // a USD payout keeps speeds
-  await expect(added.locator(".t2")).toHaveText("$adaosun");
-});
-
 test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is the whole balance; Back steps back", async ({ page }) => {
   await toAmount(page, "other:r6");
   const body = page.locator("#panelBody");
@@ -181,18 +157,11 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await page.locator("#payoutReview").click();
   await expect(body.locator(".step-sub").first()).toHaveText("to Ngozi Eze");
   await expect(body.locator(".status-pill")).toHaveCount(0);
-  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "Fee", "Delivery", "Total charged"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦[fee]", "After [hold]", "₦50,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
+  await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦50,000.00 NGN", "₦[fee]", "After [hold]", "₦50,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
 
   await page.locator("#backToPayoutAmount").click();
   await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send"); // back to Send's recipients
-});
-
-test("other currencies keep international recipients and Standard / Instant", async ({ page }) => {
-  await page.goto("/demo/wallet?payout=recipient");
-  await expect(title(page)).toHaveText("Recipient"); // the demo hooks are set
-  await page.evaluate(() => (window as any).__payout.setState({ currency: "USD" })); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await expect(page.locator("#panelBody .select-row .t1")).toHaveText(["Personal checking Standard", "Naira account Int'l Standard", "Jordan Blake", "Ngozi Eze Int'l"]);
 });

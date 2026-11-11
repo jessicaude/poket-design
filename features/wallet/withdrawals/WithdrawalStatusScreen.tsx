@@ -1,11 +1,10 @@
 "use client";
-import { WICON } from "@/lib/icons";
 import { fmtCurrency, fmtFee } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { STATUS_META } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
-import { StatusChip } from "./parts";
+import { StatusChip, withdrawalIcon } from "./parts";
 
 /** The reference's formatTxDate: "Nov 10, 2026 - 3:04 PM". */
 const fmtDate = (ts: number) => {
@@ -24,9 +23,9 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
     <>
       <BackRow id="backFromTxDetail" onClick={back} />
       <div className="center-col" style={{ padding: "6px 8px 0" }}>
-        <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: WICON.bank }} />
+        <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />
       </div>
-      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{fmtCurrency(w.amount, w.currency)}</Grey></div>
+      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{w.amountText ?? fmtCurrency(w.amount, w.currency)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>To {w.recipientName}</p>
       <div style={{ textAlign: "center" }} id="withdrawalStatus"><StatusChip status={w.status} /></div>
       {message && <p className="step-sub" id="withdrawalStatusMsg" style={{ textAlign: "center", margin: "8px 0 14px" }}>{message}</p>}
@@ -37,7 +36,7 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         {/* A send that converted: what left the source and at what rate; one Fee row covers the conversion and the send. */}
         {w.conversion && row("You send", <Grey>{w.conversion.paidText}</Grey>)}
         {w.conversion && row("Rate", <Grey>{w.conversion.rateText}</Grey>)}
-        {row("Fee", <Grey>{w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency)}</Grey>)}
+        {row("Fee", <Grey>{w.feeText ?? (w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency))}</Grey>)}
         {row("Reference", <span className="mono">{w.ref}</span>)}
       </div>
     </>

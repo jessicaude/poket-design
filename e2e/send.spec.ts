@@ -35,17 +35,16 @@ test("a saved Nigerian bank account goes straight to the amount; Back returns to
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
-  // Kinds without an amount screen yet say so
+  // Poket users have the same amount screen
   await page.locator('[data-sendrecipient="poket:pu1"]').click();
-  await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending to a Poket user isn't ported yet.");
+  await expect(page.locator("#panelBody")).toContainText("To: Tobi Bello");
 });
 
 test("+ New recipient asks where to send; Bank account asks the currency first", async ({ page }) => {
   await page.goto("/demo/wallet?send=recipients");
   await page.locator("#newRecipient").click();
   await expect(title(page)).toHaveText("New recipient");
-  await expect(page.locator("#panelBody [data-newkind] .t1")).toHaveText(["Bank account", "Poket user", "Stablecoin wallet"]);
+  await expect(page.locator("#panelBody [data-newkind] .t1")).toHaveText(["Bank account", "Debit card", "Poket user", "Stablecoin wallet"]);
   await page.locator('[data-newkind="bank"]').click();
   await expect(title(page)).toHaveText("Currency");
   await expect(page.locator("#panelBody [data-sendcur] .t1")).toHaveText(["USD", "NGN", "GBP"]);
@@ -96,7 +95,7 @@ test("NGN bank account: the existing bank picker and name enquiry, Save recipien
   await expect(title(page)).toHaveText("Currency");
 });
 
-test("USD bank account: routing number and bank, account, holder, nickname, speed, the address for a wire", async ({ page }) => {
+test("USD bank account: routing number and bank, account, holder, nickname; the speed is chosen per send, on the amount", async ({ page }) => {
   await page.goto("/demo/wallet?send=bankCurrency");
   await page.locator('[data-sendcur="USD"]').click();
   await expect(title(page)).toHaveText("New bank account");
@@ -105,30 +104,63 @@ test("USD bank account: routing number and bank, account, holder, nickname, spee
   await expect(page.locator("#panelBody .field-err")).toHaveText("Check the routing number.");
   await page.locator("#usRouting").fill("021000021");
   await expect(page.locator("#usBankName")).toHaveText("JPMorgan Chase Bank, N.A.");
-  await expect(page.locator("#panelBody [data-speed] .t1")).toHaveText(["Instant", "Standard", "Wire"]);
-  await expect(page.locator("#panelBody [data-speed] .mono")).toHaveText(["$1.50 USD", "Free", "$15.00 USD"]);
-  await expect(page.locator('[data-speed="ach"]')).toHaveClass(/\bsel\b/); // the free one by default
+  await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0); // not part of the recipient any more
   await page.locator("#usAcct").fill("12ab3456789");
   await expect(page.locator("#usAcct")).toHaveValue("123456789");
   await expect(go).toBeDisabled();
   await page.locator("#usName").fill("Jordan Blake");
   await page.locator("#usNick").fill("Rent");
   await expect(go).toBeEnabled();
+  await go.click();
+
+  // On to the amount, paying from open USD; the speed (and a wire's address) is chosen here
+  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
+  await expect(page.locator("#panelBody [data-speed] .t1")).toHaveText(["Instant", "Standard", "Wire"]);
+  await expect(page.locator("#panelBody [data-speed] .mono")).toHaveText(["$1.50 USD", "Free", "$15.00 USD"]);
+  await expect(page.locator('[data-speed="ach"]')).toHaveClass(/\bsel\b/); // the free one by default
+  for (const d of "1000") await page.locator(`[data-payoutkey="${d}"]`).click();
+  const review = page.locator("#payoutReview");
+  await expect(review).toBeEnabled();
   await page.locator('[data-speed="wire"]').click();
-  await expect(go).toBeDisabled(); // a wire needs the address
+  await expect(review).toBeDisabled(); // a wire needs the address
   await page.locator("#usStreet").fill("1 Main St");
   await page.locator("#usCity").fill("Austin");
   await page.locator("#usState").fill("tx");
   await expect(page.locator("#usState")).toHaveValue("TX");
   await page.locator("#usZip").fill("78701");
-  await expect(go).toBeEnabled();
-  await go.click();
-  // On to the amount, paying from USD (card-funded USD can pay a US bank)
-  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USDFIAT-ONLY");
+  await expect(review).toBeEnabled();
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Rent" });
   await expect(saved.locator(".t2")).toHaveText("Chase · •••• 6789");
+});
+
+test("debit card: brand in the number field; Visa and Mastercard only; credit cards refused; saved", async ({ page }) => {
+  await page.goto("/demo/wallet?send=new");
+  await page.locator('[data-newkind="card"]').click();
+  await expect(title(page)).toHaveText("Debit card");
+  const num = page.locator("#cardNum"), err = page.locator("#cardErr"), go = page.locator("#cardContinue");
+  await num.fill("6011000000000004");
+  await expect(err).toHaveText("Only Visa and Mastercard debit cards.");
+  await num.fill("4111111111111111");
+  await expect(num).toHaveValue("4111 1111 1111 1111");
+  await expect(page.locator("#cardBrand")).toHaveText("Visa");
+  await expect(err).toHaveText("This is a credit card. Use a debit card.");
+  await page.locator("#cardName").fill("Ada Osun");
+  await page.locator("#cardZip").fill("ab");
+  await expect(page.locator("#cardZip")).toHaveValue(""); // digits only
+  await page.locator("#cardZip").fill("10001");
+  await expect(go).toBeDisabled();
+  await num.fill("5200828282828210");
+  await expect(page.locator("#cardBrand")).toHaveText("Mastercard");
+  await expect(err).toHaveCount(0);
+  await expect(go).toBeEnabled();
+  await go.click();
+  await expect(page.locator("#panelBody")).toContainText("To: Ada Osun"); // on to the amount
+  await page.locator("#editPayoutRecipient").click();
+  const saved = page.locator('#panelBody [data-sendrecipient^="card:"]');
+  await expect(saved.locator(".t1")).toHaveText("Ada Osun");
+  await expect(saved.locator(".t2")).toHaveText("Mastercard · •••• 8210");
 });
 
 test("GBP bank account: sort code with the bank's name, 8-digit account number, holder, nickname; saved", async ({ page }) => {
@@ -190,7 +222,8 @@ test("Poket user: @handle, email or phone with a name lookup; recent contacts; n
   await expect(page.locator("#poketFound .t1")).toHaveText("Daniel Cho");
   await page.locator("#poketNick").fill("Dan");
   await page.locator("#poketContinue").click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending to a Poket user isn't ported yet.");
+  await expect(page.locator("#panelBody")).toContainText("To: Dan"); // on to the amount
+  await page.locator("#editPayoutRecipient").click(); // "Change": back to the list, which has the saved user
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ has: page.locator(".t1", { hasText: /^Dan$/ }) });
   await expect(saved.locator(".badge")).toHaveText("DC");
   await expect(saved.locator(".t2")).toHaveText("@dcho");
@@ -232,7 +265,8 @@ test("stablecoin wallet: Tier 2 first; coin and network; address validated and h
   await expect(addr).toHaveValue("0xAbCdEf0123456789aBcDeF0123456789AbCdEf01");
   await page.locator("#walletNick").fill("Cold storage");
   await go.click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Sending to a stablecoin wallet isn't ported yet.");
+  await expect(page.locator("#panelBody")).toContainText("To: Cold storage"); // on to the amount
+  await page.locator("#editPayoutRecipient").click();
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Cold storage" });
   await expect(saved.locator(".t2")).toHaveText("0xAbCdEf…CdEf01");
 });

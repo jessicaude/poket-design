@@ -13,14 +13,14 @@ import { ConversionRow } from "./ConversionRow";
 
 /**
  * The NGN balance: the reference's tHoldingDetail for a cash balance, with "₦X on hold" under the balance when
- * anything is reserved. Payout is labelled Withdraw, as on the home screen. Transfer and Convert aren't ported.
+ * anything is reserved. Actions: Deposit, Send (with this balance as the source) and Convert.
  */
 export function NgnBalanceScreen() {
   const balance = useNgn((s) => s.ngnBalance);
   const reserved = useNgn((s) => s.ngnReserved);
   const openDeposit = useNgn((s) => s.open);
   const back = useWalletNav((s) => s.back);
-  const withdrawals = useWithdrawals((s) => s.list).filter((w) => w.currency === "NGN");
+  const withdrawals = useWithdrawals((s) => s.list).filter((w) => (w.sourceKey ? w.sourceKey.startsWith("cash:NGN:") : w.currency === "NGN"));
   // Conversions from or to naira (including merchant-held naira), newest first with the withdrawals.
   const conversions = useConvert((s) => s.conversions).filter((c) => c.from.startsWith("cash:NGN:") || c.to.startsWith("cash:NGN:"));
   const list = [
@@ -40,7 +40,6 @@ export function NgnBalanceScreen() {
       </div>
       <div className="action-row" style={{ marginTop: "14px" }}>
         <button className="action-btn" id="detailDeposit" onClick={() => openDeposit("deposit-method")}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
-        {/* TODO: Transfer opens its flow once ported. */}
         {/* Send replaces Transfer and Withdraw (docs/decisions.md), with the NGN balance as the source. */}
         <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open("cash:NGN:open")}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: "cash:NGN:open" })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>

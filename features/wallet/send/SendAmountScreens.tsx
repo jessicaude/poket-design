@@ -7,14 +7,17 @@ import { useConvert } from "../convert/useConvert";
 import {
   cvAvail, cvBadgeHtml, cvFeeLabel, cvFeeText, cvFmt, cvName, cvParse, cvQuote, cvRateText, cvShort, type Side,
 } from "../convert/convertMath";
-import { FEE_PLACEHOLDER, HOLD_PLACEHOLDER, hasSpeeds, isFirstPayment } from "../payout/payoutMath";
+import { FEE_PLACEHOLDER, HOLD_PLACEHOLDER, isFirstPayment } from "../payout/payoutMath";
 import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
 import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountReviewScreens";
 import { usePayout } from "../payout/usePayout";
 import { NGN_VA } from "../ngn/useNgn";
-import { showNotPorted } from "../useWalletToast";
-import { sameAsTarget, sendSources } from "./sources";
+import { asSendRecipient, sameAsTarget, sendSources, targetKeyFor } from "./sources";
+import { sendSummary } from "./sendSummary";
+import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
+import { routingBank, usSpeeds, wireAddressOk } from "./sendMath";
+import { fmtCurrency } from "../payout/payoutMath";
 
 /*
  * Send's amount screen: "You send" in the paying balance (the chip, with Max), then "They get" in the recipient's
@@ -23,7 +26,6 @@ import { useQuoteTimer } from "./useQuoteTimer";
  * naira rules of ngn.mdc still apply (₦[fee], one speed, first-payment hold).
  */
 
-const asRecipient = (r: NonNullable<ReturnType<typeof usePayout.getState>["recipient"]>) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: r.isSelf, bank: r });
 
 /** Re-render on any balance change. */
 function useBalances() {
@@ -39,24 +41,30 @@ function Tag({ o }: { o: Side }) {
 
 export function SendAmountScreen() {
   useBalances();
-  const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, currency, go } = usePayout();
+  const { recipient: r, payFrom, payCents, cents, jitter, speed, wire, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, currency, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
-  const src = cvParse(payFrom), target = `cash:${r.currency}:open`;
-  const converting = !sameAsTarget(payFrom, asRecipient(r));
+  const src = cvParse(payFrom), target = targetKeyFor(r, payFrom);
+  const converting = !sameAsTarget(payFrom, asSendRecipient(r));
+  const summary = sendSummary(r, payFrom, payCents, cents, jitter, speed);
+  const ngnBank = r.methodType === "bank" && r.currency === "NGN";
   const q = converting ? cvQuote(payFrom, target, payCents, jitter) : null;
   const avail = cvAvail(src);
-  const over = payCents > avail;
-  const ngn = !hasSpeeds(currency);
-  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired);
-  const review = () => {
-    if (r.currency !== "NGN") return showNotPorted(`Sending ${r.currency} to a bank account isn't ported yet.`);
-    usePayout.setState({ ack: false, stage: "review" });
-  };
+  const usBank = r.methodType === "bank" && r.currency === "USD";
+  // The total (with a decided fee, e.g. a US speed's or a wallet's) must fit the balance
+  const over = summary.sourceTotal > avail;
+  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !(usBank && speed === "wire" && !wireAddressOk(wire));
   return (
     <>
       <BackRow id="backToPayoutRecipient2" onClick={back} />
-      <CurrencyBadge />
+      {r.methodType === "bank" ? <CurrencyBadge /> : (
+        // A Poket user's initials, a wallet's coin or a card, where a bank shows its currency's flag
+        <div className="center-col" style={{ padding: "4px 0 2px" }}>
+          {r.methodType === "wallet" || r.methodType === "card"
+            ? <div className={`tx-ic tx-ic-lg ${isLogoMethod(r) ? "tx-ic-real" : "review"}`} style={{ width: "36px", height: "36px" }} dangerouslySetInnerHTML={{ __html: payoutMethodIcon(r) }} />
+            : <div className="badge" style={{ width: "36px", height: "36px", background: "var(--brand-50)", color: "var(--brand-600)", fontWeight: 700, fontSize: "13px" }}>{r.name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase()}</div>}
+        </div>
+      )}
       <p className="step-sub" style={{ textAlign: "center", marginBottom: 0 }}>
         To: <span className="mono">{r.name}</span> <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
@@ -81,7 +89,9 @@ export function SendAmountScreen() {
       <label className="field-label" style={{ marginTop: "14px" }}>They get</label>
       <div className="amount-display" style={{ padding: "4px 0 8px" }}><span className="amount-value" id="theyGet"><Grey>{(converting ? "≈ " : "") + cvFmt(cents, cvParse(target))}</Grey></span></div>
 
-      {ngn && (
+      {usBank && <UsSpeed />}
+
+      {ngnBank && (
         // NGN: one speed, ₦[fee] (ngn.mdc)
         <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>
           <span className="status-pill" id="payoutSpeedPill"><Raw html={WICON.percent} /> {`${isFirstPayment(currency, r) ? `After ${HOLD_PLACEHOLDER}` : NGN_VA.arrives} · ${FEE_PLACEHOLDER} fee`}</span>
@@ -102,9 +112,9 @@ export function SendAmountScreen() {
           {quoteExpired && <SpinButton id="cvRefresh" className="btn-secondary" style={{ width: "100%", marginBottom: "10px" }} delay={400} onClick={refreshQuote}>Refresh rate</SpinButton>}
         </>
       )}
-      {isFirstPayment(currency, r) && <FirstPaymentNotice />}
+      {summary.firstPayment && <FirstPaymentNotice />}
       <Keypad dataKey="payoutkey" onKey={key} />
-      <SpinButton id="payoutReview" style={{ marginTop: "8px" }} disabled={!ready} delay={500} onClick={review}>Review</SpinButton>
+      <SpinButton id="payoutReview" style={{ marginTop: "8px" }} disabled={!ready} delay={500} onClick={() => usePayout.getState().toReview()}>Review</SpinButton>
     </>
   );
 }
@@ -115,7 +125,7 @@ export function PayFromScreen() {
   const { recipient: r, payFrom, setPayFrom, back } = usePayout();
   const blocked = useConvert((s) => s.ngnCoinsBlocked);
   if (!r) return null;
-  const list = sendSources(asRecipient(r), blocked);
+  const list = sendSources(asSendRecipient(r), blocked);
   return (
     <>
       <BackRow id="backFromPayFrom" onClick={back} />
@@ -130,6 +140,65 @@ export function PayFromScreen() {
           </div>
         );
       })}
+    </>
+  );
+}
+
+/** The reference's tAddressScreening: checking a stablecoin wallet's address before review. */
+export function AddressScreeningScreen() {
+  return (
+    <div className="center-col" style={{ paddingTop: "24px" }}>
+      <div className="spinner" />
+      <div className="step-title" style={{ marginTop: "16px" }}>Checking this address</div>
+      <p className="step-sub">Poket screens the destination address before sending.</p>
+    </div>
+  );
+}
+
+/** The reference's tAddressScreeningBlocked: the address failed screening; nothing moved. */
+export function AddressScreeningBlockedScreen() {
+  const close = usePayout((s) => s.close);
+  return (
+    <div className="center-col" style={{ paddingTop: "24px" }}>
+      <div className="check-circle" style={{ background: "var(--err-50)", color: "var(--err-600)" }}><Raw html={WICON.closeIc} /></div>
+      <div className="step-title">We can&apos;t send to this address</div>
+      <p className="step-sub">This destination didn&apos;t pass Poket&apos;s screening checks, so the transfer hasn&apos;t gone through. No funds were moved. Your account has been flagged for compliance review.</p>
+      <button className="btn-secondary" id="addressScreeningBlockedClose" style={{ width: "100%" }} onClick={close}>Back</button>
+    </div>
+  );
+}
+
+/**
+ * A US bank send's speed, chosen per send (the explore prototype's speedsFor, moved here from adding the recipient):
+ * Instant (if the bank supports RTP), Standard (free) and Wire, which needs the recipient's address.
+ */
+function UsSpeed() {
+  const { recipient: r, speed, setSpeed, wire, editWire } = usePayout();
+  if (!r) return null;
+  const instant = routingBank(r.routingNumber ?? "")?.instant ?? false;
+  const digits = (v: string, n: number) => v.replace(/\D/g, "").slice(0, n);
+  return (
+    <>
+      <label className="field-label" style={{ marginTop: "6px" }}>Speed</label>
+      {usSpeeds(instant).map((x) => (
+        <div key={x.id} className={`select-row ${speed === x.id ? "sel" : ""}`} data-speed={x.id} role="radio" aria-checked={speed === x.id} tabIndex={0}
+          onClick={() => setSpeed(x.id)} onKeyDown={(e) => { if (e.key === "Enter") setSpeed(x.id); }}>
+          <div className="meta"><div className="t1">{x.label}</div><div className="t2">{x.eta}</div></div>
+          <span className="mono" style={{ fontSize: "13px", fontWeight: 600 }}><Grey>{x.fee ? fmtCurrency(x.fee, "USD") : "Free"}</Grey></span>
+          <div className="radio" />
+        </div>
+      ))}
+      {speed === "wire" && (
+        <>
+          <label className="field-label" style={{ marginTop: "12px" }}>Recipient&rsquo;s address</label>
+          <input className="field-input" id="usStreet" placeholder="Street address" value={wire.street} onChange={(e) => editWire({ street: e.target.value })} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 70px 96px", gap: "8px" }}>
+            <input className="field-input" id="usCity" placeholder="City" value={wire.city} onChange={(e) => editWire({ city: e.target.value })} />
+            <input className="field-input" id="usState" placeholder="State" maxLength={2} value={wire.state} onChange={(e) => editWire({ state: e.target.value.toUpperCase() })} />
+            <input className="field-input" id="usZip" placeholder="ZIP" inputMode="numeric" maxLength={5} value={wire.zip} onChange={(e) => editWire({ zip: digits(e.target.value, 5) })} />
+          </div>
+        </>
+      )}
     </>
   );
 }

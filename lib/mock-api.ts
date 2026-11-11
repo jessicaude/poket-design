@@ -5,6 +5,7 @@
 import type { Account, PaymentMethod } from "@/store/account";
 import type { CardOutcome } from "@/store/demo";
 import type { Kobo } from "@/lib/money";
+import { detectBrand, fundingOf } from "@/lib/card";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -122,7 +123,8 @@ export function resetNgnServer() {
    (tPin, pinComplete, tPinLocked, tPinResetOtp) in reference/poket-unified.html. */
 
 export type PayoutCurrency = "USD" | "NGN" | "EUR" | "GBP" | "GHS";
-export type PayoutMethodType = "bank" | "card" | "zelle" | "cashapp";
+/** "poket" and "wallet": Send's Poket users and stablecoin wallets, carried through the same send flow as bank accounts. */
+export type PayoutMethodType = "bank" | "card" | "zelle" | "cashapp" | "poket" | "wallet";
 /** A payout destination. isSelf: one of your own linked methods (S.linkedBanks); otherwise a saved recipient. */
 export type PayoutRecipient = {
   id: string;
@@ -144,9 +146,13 @@ export type PayoutRecipient = {
   paidBefore?: boolean;
   /** false: added for one send without saving it ("Save recipient" unticked); kept off Send's saved list. */
   saved?: boolean;
-  /** US bank accounts: the bank's full name and transfer speed (Send's new-recipient form). */
+  /** US bank accounts: the bank's full name (Send's new-recipient form). The speed is chosen per send. */
   bankFullName?: string;
-  speed?: string;
+  /** Poket users: their @handle, email or phone. Stablecoin wallets: the address, coin and network. */
+  handle?: string;
+  walletAddress?: string;
+  asset?: "USDC" | "USDT";
+  network?: WalletNetwork;
 };
 
 const PAYOUT_SEED: PayoutRecipient[] = [
@@ -164,6 +170,24 @@ const payoutServer: { recipients: PayoutRecipient[]; pin: string | null; pinAtte
 /** GET /v1/payout/recipients: your linked methods first, then saved recipients. */
 export function listPayoutRecipients(): PayoutRecipient[] {
   return payoutServer.recipients.map((r) => ({ ...r }));
+}
+
+/**
+ * POST /v1/send/recipients/cards: a debit card to send to (the explore prototype's card fields). Only Visa and
+ * Mastercard debit cards: credit cards can't receive payouts (docs/decisions.md). Only the last 4 digits are kept.
+ */
+export async function saveDebitCard(c: { number: string; name: string; zip: string; saved: boolean }): Promise<PayoutRecipient> {
+  await wait(500);
+  const n = c.number.replace(/\D/g, ""), brand = detectBrand(n);
+  if ((brand !== "visa" && brand !== "mc") || n.length !== 16) throw new Error("unsupported_card");
+  if (fundingOf(n) === "credit") throw new Error("credit_card");
+  if (!/^\d{5}$/.test(c.zip) || c.name.trim().length < 2) throw new Error("invalid_request");
+  const saved: PayoutRecipient = {
+    id: "dc" + Date.now(), isSelf: false, name: c.name.trim(), holderName: c.name.trim(), currency: "USD", methodType: "card",
+    bankName: brand === "visa" ? "Visa" : "Mastercard", accountNumber: n.slice(-4), zip: c.zip, saved: c.saved, paidBefore: false,
+  };
+  payoutServer.recipients.push(saved);
+  return { ...saved };
 }
 
 /** POST /v1/payout/recipients. Your own methods must be in your name (checked on screen against the verified name). */
@@ -186,7 +210,7 @@ export type Reservation = { id: string; amount: number; status: "reserved" | "us
 const reservations = new Map<string, Reservation>();
 
 /** POST /v1/payouts/reservations, called once the PIN is accepted. `amount` includes any fee. */
-export async function reservePayout(p: { currency: PayoutCurrency; amount: number; source?: BalanceSource }): Promise<Reservation> {
+export async function reservePayout(p: { currency: string; amount: number; source?: BalanceSource }): Promise<Reservation> {
   if (p.source === "merchant") throw new Error("balance_not_withdrawable");
   if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("invalid_amount");
   const r: Reservation = { id: "rsv_" + Math.random().toString(36).slice(2, 10), amount: p.amount, status: "reserved" };
@@ -211,29 +235,57 @@ export type Withdrawal = {
   recipientId: string; recipientName: string; recipientSub: string; createdAt: number; status: WithdrawalStatus;
   /** A send paid from another balance converts on the way: one record, with what left the source and at what rate. */
   conversion?: { paidText: string; receivedText: string; rateText: string; feeText: string };
+  /** Bank account, debit card, Poket user or stablecoin wallet. */
+  kind: "bank" | "card" | "poket" | "wallet";
+  /** How the send reads (they get, fee, arrival), for any kind; the source and what it reserved. */
+  amountText?: string; feeText?: string; arrival?: string;
+  sourceKey?: string; sourceTotal?: number;
+  /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
+  reservedIn?: "ngn" | "source";
 };
 const withdrawals: Withdrawal[] = [];
 
 /**
- * POST /v1/payouts, against a reservation. A first NGN payment to an account is "scheduled" (it sends after [hold]);
- * otherwise it's "sending". Either way the account then counts as paid before.
+ * POST /v1/payouts (a send), against a reservation. A first payment to a bank account is "scheduled" (it sends after
+ * [hold]); a Poket user is paid at once ("paid"); otherwise it's "sending". A bank account then counts as paid before.
+ * Bank accounts and debit cards must be saved recipients; Poket users and stablecoin wallets aren't in that list, so
+ * their name and details come with the send. A US wire needs the recipient's address.
  */
-export async function createPayout(p: { currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string; conversion?: Withdrawal["conversion"] }): Promise<Withdrawal> {
+export async function createPayout(p: {
+  currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string;
+  conversion?: Withdrawal["conversion"]; kind?: Withdrawal["kind"]; recipientName?: string;
+  amountText?: string; feeText?: string; arrival?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
+  /** A US bank send: the speed chosen for it (rtp, ach, wire) and, for a wire, the recipient's address. */
+  speed?: string; wireAddress?: { street: string; city: string; state: string; zip: string };
+}): Promise<Withdrawal> {
+  const kind = p.kind ?? "bank";
+  if (p.speed === "wire" && !p.wireAddress) throw new Error("address_required");
   const rsv = reservations.get(p.reservationId);
-  if (!rsv || rsv.status !== "reserved" || rsv.amount !== p.amount + p.fee) throw new Error("invalid_reservation");
-  const recipient = payoutServer.recipients.find((r) => r.id === p.recipientId);
-  if (!recipient) throw new Error("unknown_recipient");
+  const reserved = p.sourceTotal ?? p.amount + p.fee;
+  if (!rsv || rsv.status !== "reserved" || rsv.amount !== reserved) throw new Error("invalid_reservation");
+  const listed = kind === "bank" || kind === "card";
+  const recipient = listed ? payoutServer.recipients.find((r) => r.id === p.recipientId) : undefined;
+  if (listed && !recipient) throw new Error("unknown_recipient");
   await wait(1500);
   rsv.status = "used";
   const w: Withdrawal = {
     id: "wd_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
-    currency: p.currency, amount: p.amount, fee: p.fee, recipientId: recipient.id, recipientName: recipient.name,
+    currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
-    status: p.currency === "NGN" && !recipient.paidBefore ? "scheduled" : "sending",
+    kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
+    status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
   };
-  recipient.paidBefore = true;
+  if (recipient) recipient.paidBefore = true;
   withdrawals.unshift(w);
   return { ...w };
+}
+
+/** The reference's FLAGGED_ADDRESSES: test addresses that fail screening (standing in for a sanctions list provider). */
+const FLAGGED_ADDRESSES = new Set(["0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "0xbadc0debadc0debadc0debadc0debadc0debadc0", "flagged-test-wallet", "@flagged"]);
+/** POST /v1/addresses/screen: the reference's gateAddress (900 ms), before sending to a stablecoin wallet. */
+export async function screenAddress(address: string): Promise<{ ok: boolean }> {
+  await wait(900);
+  return { ok: !FLAGGED_ADDRESSES.has(address.trim().toLowerCase()) };
 }
 
 /** GET /v1/payouts, newest first. */
@@ -399,6 +451,7 @@ export type WalletNetwork = "Base" | "Polygon" | "Solana" | "Ethereum";
 export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork };
 export type SendRecipient =
   | { kind: "bank"; id: string; self: boolean; bank: PayoutRecipient }
+  | { kind: "card"; id: string; card: PayoutRecipient }
   | { kind: "poket"; id: string; user: PoketUser }
   | { kind: "wallet"; id: string; wallet: StablecoinWallet };
 
@@ -411,12 +464,14 @@ const STABLECOIN_WALLETS: StablecoinWallet[] = [
   { id: "sw1", name: "Ledger", address: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC", network: "Base" },
 ];
 
-/** GET /v1/send/recipients: your own bank accounts, then saved bank accounts, Poket users and stablecoin wallets. */
+/** GET /v1/send/recipients: your own bank accounts, then saved bank accounts, debit cards, Poket users and stablecoin wallets. */
 export function listSendRecipients(): SendRecipient[] {
   const banks = payoutServer.recipients.filter((r) => r.methodType === "bank" && r.saved !== false);
+  const cards = payoutServer.recipients.filter((r) => r.methodType === "card" && r.saved !== false);
   return [
     ...banks.filter((r) => r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: true, bank: { ...r } })),
     ...banks.filter((r) => !r.isSelf).map((r) => ({ kind: "bank" as const, id: `bank:${r.id}`, self: false, bank: { ...r } })),
+    ...cards.map((r) => ({ kind: "card" as const, id: `card:${r.id}`, card: { ...r } })),
     ...POKET_USERS.map((u) => ({ kind: "poket" as const, id: `poket:${u.id}`, user: { ...u } })),
     ...STABLECOIN_WALLETS.map((w) => ({ kind: "wallet" as const, id: `wallet:${w.id}`, wallet: { ...w } })),
   ];
