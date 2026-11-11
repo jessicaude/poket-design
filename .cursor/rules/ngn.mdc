@@ -59,6 +59,12 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
     cards "Instantly", fee $[fee] (undecided, 0 in the maths), status Sending; Poket users "Instantly" and straight
     to Paid; stablecoin wallets "About 1 minute", fee 1.50 in the coin.
   - Max is the whole balance less a decided fee (a US speed's, a wallet's); placeholder fees count as 0.
+  - The review's total is what leaves the source, in the source's currency: the amount plus every decided fee (a
+    wallet's 1.50 USDC paid from NGN shows as its naira), then " + ₦[fee]" (or $[fee], [fee] USDC) for an undecided
+    one. It always matches what's reserved.
+  - Poket users can be paid from merchant-held naira or card-funded USD. Their money keeps the MERCHANT-HELD or
+    FIAT-ONLY tag (shown on They get, review, done and the status screen; the mock API credits the matching
+    tagged balance), so the rules on that money follow it.
   - Debit cards (Send → New recipient → Debit card, the explore prototype's card fields): Visa and Mastercard debit
     only ("Only Visa and Mastercard debit cards."; a credit card shows "This is a credit card. Use a debit card." and
     the mock API refuses it). Only USD (open or card-funded) can pay a card; no conversion, no first-payment hold.
@@ -80,6 +86,8 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
 - Copy: the button is "Send", processing is "Sending…", activity and status read "To {name}", and a reversal's
   notification is "Transfer reversed". Don't reintroduce "Payout" in this flow's copy.
 - Sending is approved with the checkout's 4-digit PIN (tPin), not the reference's 6-digit passcode 'authorize' stage.
+  Its copy is generic, for every kind of send: "Approves this payment.", "…to keep sending.", "Use it next time you
+  send." Don't say withdraw or withdrawal there.
 - Nigerian banks only: NGN can't pay a non-Nigerian bank account (the chip never offers it, sources.ts), so naira to
   a bank is never converted on the way.
 - Name enquiry: a bank account is added on ngn-account (bank from NG_BANKS in lib/mock-api.ts, 10-digit number,
@@ -99,10 +107,14 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   Rules: reservationEffect in features/wallet/payout/withdrawals.ts. Show reserved money as "₦X on hold" (NGN balance
   screen, home NGN row).
 - Statuses and chips (STATUS_META): Scheduled "Sends after [hold]", Held for review "We're checking this payment.
-  We'll let you know.", Sending "Usually within seconds", Paid, Failed / Reversed "Funds returned to your balance".
+  We'll let you know.", Sending: the send's own arrival once it's sending (Withdrawal.eta: "Usually within seconds"
+  for Nigerian banks, "About 1 minute" for wallets, the US speed's eta...; never the naira copy for other sends),
+  Paid, Failed / Reversed "Funds returned to your balance".
   Chips use the wallet's .va-status tones; no new colours.
-- Amounts over ₦[step-up] show the reference's step-up screen (tStepupIntro) before the PIN. The limit stays the
-  ₦[step-up] placeholder on screen; STEP_UP_DEMO_KOBO is a demo value only.
+- Step-up: a send whose USD value leaving the source balance (the amount plus every decided fee, in whatever
+  currency it's paid from) is over ₦[step-up] shows the reference's step-up screen (tStepupIntro) before the PIN.
+  It's never judged on what the recipient gets. The limit stays the ₦[step-up] placeholder on screen;
+  STEP_UP_DEMO_USD_CENTS (₦20,000.00 at the demo rate, about $12.90) is a demo value only.
 
 ## Convert and the wallet home
 - Convert lives in features/wallet/convert/ (useConvert.ts: the reference's S.cv stages; convertMath.ts: cv* helpers).

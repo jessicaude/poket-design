@@ -178,7 +178,7 @@ export const usePayout = create<State>((set, get) => {
       // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
       const w = await createPayout({
         currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r), conversion, kind: "bank",
-        amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, sourceKey: payFrom,
+        amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta, sourceKey: payFrom,
       });
       useWithdrawals.getState().refresh();
       set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status }, recipients: listPayoutRecipients() });
@@ -256,7 +256,7 @@ export const usePayout = create<State>((set, get) => {
     try {
       const w = await createPayout({
         currency: r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
-        kind: s.kind, recipientName: r.name, amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival,
+        kind: s.kind, recipientName: r.name, amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
         sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion,
         ...(usBank ? { speed, ...(speed === "wire" ? { wireAddress: wire } : {}) } : {}),
       });
@@ -349,7 +349,9 @@ export const usePayout = create<State>((set, get) => {
       // A send that converts can't go ahead on an expired quote (Refresh rate first).
       const { payFrom, recipient, quoteExpired } = get();
       if (payFrom && recipient && quoteExpired && !sameAsTarget(payFrom, asSendRecipient(recipient))) return;
-      if (get().stage === "review" && needsStepUp(get().currency, get().cents)) return set({ stage: "stepup" });
+      // Step-up: the USD value of what leaves the source balance (amount and fees), whatever the recipient gets
+      const { cents, payCents, jitter, speed } = get();
+      if (get().stage === "review" && payFrom && recipient && needsStepUp(sendSummary(recipient, payFrom, payCents, cents, jitter, speed).usdOut)) return set({ stage: "stepup" });
       get().toPin();
     },
     toPin: () => {

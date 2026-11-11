@@ -20,12 +20,14 @@ export const CURRENCY_INFO: Record<PayoutCurrency, { name: string; symbol: strin
 export const fmtCurrency = (minor: number, cur: PayoutCurrency) => (cur === "NGN" ? formatNaira(minor) : formatMinor(minor, CURRENCY_INFO[cur].symbol, cur));
 
 /**
- * Amounts over ₦[step-up] need step-up verification before the PIN. The limit isn't decided, so screens show the
- * placeholder; STEP_UP_DEMO_KOBO (₦20,000.00) is only a demo value so the step can be reached from a ₦50,000 balance.
+ * Sends over ₦[step-up] need step-up verification before the PIN. It's judged on the USD value of what leaves the
+ * source balance (the amount plus every fee, in any currency), not on what the recipient gets. The limit isn't
+ * decided, so screens show the placeholder; STEP_UP_DEMO_USD_CENTS (₦20,000.00 at the demo rate of 1,550, about
+ * $12.90) is only a demo value so the step can be reached from the demo balances.
  */
 export const STEP_UP_PLACEHOLDER = "\u20a6[step-up]";
-export const STEP_UP_DEMO_KOBO = 2000000;
-export const needsStepUp = (cur: PayoutCurrency, amount: number) => cur === "NGN" && amount > STEP_UP_DEMO_KOBO;
+export const STEP_UP_DEMO_USD_CENTS = 2000000 / 1550;
+export const needsStepUp = (usdCents: number) => usdCents > STEP_UP_DEMO_USD_CENTS;
 
 /** How long a first NGN payment to a new account is held before it sends: not decided, so a placeholder (ngn.mdc). */
 export const HOLD_PLACEHOLDER = "[hold]";

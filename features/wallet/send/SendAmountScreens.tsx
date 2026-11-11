@@ -87,7 +87,7 @@ export function SendAmountScreen() {
       {over && <div className="cv-hint err" id="payoutAmtHint">More than your {cvName(src)} balance.</div>}
 
       <label className="field-label" style={{ marginTop: "14px" }}>They get</label>
-      <div className="amount-display" style={{ padding: "4px 0 8px" }}><span className="amount-value" id="theyGet"><Grey>{(converting ? "≈ " : "") + cvFmt(cents, cvParse(target))}</Grey></span></div>
+      <div className="amount-display" style={{ padding: "4px 0 8px" }}><span className="amount-value" id="theyGet"><Grey>{(converting ? "≈ " : "") + cvFmt(cents, cvParse(target))}</Grey></span>{summary.tag && <span className="fiat-tag" id="theyGetTag">{summary.tag}</span>}</div>
 
       {usBank && <UsSpeed />}
 

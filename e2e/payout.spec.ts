@@ -101,12 +101,12 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(title(page)).toHaveText("Enter your PIN");
   for (const left of ["2 attempts left.", "1 attempt left."]) {
     await typePin(page, "0000");
-    await expect(body.locator(".step-sub")).toHaveText(`Approves this withdrawal. Incorrect PIN. ${left}`);
+    await expect(body.locator(".step-sub")).toHaveText(`Approves this payment. Incorrect PIN. ${left}`);
     await expect(body.locator(".otp-box").first()).toHaveValue("");
   }
   await typePin(page, "0000");
   await expect(title(page)).toHaveText("Too many attempts");
-  await expect(body.locator(".step-sub")).toHaveText("Your PIN is locked. Reset it with a passcode sent to your email to keep withdrawing.");
+  await expect(body.locator(".step-sub")).toHaveText("Your PIN is locked. Reset it with a passcode sent to your email to keep sending.");
   await expect(body.locator(".fail-mark")).toBeVisible();
 
   await page.locator("#pinLockedReset").click();
@@ -122,7 +122,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(title(page)).toHaveText("Confirm your PIN");
   await typePin(page, "4321");
   await expect(title(page)).toHaveText("PIN updated");
-  await expect(body.locator(".step-sub")).toHaveText("Your new PIN is set. Use it next time you withdraw.");
+  await expect(body.locator(".step-sub")).toHaveText("Your new PIN is set. Use it next time you send.");
   await page.locator("#doneToWallet").click();
   await expect(page.locator("#actSend")).toBeVisible();
   // Balance untouched: the payout wasn't sent

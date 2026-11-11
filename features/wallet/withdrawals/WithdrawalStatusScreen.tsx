@@ -17,7 +17,8 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
   const w = useWithdrawals((s) => s.list.find((x) => x.id === id));
   const back = useWalletNav((s) => s.back);
   if (!w) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
-  const message = STATUS_META[w.status].message;
+  // Sending: the send's own arrival (seconds, about 1 minute, 1 to 3 business days...), else the naira one
+  const message = w.status === "sending" && w.eta ? w.eta : STATUS_META[w.status].message;
   const row = (k: string, v: React.ReactNode) => <div className="info-row"><span>{k}</span><span>{v}</span></div>;
   return (
     <>
@@ -26,7 +27,7 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />
       </div>
       <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{w.amountText ?? fmtCurrency(w.amount, w.currency)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>To {w.recipientName}</p>
+      <p className="step-sub" style={{ textAlign: "center", marginBottom: "6px" }}>To {w.recipientName}{w.tag && <span className="fiat-tag" id="withdrawalTag">{w.tag}</span>}</p>
       <div style={{ textAlign: "center" }} id="withdrawalStatus"><StatusChip status={w.status} /></div>
       {message && <p className="step-sub" id="withdrawalStatusMsg" style={{ textAlign: "center", margin: "8px 0 14px" }}>{message}</p>}
       <div className="info-card" style={{ marginTop: message ? 0 : "14px" }}>

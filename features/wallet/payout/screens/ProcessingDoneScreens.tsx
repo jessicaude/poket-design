@@ -40,7 +40,7 @@ export function DoneScreen() {
           <span className="check-badge" dangerouslySetInnerHTML={{ __html: iconKey ? WICON[iconKey as keyof typeof WICON] ?? "" : "" }} />
         </div>
         <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>
-        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}</p>
+        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
         <span className="btn-ghost" id="viewPayoutTx" role="button" tabIndex={0}
           onClick={() => { close(); useWalletNav.getState().push({ name: "withdrawal", id: sent.id }); }}>View transaction</span>
       </div>

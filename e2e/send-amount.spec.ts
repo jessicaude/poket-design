@@ -163,6 +163,8 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN or merc
   await expect(page.locator("#withdrawalStatus")).toHaveText("Scheduled");
   await expect(page.locator("#panelBody .step-title")).toHaveText("$10.00 USD");
   await page.getByRole("button", { name: "Release first-payment hold" }).click();
+  await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // Standard's own arrival, not the naira one
   await page.getByRole("button", { name: "Fail", exact: true }).click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
   await expect.poll(() => usd(page)).toEqual({ usd: 6560, fiat: 1560 });
@@ -183,7 +185,12 @@ test("a US bank by wire: $15.00 and the recipient's address, sent with it", asyn
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$20.00 USD", "$15.00 USD", "After [hold]", "$35.00 USD"]);
-  await approve(page);
+  // $35.00 leaves the USD balance: over the step-up limit (judged on the USD value leaving, fee included)
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await page.locator("#stepupIntroContinue").click();
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
   await expect.poll(() => usd(page)).toEqual({ usd: 3060, fiat: 1560 });
 });
@@ -206,11 +213,16 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
   await expect(rows.locator(".r-value")).toHaveText(["Visa · •••• 4242", "$25.00 USD", "$[fee]", "Instantly", "$25.00 USD + $[fee]"]);
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // the hold is for bank accounts
-  await approve(page);
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await page.locator("#stepupIntroContinue").click(); // $25.00 leaves USD: over the step-up limit
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ada Osun");
   await expect.poll(() => usd(page)).toEqual({ usd: 4060, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("Instantly"); // the card's own arrival
 });
 
 test("USD to a Nigerian bank: converts inline at the quote; one record; the naira reserved", async ({ page }) => {

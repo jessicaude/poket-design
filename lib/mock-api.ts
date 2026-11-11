@@ -239,6 +239,10 @@ export type Withdrawal = {
   kind: "bank" | "card" | "poket" | "wallet";
   /** How the send reads (they get, fee, arrival), for any kind; the source and what it reserved. */
   amountText?: string; feeText?: string; arrival?: string;
+  /** How long it takes once sending ("Usually within seconds", "About 1 minute", "1 to 3 business days"...). */
+  eta?: string;
+  /** A Poket user paid from merchant-held naira or card-funded USD: the tag their money keeps. */
+  tag?: "MERCHANT-HELD" | "FIAT-ONLY";
   sourceKey?: string; sourceTotal?: number;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
@@ -254,7 +258,7 @@ const withdrawals: Withdrawal[] = [];
 export async function createPayout(p: {
   currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string;
   conversion?: Withdrawal["conversion"]; kind?: Withdrawal["kind"]; recipientName?: string;
-  amountText?: string; feeText?: string; arrival?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
+  amountText?: string; feeText?: string; arrival?: string; eta?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
   /** A US bank send: the speed chosen for it (rtp, ach, wire) and, for a wire, the recipient's address. */
   speed?: string; wireAddress?: { street: string; city: string; state: string; zip: string };
 }): Promise<Withdrawal> {
@@ -272,13 +276,28 @@ export async function createPayout(p: {
     id: "wd_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
-    kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
+    kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
     status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
   };
   if (recipient) recipient.paidBefore = true;
+  // A Poket user is credited at once, in the source's currency; merchant-held and card-funded money keep their tag
+  if (kind === "poket") {
+    const [k, cur, bucket] = (p.sourceKey ?? "cash:NGN:open").split(":");
+    const tagged = k === "cash" && (bucket === "merchant" || bucket === "fiat") ? (bucket as "merchant" | "fiat") : "open";
+    const asset = k === "cash" ? cur : `${cur} (${bucket})`;
+    if (tagged !== "open") w.tag = tagged === "merchant" ? "MERCHANT-HELD" : "FIAT-ONLY";
+    const book = (poketBalances[p.recipientId] ??= {});
+    const key = `${asset}:${tagged}`;
+    book[key] = (book[key] ?? 0) + p.amount;
+  }
   withdrawals.unshift(w);
   return { ...w };
 }
+
+/** Poket users' balances, as credited by sends: "{currency}:{open | merchant | fiat}" → minor units. */
+const poketBalances: Record<string, Record<string, number>> = {};
+/** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "NGN:merchant": 100000 }). */
+export const getPoketUserBalances = (id: string) => ({ ...(poketBalances[id] ?? {}) });
 
 /** The reference's FLAGGED_ADDRESSES: test addresses that fail screening (standing in for a sanctions list provider). */
 const FLAGGED_ADDRESSES = new Set(["0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "0xbadc0debadc0debadc0debadc0debadc0debadc0", "flagged-test-wallet", "@flagged"]);
@@ -348,6 +367,7 @@ export function resetPayoutServer() {
   enquiryServer.available = true;
   reservations.clear();
   withdrawals.length = 0;
+  for (const k of Object.keys(poketBalances)) delete poketBalances[k];
   payoutServer.recipients = PAYOUT_SEED.map((r) => ({ ...r }));
   payoutServer.pin = null;
   payoutServer.pinAttempts = 0;

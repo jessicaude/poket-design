@@ -9,6 +9,7 @@ import { HOLD_PLACEHOLDER } from "./payoutMath";
 export const STATUS_META: Record<WithdrawalStatus, { chip: string; tone: "" | "muted" | "warn" | "err"; message: string | null }> = {
   scheduled: { chip: "Scheduled", tone: "muted", message: `Sends after ${HOLD_PLACEHOLDER}` },
   review: { chip: "Held for review", tone: "warn", message: "We're checking this payment. We'll let you know." },
+  // Shown only for sends without their own eta (Withdrawal.eta); every send made in Send has one
   sending: { chip: "Sending", tone: "muted", message: NGN_VA.arrives },
   paid: { chip: "Paid", tone: "", message: null },
   failed: { chip: "Failed", tone: "err", message: "Funds returned to your balance" },

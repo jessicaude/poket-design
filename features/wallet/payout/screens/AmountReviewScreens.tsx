@@ -49,7 +49,9 @@ export function ReviewScreen() {
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "2px" }}>to {r.name}</p>
       <div className="receipt-card" style={{ marginTop: "14px" }}>
         {row(WICON.user, "To", payoutMethodSub(r))}
-        {row(WICON.coins, "They get", s.theyGetText)}
+        {/* A Poket user paid from merchant-held naira or card-funded USD: their money keeps the tag */}
+        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">They get</span>
+          <span className="r-value" id="reviewTheyGet"><Grey>{s.theyGetText}</Grey>{s.tag && <span className="fiat-tag">{s.tag}</span>}</span></div>
         {s.youSendText && row(WICON.convert, "You send", s.youSendText)}
         {s.rateText && row(WICON.globe, "Rate", s.rateText)}
         {row(WICON.percent, "Fee", s.feeText)}

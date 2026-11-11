@@ -30,6 +30,12 @@ export type SendSummary = {
   arrival: string;
   /** A first payment to a bank account: sends after [hold]. */
   firstPayment: boolean;
+  /** How long it takes once it's sending (the arrival without the first-payment hold): the Sending status's message. */
+  eta: string;
+  /** The USD value of what leaves the source (sourceTotal), in cents, unrounded: what step-up is judged on. */
+  usdOut: number;
+  /** A Poket user paid from merchant-held naira or card-funded USD: their money keeps the tag. */
+  tag?: "MERCHANT-HELD" | "FIAT-ONLY";
 };
 
 const US_SPEED_FEE: Record<string, number> = { rtp: 150, ach: 0, wire: 1500 };
@@ -59,19 +65,21 @@ export function sendSummary(r: PayoutRecipient, payFrom: string, payCents: numbe
   const sourceTotal = payCents + feeSource;
   const undecided = ngnBank || kind === "card" || (q !== null && involvesNgn(q.f, q.to));
   const placeholder = converting ? feePlaceholder(src) : kind === "card" ? CARD_FEE_PLACEHOLDER : FEE_PLACEHOLDER;
-  const totalText = undecided ? `${cvFmt(payCents, src)} + ${placeholder}` : cvFmt(sourceTotal, src);
+  // Every decided fee is in the total, in the source currency; an undecided one is added as its placeholder
+  const totalText = undecided ? `${cvFmt(sourceTotal, src)} + ${placeholder}` : cvFmt(sourceTotal, src);
 
-  // A first payment to any bank account is scheduled: it sends after [hold] (ngn.mdc, applied to every bank)
-  const arrival = firstPayment ? `After ${HOLD_PLACEHOLDER}`
-    : ngnBank ? NGN_VA.arrives
+  const eta = ngnBank ? NGN_VA.arrives
     : kind === "bank" && r.currency === "USD" ? usSpeeds(true).find((x) => x.id === speed)?.eta ?? "1 to 3 business days"
     : kind === "bank" ? "Within minutes"
     : kind === "card" || kind === "poket" ? "Instantly"
     : "About 1 minute";
+  // A first payment to any bank account is scheduled: it sends after [hold] (ngn.mdc, applied to every bank)
+  const arrival = firstPayment ? `After ${HOLD_PLACEHOLDER}` : eta;
+  const tag = kind === "poket" && src.k === "cash" && src.bucket !== "open" ? (src.bucket === "merchant" ? "MERCHANT-HELD" as const : "FIAT-ONLY" as const) : undefined;
 
   return {
     kind, targetKey, converting, theyGetText: cvFmt(cents, tgt), feeTarget, feeText,
     ...(q ? { youSendText: cvFmt(payCents, src), rateText: cvRateText(src, tgt, jitter, false) } : {}),
-    sourceTotal, totalText, arrival, firstPayment,
+    sourceTotal, totalText, arrival, firstPayment, eta, usdOut: sourceTotal * cvUsdPer(src), ...(tag ? { tag } : {}),
   };
 }

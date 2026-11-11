@@ -31,6 +31,38 @@ test("NGN fees are undecided: shown as ₦[fee], left out of the maths; other ba
   expect(sendSummary(card, "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "Instantly", firstPayment: false });
 });
 
+test("step-up is judged on the USD value leaving the source; converting totals include every decided fee", async () => {
+  const { needsStepUp } = await import("@/features/wallet/payout/payoutMath");
+  const wallet = { id: "sw1", isSelf: false, name: "Ledger", currency: "USD" as const, methodType: "wallet" as const, walletAddress: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC" as const, network: "Base" as const };
+  // ₦25,000 to a USDC wallet: ₦27,325 leaves (with 1.50 USDC = ₦2,325), about $17.63
+  const fromNgn = sendSummary(wallet, "cash:NGN:open", 2500000, 1613, 1);
+  expect(fromNgn).toMatchObject({ sourceTotal: 2732500, totalText: "₦27,325.00 NGN + ₦[fee]" });
+  expect(Math.round(fromNgn.usdOut)).toBe(1763);
+  expect(needsStepUp(fromNgn.usdOut)).toBe(true);
+  // The demo limit is ₦20,000.00 in USD: exactly that isn't over it, a kobo more is
+  expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000000, 2000000, 1).usdOut)).toBe(false);
+  expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000100, 2000100, 1).usdOut)).toBe(true);
+  // Sending's message is the send's own arrival, without the first-payment hold
+  expect(sendSummary(recipient("r6"), "cash:NGN:open", 100, 100, 1)).toMatchObject({ arrival: "After [hold]", eta: "Usually within seconds" });
+  expect(sendSummary(wallet, "coin:USDC:Base", 100, 100, 1).eta).toBe("About 1 minute");
+});
+
+test("Poket users from merchant-held or card-funded money: the tag carries to their balance", async () => {
+  const { reservePayout, createPayout, getPoketUserBalances } = await import("@/lib/mock-api");
+  const poket = { id: "pu1", isSelf: false, name: "Tobi Bello", currency: "NGN" as const, methodType: "poket" as const, handle: "tobi@lagos.ng" };
+  expect(sendSummary(poket, "cash:NGN:merchant", 100000, 100000, 1).tag).toBe("MERCHANT-HELD");
+  expect(sendSummary(poket, "cash:USD:fiat", 500, 500, 1).tag).toBe("FIAT-ONLY");
+  expect(sendSummary(poket, "cash:NGN:open", 100, 100, 1).tag).toBeUndefined();
+  const send = async (sourceKey: string, amount: number) => {
+    const r = await reservePayout({ currency: "NGN", amount });
+    return createPayout({ currency: "NGN", amount, fee: 0, recipientId: "pu1", reservationId: r.id, kind: "poket", recipientName: "Tobi Bello", sourceKey, sourceTotal: amount, reservedIn: "source" });
+  };
+  expect((await send("cash:NGN:merchant", 100000)).tag).toBe("MERCHANT-HELD");
+  expect((await send("cash:USD:fiat", 500)).tag).toBe("FIAT-ONLY");
+  expect((await send("cash:NGN:open", 2000)).tag).toBeUndefined();
+  expect(getPoketUserBalances("pu1")).toEqual({ "NGN:merchant": 100000, "USD:fiat": 500, "NGN:open": 2000 });
+});
+
 test("Max: the whole balance (the NGN fee is undecided)", () => {
   const p = () => usePayout.getState();
   p().sendTo(recipient("r6"));
