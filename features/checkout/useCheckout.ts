@@ -30,6 +30,7 @@ type State = {
   screen: Screen;
   onboarding: boolean;        // true while a new user signs up: shows the stepper
   selected: string | null;    // selected payment method id
+  cardCurrency: OrderCurrency; // the card being added: an NGN card, or a USD card (paid in USD, converted for an NGN order)
   failed: PaymentMethod | null;
   paid: { ref: string; method: PaymentMethod } | null;
   toast: string | null;
@@ -37,6 +38,7 @@ type State = {
   start: (order: Order) => void;
   close: (reason?: string) => void;
   go: (s: Screen) => void;
+  addCard: (currency: OrderCurrency) => void;
   showToast: (msg: string) => void;
   signedUp: (a: Account) => void;
   loggedIn: (a: Account) => void;
@@ -48,7 +50,7 @@ type State = {
 const nextAfterSignIn = (a: Account, o: Order): Screen => (orderUsdCents(o.amount, o.currency) >= NO_ID_LIMIT && a.tier < 1 ? "id-needed" : a.methods.length ? "pay" : "add-method");
 
 export const useCheckout = create<State>((set, get) => ({
-  open: false, order: null, settings: null, screen: "signup", onboarding: false, selected: null, failed: null, paid: null, toast: null,
+  open: false, order: null, settings: null, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, toast: null,
 
   start: (order) => {
     const { customer, shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
@@ -68,6 +70,7 @@ export const useCheckout = create<State>((set, get) => ({
     set({ open: false });
   },
   go: (screen) => set({ screen }),
+  addCard: (cardCurrency) => set({ cardCurrency, screen: "add-card" }),
   showToast: (msg) => { set({ toast: msg }); setTimeout(() => set({ toast: null }), 2400); },
 
   signedUp: (a) => {

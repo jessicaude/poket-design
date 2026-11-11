@@ -7,6 +7,7 @@ import { POKET_MARK } from "@/lib/icons";
 import { CheckoutWidget } from "@/features/checkout/CheckoutWidget";
 import { useCheckout } from "@/features/checkout/useCheckout";
 import { useDemo } from "@/store/demo";
+import { useAccount } from "@/store/account";
 import { DEMO_NGN_PER_USD, formatOrder } from "@/lib/money";
 
 /** Ilé Living: the merchant's checkout page (the host). Markup from renderHost() in reference/poket-widgets.html. */
@@ -27,7 +28,7 @@ export default function IleLivingPage() {
   const [ship, setShip] = useState<"standard" | "express">("standard");
   const total = ITEMS.reduce((s, i) => s + i.amount, 0) + SHIPPING[ship];
   // Demo/test hooks: e2e tests read the widget's state and set the demo bar through these.
-  useEffect(() => { Object.assign(window, { __checkout: useCheckout, __demo: useDemo }); }, []);
+  useEffect(() => { Object.assign(window, { __checkout: useCheckout, __demo: useDemo, __account: useAccount }); }, []);
 
   return (
     <>

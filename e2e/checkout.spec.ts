@@ -149,3 +149,97 @@ test("the $500 ID check uses an NGN order's USD value", async () => {
   expect(formatOrder(3627000, "NGN")).toBe("₦36,270.00 NGN");
   expect(formatOrder(2340, "USD")).toBe("$23.40");
 });
+
+/** A new user on an NGN order, signed up and on "Add a payment method". */
+async function ngnAddMethod(page: import("@playwright/test").Page, setBar?: () => Promise<void>) {
+  await page.goto("/demo/ile-living");
+  await page.getByLabel("Order currency").selectOption("NGN");
+  if (setBar) await setBar();
+  await page.locator("#payWithPoket").click();
+  const widget = page.getByTestId("checkout-widget");
+  await widget.locator("#suTerms").check();
+  await widget.locator("#suGo").click();
+  await enterCode(page);
+  await expect(widget.getByRole("heading", { name: "Add a payment method" })).toBeVisible();
+  return widget;
+}
+const rows = (widget: import("@playwright/test").Locator) => widget.locator(".methods .method").allInnerTexts().then((a) => a.map((t) => t.replace(/\s+/g, " ").replace(" ›", "").trim()));
+
+test("NGN order: the naira rails first, then the merchant's other rails marked as converted", async ({ page }) => {
+  const widget = await ngnAddMethod(page);
+  await expect.poll(() => rows(widget)).toEqual([
+    "Card Nigerian debit or credit card",
+    "Bank transfer Pay into an account we show you",
+    "CardPaid in USD, converted Debit or credit card",
+    "Pay by BankPaid in USD, converted Link your bank account",
+    "Apple PayPaid in USD, converted Use a card in your Apple Wallet",
+    "Google PayPaid in USD, converted Use a card in your Google Wallet",
+    "$ Cash App PayPaid in USD, converted Pay from your Cash App",
+  ]);
+  await expect(widget.locator(".method[data-converted] .chip")).toHaveCount(5);
+
+  // Bank transfer has no screen yet
+  await widget.locator('[data-addpm="ngn-bank"]').click();
+  await expect(page.locator(".toast")).toHaveText("Bank transfer isn’t ported yet");
+
+  // The NGN card: same form and validation, Verve supported
+  await widget.locator('[data-addpm="ngn-card"]').click();
+  await expect(widget.getByRole("heading", { name: "Add a card" })).toBeVisible();
+  await widget.locator("#cNum").fill("1234");
+  await expect(widget).toContainText("We don’t recognise this card. Poket accepts Visa, Mastercard, Amex, Discover and Verve.");
+  await widget.locator("#cNum").fill("5061020000000000");
+  await expect(widget.locator("#cNum")).toHaveValue("5061 0200 0000 0000");
+  await expect(widget.locator("#cBrandLbl")).toHaveText("Verve card");
+  await widget.locator("#cExp").fill("122029");
+  await expect(widget.locator("#cZip")).toHaveCount(0); // naira cards: number, expiry and CVC only
+  await expect(widget.locator("#cGo")).toBeDisabled();
+  await widget.locator("#cCvc").fill("123");
+  await expect(widget.locator("#cGo")).toBeEnabled();
+  await widget.locator("#cGo").click();
+  await expect(widget.getByRole("radio", { name: /Verve ••• 0000/ })).toHaveAttribute("aria-checked", "true");
+  const methods = await page.evaluate(() => (window as any).__account.getState().account.methods); // eslint-disable-line @typescript-eslint/no-explicit-any
+  expect(methods.map((m: { currency?: string }) => m.currency)).toEqual(["NGN"]);
+});
+
+test("NGN order: only the rails the merchant accepts; no converted rails without Conversion", async ({ page }) => {
+  const accepts = page.getByRole("group", { name: "Merchant accepts" });
+  let widget = await ngnAddMethod(page, async () => { await accepts.getByLabel("Conversion").uncheck(); await accepts.getByLabel("NGN card").uncheck(); });
+  await expect.poll(() => rows(widget)).toEqual(["Bank transfer Pay into an account we show you"]);
+
+  widget = await ngnAddMethod(page, async () => { await accepts.getByLabel("NGN bank transfer").uncheck(); await accepts.getByLabel("NGN card").uncheck(); });
+  await expect.poll(() => rows(widget)).toHaveLength(5);
+  await expect(widget.locator(".method[data-converted]")).toHaveCount(5);
+
+  widget = await ngnAddMethod(page, async () => { for (const l of ["NGN card", "NGN bank transfer", "Conversion"]) await accepts.getByLabel(l).uncheck(); });
+  await expect.poll(() => rows(widget)).toEqual([]);
+  await expect(widget.locator("#noMethods")).toHaveText("Ilé Living can’t take payment for this order right now.");
+});
+
+test("USD order: the add-method list is unchanged", async ({ page }) => {
+  await page.goto("/demo/ile-living");
+  await page.locator("#payWithPoket").click();
+  const widget = page.getByTestId("checkout-widget");
+  await widget.locator("#suTerms").check();
+  await widget.locator("#suGo").click();
+  await enterCode(page);
+  await expect.poll(() => rows(widget)).toEqual([
+    "Card Debit or credit card", "Pay by Bank Link your bank account", "Apple Pay Use a card in your Apple Wallet",
+    "Google Pay Use a card in your Google Wallet", "$ Cash App Pay Pay from your Cash App",
+  ]);
+  await expect(widget.locator(".chip")).toHaveCount(0);
+});
+
+test("NGN order: a dollar card (paid in USD, converted) keeps the ZIP code", async ({ page }) => {
+  const widget = await ngnAddMethod(page);
+  await widget.locator('[data-addpm="card"]').click();
+  await widget.locator("#cNum").fill("4242424242424242");
+  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cCvc").fill("123");
+  await expect(widget.locator("#cZip")).toBeVisible();
+  await expect(widget.locator("#cGo")).toBeDisabled();
+  await widget.locator("#cZip").fill("10001");
+  await expect(widget.locator("#cGo")).toBeEnabled();
+  await widget.locator("#cGo").click();
+  const methods = await page.evaluate(() => (window as any).__account.getState().account.methods); // eslint-disable-line @typescript-eslint/no-explicit-any
+  expect(methods.map((m: { currency?: string }) => m.currency)).toEqual([undefined]);
+});

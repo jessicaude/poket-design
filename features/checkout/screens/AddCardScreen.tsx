@@ -8,7 +8,7 @@ import { useCheckout } from "../useCheckout";
 
 /** SCREENS['add-card'] */
 export function AddCardScreen() {
-  const { go, select } = useCheckout();
+  const { go, select, cardCurrency } = useCheckout();
   const { account, update } = useAccount();
   const [num, setNum] = useState("");
   const [exp, setExp] = useState("");
@@ -20,7 +20,8 @@ export function AddCardScreen() {
   const digits = num.replace(/\D/g, ""), brand = detectBrand(digits), cvcN = cvcLen(brand);
   const expBad = exp.length === 9 && !expiryOk(exp);
   const unsupported = digits.length >= 4 && !brand;
-  const ok = !!brand && digits.length === cardLen(brand) && expiryOk(exp) && cvc.length === cvcN && zip.length === 5;
+  const askZip = cardCurrency !== "NGN"; // Nigerian cards have no ZIP code: number, expiry and CVC only
+  const ok = !!brand && digits.length === cardLen(brand) && expiryOk(exp) && cvc.length === cvcN && (!askZip || zip.length === 5);
 
   function saveCard() {
     if (!ok || !brand) return;
@@ -29,6 +30,7 @@ export function AddCardScreen() {
     update((a) => ({ ...a, methods: [...a.methods, {
       id, kind: "card", brand, last4: digits.slice(-4), name: `${BRANDS[brand].name} ••• ${digits.slice(-4)}`,
       sub: `${funding === "credit" ? "Credit" : "Debit"} · Expires ${exp.replace(" / ", "/")}${save ? "" : " · This payment only"}`, oneTime: !save,
+      ...(cardCurrency === "NGN" ? { currency: "NGN" as const } : {}),
     }] }));
     select(id);
     go("pay");
@@ -46,10 +48,10 @@ export function AddCardScreen() {
         <span className="card-brand" aria-hidden="true">{brand && <Raw html={BRANDS[brand].mark} />}</span>
         <span className="sr-only" id="cBrandLbl" aria-live="polite">{brand ? `${BRANDS[brand].name} card` : ""}</span>
       </div>
-      <div className="row c3" style={{ gridTemplateColumns: "1.3fr 1fr 1fr" }}>
+      <div className="row c3" style={{ gridTemplateColumns: askZip ? "1.3fr 1fr 1fr" : "1.3fr 1fr" }}>
         <div><label className="lbl" htmlFor="cExp">Expiry</label><input className="field mono" id="cExp" inputMode="numeric" placeholder="MM / YYYY" maxLength={9} value={exp} onChange={(e) => setExp(formatExpiry(e.target.value))} /></div>
         <div><label className="lbl" htmlFor="cCvc">CVC</label><input className="field mono" id="cCvc" inputMode="numeric" placeholder={brand === "amex" ? "1234" : "123"} maxLength={cvcN} value={cvc} onChange={(e) => setCvc(e.target.value.replace(/\D/g, ""))} /></div>
-        <div><label className="lbl" htmlFor="cZip">ZIP code</label><input className="field mono" id="cZip" inputMode="numeric" placeholder="00000" maxLength={5} value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))} /></div>
+        {askZip && <div><label className="lbl" htmlFor="cZip">ZIP code</label><input className="field mono" id="cZip" inputMode="numeric" placeholder="00000" maxLength={5} value={zip} onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))} /></div>}
       </div>
       <div>
         {expBad && <p className="err">This card has expired. Use a card that’s still valid.</p>}

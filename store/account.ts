@@ -10,6 +10,7 @@ export type PaymentMethod = {
   name: string;
   sub: string;
   oneTime?: boolean; // "Save this card for next time" was unticked
+  currency?: "USD" | "NGN"; // what the method pays in: NGN for a Nigerian card; USD when not set
 };
 /** `amount` is in minor units of `currency` (cents or kobo). */
 export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid" };
