@@ -14,7 +14,6 @@ import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 export function NgnDemoBar() {
   const { stage, tier, eligibility, set, transferArrives, expireTemp, go, setIdNum } = useNgn();
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
-  const held = useNgn((s) => s.ngnMerchantBalance);
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
   const screen = currentScreen(useWalletNav((s) => s.stack));
@@ -45,11 +44,6 @@ export function NgnDemoBar() {
       <label className="opt-lbl"><span>PIN</span>
         <select aria-label="PIN" value={pinSet ? "set" : "none"} onChange={(e) => seedPin(e.target.value === "set" ? DEMO_PIN : null)}>
           <option value="none">Not set</option><option value="set">Set ({DEMO_PIN})</option>
-        </select>
-      </label>
-      <label className="opt-lbl"><span>Merchant-held</span>
-        <select aria-label="Merchant-held balance" value={held ? "yes" : "no"} onChange={(e) => set({ ngnMerchantBalance: e.target.value === "yes" ? 1200000 : 0 })}>
-          <option value="no">None</option><option value="yes">₦12,000.00</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Recipient can hold naira</span>

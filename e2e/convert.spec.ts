@@ -12,7 +12,7 @@ const keys = async (page: Page, digits: string) => { for (const d of digits) awa
 const state = (page: Page) => page.evaluate(() => {
   const w = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
   const h = w.__holdings.getState(), n = w.__ngn.getState();
-  return { ngn: n.ngnBalance as number, merchant: n.ngnMerchantBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
+  return { ngn: n.ngnBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
 });
 const setHoldings = (page: Page, patch: object) => page.evaluate((p) => (window as any).__holdings.getState().set(p), patch); // eslint-disable-line @typescript-eslint/no-explicit-any
 /** The reference's demo balances: all USD card-funded ($15.60 FIAT-ONLY), none open. */
@@ -234,38 +234,6 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
   await expect(page.locator("#panelBody .step-sub")).toHaveText("$60,000.00 USD is more than Poket allows per transaction, even at Tier 3: Enhanced. Try a smaller amount.");
   await page.locator("#limitBlockedClose").click();
   await expect(page.locator("#actConvert")).toBeVisible();
-});
-
-test("merchant-held naira converts to USD or USDC; the merchant-held Convert button opens it as the source", async ({ page }) => {
-  await page.goto("/demo/wallet");
-  await referenceBalances(page);
-  await page.getByLabel("Tier").selectOption("1");
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
-  await page.locator('#panelBody [data-holdbucket="merchant"]').click();
-  await page.locator("#detailSend").click();
-  await page.locator('[data-sendrecipient="bank:r6"]').click(); // a bank: the "not available" screen
-  await page.locator("#withdrawUseConvert").click();
-  await expect(title(page)).toHaveText("Convert");
-  await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");
-  await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USDC (Base)");
-  await expect(page.locator(".cv-box-top").first()).toHaveText("FromAvailable ₦12,000.00 NGN Max");
-
-  await page.locator("#cvPickFrom").click();
-  await expect(page.locator("#panelBody [data-cvopt] .t1")).toHaveText(["US DollarFIAT-ONLY", "Nigerian Naira", "Nigerian NairaMERCHANT-HELD"]);
-  await page.locator("#cvPickBack").click();
-  await page.locator("#cvPickTo").click();
-  const eur = page.locator('[data-cvopt="cash:EUR:open"]');
-  await expect(eur.locator(".t2")).toHaveText("Merchant-held naira converts only to USD or USDC");
-  await expect(eur).toHaveClass(/\bcv-disabled\b/);
-  await expect(page.locator('[data-cvopt="coin:USDT:Base"]')).toHaveClass(/\bcv-disabled\b/);
-  await expect(page.locator('[data-cvopt="cash:USD:open"]')).not.toHaveClass(/\bcv-disabled\b/);
-  await page.locator("#cvPickBack").click();
-
-  await keys(page, "1000000");
-  await reviewAndConvert(page);
-  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your USDC on Base balance");
-  expect(await state(page)).toMatchObject({ merchant: 200000, ngn: 5000000, usdcBase: 645 });
 });
 
 test("conversions in the NGN balance history; View transaction opens the receipt", async ({ page, context }) => {

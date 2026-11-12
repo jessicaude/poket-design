@@ -23,10 +23,6 @@ test("pair types and the FIAT-ONLY block", () => {
   expect(cvBlockedPair(p("cash:USD:fiat"), p("coin:USDC:Base"))).toBe(true);
   expect(cvBlockReason(p("cash:USD:fiat"), p("cash:NGN:open"))).toBe("Card-funded money can't be converted to naira");
   expect(cvBlockedPair(p("cash:USD:fiat"), p("cash:EUR:open"))).toBe(false);
-  expect(cvBlockReason(p("cash:NGN:merchant"), p("cash:EUR:open"))).toBe("Merchant-held naira converts only to USD or USDC");
-  expect(cvBlockReason(p("cash:NGN:merchant"), p("coin:USDT:Base"))).toBe("Merchant-held naira converts only to USD or USDC");
-  expect(cvBlockedPair(p("cash:NGN:merchant"), p("cash:USD:open"))).toBe(false);
-  expect(cvBlockedPair(p("cash:NGN:merchant"), p("coin:USDC:Polygon"))).toBe(false);
 });
 
 test("cvFixTo and cvDefaultFrom", () => {
@@ -35,8 +31,6 @@ test("cvFixTo and cvDefaultFrom", () => {
   expect(cvFixTo("cash:USD:fiat", "cash:GBP:open")).toBe("cash:GBP:open"); // a valid choice stays
   expect(cvFixTo("cash:NGN:open", "coin:USDC:Base", true)).toBe("cash:USD:open"); // NGN to stablecoins blocked
   expect(cvFixTo("cash:NGN:open", "coin:USDT:Polygon", true)).toBe("cash:USD:open");
-  expect(cvFixTo("cash:NGN:merchant", "coin:USDC:Base", true)).toBe("cash:USD:open");
-  expect(cvFixTo("cash:NGN:merchant", "cash:EUR:open")).toBe("coin:USDC:Base");
   expect(cvFixTo("cash:NGN:fiat", "coin:USDC:Base")).toBe(""); // any card-funded source
   expect(cvFixTo("coin:USDC:Base", "coin:USDC:Base")).toBe("cash:USD:open");
   expect(cvDefaultFrom()).toBe("cash:NGN:open"); // USD is all card-funded
@@ -99,13 +93,11 @@ test("mock API refuses the blocked conversions", async () => {
   const base = { amount: 100, fee: 0, receive: 1, rateText: "", feeLabel: "", feeText: "", paidText: "", receivedText: "" };
   await expect(createConversion({ ...base, from: "cash:USD:fiat", to: "cash:NGN:open" })).rejects.toThrow("fiat_only_to_ngn");
   await expect(createConversion({ ...base, from: "cash:USD:fiat", to: "coin:USDC:Base" })).rejects.toThrow("fiat_only_to_digital_asset");
-  await expect(createConversion({ ...base, from: "cash:NGN:merchant", to: "cash:EUR:open" })).rejects.toThrow("merchant_held_target");
   setNgnToStablecoinsAllowed(false);
   await expect(createConversion({ ...base, from: "cash:NGN:open", to: "coin:USDC:Base" })).rejects.toThrow("ngn_to_stablecoins_unavailable");
   await expect(createConversion({ ...base, from: "cash:NGN:open", to: "coin:USDT:Polygon" })).rejects.toThrow("ngn_to_stablecoins_unavailable");
-  await expect(createConversion({ ...base, from: "cash:NGN:merchant", to: "coin:USDC:Polygon" })).rejects.toThrow("ngn_to_stablecoins_unavailable");
   setNgnToStablecoinsAllowed(true);
-  expect((await createConversion({ ...base, from: "cash:NGN:merchant", to: "cash:USD:open" })).ref).toMatch(/^TXN-\d{6}$/);
+  expect((await createConversion({ ...base, from: "cash:NGN:open", to: "cash:USD:open" })).ref).toMatch(/^TXN-\d{6}$/);
 });
 
 test("₦[minimum]: the naira side of a naira conversion (demo value ₦1,550.00); other pairs keep $1.00", async () => {
@@ -128,9 +120,6 @@ test("Send sources: what can pay each kind of recipient", async () => {
   const { sourceAllowed, defaultSource } = await import("@/features/wallet/send/sources");
   const bank = (currency: "NGN" | "USD" | "GBP") => ({ kind: "bank" as const, id: "b", self: false, bank: { id: "x", isSelf: false, name: "X", currency, methodType: "bank" as const } });
   const wallet = { kind: "wallet" as const, id: "w", wallet: { id: "w", name: "W", address: "0x0", asset: "USDC" as const, network: "Base" as const } };
-  // Merchant-held naira: never for a bank
-  expect(sourceAllowed("cash:NGN:merchant", bank("NGN"), false)).toBe(false);
-  expect(sourceAllowed("cash:NGN:merchant", bank("USD"), false)).toBe(false);
   // Card-funded money: not for naira or stablecoins; fine for other banks
   expect(sourceAllowed("cash:USD:fiat", bank("NGN"), false)).toBe(false);
   expect(sourceAllowed("cash:USD:fiat", wallet, false)).toBe(false);
@@ -143,7 +132,6 @@ test("Send sources: what can pay each kind of recipient", async () => {
   expect(sourceAllowed("coin:USDC:Base", bank("NGN"), false)).toBe(true);
   expect(sourceAllowed("cash:NGN:open", wallet, false)).toBe(true);
   expect(sourceAllowed("cash:NGN:open", wallet, true)).toBe(false);
-  expect(sourceAllowed("cash:NGN:merchant", wallet, false)).toBe(true); // merchant-held converts to USDC
   // Defaults: the recipient's currency (open, then card-funded), or the balance it was opened from if allowed
   expect(defaultSource(bank("NGN"), null, false)).toBe("cash:NGN:open");
   expect(defaultSource(bank("USD"), null, false)).toBe("cash:USD:fiat");

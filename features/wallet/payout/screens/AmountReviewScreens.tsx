@@ -3,7 +3,6 @@ import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useQuoteTimer } from "../../send/useQuoteTimer";
 import { sendSummary } from "../../send/sendSummary";
-import { usSpeeds } from "../../send/sendMath";
 import { cvFmt, cvParse } from "../../convert/convertMath";
 import { CURRENCY_INFO, HOLD_PLACEHOLDER, isLogoMethod, payoutMethodIcon, payoutMethodSub } from "../payoutMath";
 import { BackRow, Grey, SpinButton } from "../parts";
@@ -35,14 +34,13 @@ export function CurrencyBadge() {
  * exploration's reviewScreen rows.
  */
 export function ReviewScreen() {
-  const { recipient: r, cents, ack, setAck, confirm, back, payFrom, payCents, jitter, speed, quoteAt, quoteExpired, expireQuote, refreshQuote } = usePayout();
+  const { recipient: r, cents, ack, setAck, confirm, back, payFrom, payCents, jitter, quoteAt, quoteExpired, expireQuote, refreshQuote } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   if (!r || !payFrom) return <BackRow id="backToPayoutAmount" onClick={back} />;
-  const s = sendSummary(r, payFrom, payCents, cents, jitter, speed);
+  const s = sendSummary(r, payFrom, payCents, cents, jitter);
   const isSelf = r.isSelf;
   const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
   const holder = r.holderName && r.holderName.trim() !== r.name.trim() ? r.holderName : null;
-  const usSpeed = r.methodType === "bank" && r.currency === "USD" ? usSpeeds(true).find((x) => x.id === speed)?.label : undefined;
   // The coin's network: the wallet's, else the paying coin's
   const network = tgt.k === "coin" ? tgt.net : src.k === "coin" ? src.net : null;
   const row = (icon: string, label: string, value: string, extra = "") => (
@@ -59,8 +57,7 @@ export function ReviewScreen() {
       <div className="receipt-card" style={{ marginTop: "14px" }}>
         {row(WICON.user, "To", payoutMethodSub(r))}
         {holder && row(WICON.user, "Account holder", holder)}
-        {usSpeed && row(WICON.send, "Speed", usSpeed)}
-        {/* A Poket user paid from merchant-held naira or card-funded USD: their money keeps the tag */}
+        {/* A Poket user paid from card-funded USD: their money keeps the FIAT-ONLY tag */}
         <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">They get</span>
           <span className="r-value" id="reviewTheyGet"><Grey>{s.theyGetText}</Grey>{s.tag && <span className="fiat-tag">{s.tag}</span>}</span></div>
         {s.youSendText && row(WICON.convert, "You send", s.youSendText)}

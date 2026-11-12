@@ -211,7 +211,7 @@ export type PayoutRecipient = {
   paidBefore?: boolean;
   /** false: added for one send without saving it ("Save recipient" unticked); kept off Send's saved list. */
   saved?: boolean;
-  /** US bank accounts: the bank's full name (Send's new-recipient form). The speed is chosen per send. */
+  /** US bank accounts: the bank's full name (Send's new-recipient form). US banks have one speed. */
   bankFullName?: string;
   /** Poket users: their @handle, email or phone. Stablecoin wallets: the address, coin and network. */
   handle?: string;
@@ -269,9 +269,6 @@ export async function savePayoutRecipient(r: Omit<PayoutRecipient, "id">): Promi
   return { ...saved };
 }
 
-/** Which part of a cash balance a payout comes from. Merchant-held money can't be sent to a bank, only converted. */
-export type BalanceSource = "open" | "merchant";
-
 /**
  * A reservation holds money out of the available balance for one payout, from the moment the PIN is accepted.
  * "used" once a withdrawal is created against it (the withdrawal's status then decides when it clears);
@@ -281,8 +278,7 @@ export type Reservation = { id: string; amount: number; status: "reserved" | "us
 const reservations = new Map<string, Reservation>();
 
 /** POST /v1/payouts/reservations, called once the PIN is accepted. `amount` includes any fee. */
-export async function reservePayout(p: { currency: string; amount: number; source?: BalanceSource }): Promise<Reservation> {
-  if (p.source === "merchant") throw new Error("balance_not_withdrawable");
+export async function reservePayout(p: { currency: string; amount: number }): Promise<Reservation> {
   if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("invalid_amount");
   const r: Reservation = { id: "rsv_" + Math.random().toString(36).slice(2, 10), amount: p.amount, status: "reserved" };
   reservations.set(r.id, r);
@@ -312,8 +308,8 @@ export type Withdrawal = {
   amountText?: string; feeText?: string; arrival?: string;
   /** How long it takes once sending ("Usually within seconds", "About 1 minute", "1 to 3 business days"...). */
   eta?: string;
-  /** A Poket user paid from merchant-held naira or card-funded USD: the tag their money keeps. */
-  tag?: "MERCHANT-HELD" | "FIAT-ONLY";
+  /** A Poket user paid from card-funded USD: the tag their money keeps. */
+  tag?: "FIAT-ONLY";
   /** Held (status "review") for a quick check: a first payment of $500 or more to a new card, wallet or Poket user. */
   quickCheck?: boolean;
   sourceKey?: string; sourceTotal?: number;
@@ -328,14 +324,12 @@ const withdrawals: Withdrawal[] = [];
  * POST /v1/payouts (a send), against a reservation. A first payment to a bank account is "scheduled" (it sends after
  * [hold]); a Poket user is paid at once ("paid"); otherwise it's "sending". A bank account then counts as paid before.
  * Bank accounts and debit cards must be saved recipients; Poket users and stablecoin wallets aren't in that list, so
- * their name and details come with the send. A US wire needs the recipient's address.
+ * their name and details come with the send.
  */
 export async function createPayout(p: {
   currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string;
   conversion?: Withdrawal["conversion"]; kind?: Withdrawal["kind"]; recipientName?: string;
   amountText?: string; feeText?: string; arrival?: string; eta?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
-  /** A US bank send: the speed chosen for it (rtp, ach, wire) and, for a wire, the recipient's address. */
-  speed?: string; wireAddress?: { street: string; city: string; state: string; zip: string };
   /** The USD value leaving the source, in cents: a first payment of $500 or more to a new card, wallet or Poket user is held for a quick check. */
   usdOut?: number;
   /** A Poket user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
@@ -348,7 +342,6 @@ export async function createPayout(p: {
     const user = POKET_USERS.find((u) => u.id === p.recipientId);
     if (target.startsWith("cash:NGN:") && !poketUserHoldsNaira(user)) throw new Error("recipient_cannot_hold_naira");
   }
-  if (p.speed === "wire" && !p.wireAddress) throw new Error("address_required");
   const rsv = reservations.get(p.reservationId);
   const reserved = p.sourceTotal ?? p.amount + p.fee;
   if (!rsv || rsv.status !== "reserved" || rsv.amount !== reserved) throw new Error("invalid_reservation");
@@ -375,10 +368,10 @@ export async function createPayout(p: {
   if (poketUser) poketUser.paidBefore = true;
   if (wallet) wallet.paidBefore = true;
   // A Poket user is credited in the source's currency once paid (at once, unless held for a quick check);
-  // merchant-held and card-funded money keep their tag
+  // card-funded money keeps its FIAT-ONLY tag
   if (kind === "poket") {
     const bucket = (p.sourceKey ?? "cash:NGN:open").split(":")[2];
-    if (p.sourceKey?.startsWith("cash:") && (bucket === "merchant" || bucket === "fiat")) w.tag = bucket === "merchant" ? "MERCHANT-HELD" : "FIAT-ONLY";
+    if (p.sourceKey?.startsWith("cash:") && bucket === "fiat") w.tag = "FIAT-ONLY";
     if (w.status === "paid") creditPoketUser(w);
   }
   withdrawals.unshift(w);
@@ -396,7 +389,7 @@ const poketActivity: PoketActivity[] = [];
  */
 function creditPoketUser(w: Withdrawal) {
   const [k, cur, bucket] = (w.targetKey ?? w.sourceKey ?? "cash:NGN:open").split(":");
-  const tagged = k === "cash" && (bucket === "merchant" || bucket === "fiat") ? bucket : "open";
+  const tagged = k === "cash" && bucket === "fiat" ? "fiat" : "open";
   const asset = k === "cash" ? cur : `${cur} (${bucket})`;
   const book = (poketBalances[w.recipientId] ??= {});
   book[`${asset}:${tagged}`] = (book[`${asset}:${tagged}`] ?? 0) + w.amount;
@@ -406,7 +399,7 @@ function creditPoketUser(w: Withdrawal) {
 export const listPoketActivity = () => poketActivity.map((a) => ({ ...a }));
 /** $500.00: a first payment at least this much (USD value) to a new card, wallet or Poket user is held for a quick check. */
 export const QUICK_CHECK_USD_CENTS = 50000;
-/** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "NGN:merchant": 100000 }). */
+/** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "USD:fiat": 500 }). */
 export const getPoketUserBalances = (id: string) => ({ ...(poketBalances[id] ?? {}) });
 
 /** The reference's FLAGGED_ADDRESSES: test addresses that fail screening (standing in for a sanctions list provider). */
@@ -556,15 +549,13 @@ export function setNgnToStablecoinsAllowed(allowed: boolean) { conversionServer.
 /**
  * POST /v1/conversions: convert `amount` of one balance (`from`, a cvKey like "cash:NGN:open") into another (`to`),
  * at the quote the user confirmed. The reference shows "Converting…" for 1.3s, then the result. Refused:
- * card-funded (FIAT-ONLY) cash to a stablecoin or to naira; merchant-held naira to anything but USD or USDC;
- * naira to stablecoins (USDC or USDT) while that's switched off.
+ * card-funded (FIAT-ONLY) cash to a stablecoin or to naira; naira to stablecoins (USDC or USDT) while that's switched off.
  */
 export async function createConversion(p: Omit<Conversion, "id" | "ref" | "createdAt">): Promise<Conversion> {
   if (!Number.isInteger(p.amount) || p.amount <= 0 || !Number.isInteger(p.receive)) throw new Error("invalid_amount");
   const fiat = p.from.startsWith("cash:") && p.from.endsWith(":fiat");
   if (fiat && p.to.startsWith("coin:")) throw new Error("fiat_only_to_digital_asset");
   if (fiat && p.to.startsWith("cash:NGN:")) throw new Error("fiat_only_to_ngn");
-  if (p.from === "cash:NGN:merchant" && !(p.to === "cash:USD:open" || p.to.startsWith("coin:USDC:"))) throw new Error("merchant_held_target");
   if (p.from.startsWith("cash:NGN:") && p.to.startsWith("coin:") && !conversionServer.ngnToCoins) throw new Error("ngn_to_stablecoins_unavailable");
   await wait(1300);
   const c: Conversion = { ...p, id: "cv_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000), createdAt: Date.now() };

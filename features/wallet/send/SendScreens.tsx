@@ -8,7 +8,6 @@ import { useNgn } from "../ngn/useNgn";
 import { showNotPorted } from "../useWalletToast";
 import { addressParts, cardBrandLabel, cardIssue, formatCardDigits, formatSortCode, routingBank, sortBank, validAddress } from "./sendMath";
 import { cardReady, sourceName, ukReady, usReady, useSend, type SendStage } from "./useSend";
-import { SendUnavailableScreen } from "./SendUnavailableScreen";
 
 /** The explore prototype's shortAddr: "0x3Fa9cE…D58e12". */
 const shortAddr = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
@@ -80,7 +79,6 @@ export function SendRecipientsScreen() {
       {source && (
         <p className="step-sub" id="sendFrom">From {sourceName(source)}
           {bucket === "fiat" && <span className="fiat-tag">FIAT-ONLY</span>}
-          {bucket === "merchant" && <span className="fiat-tag">MERCHANT-HELD</span>}
         </p>
       )}
       {saved.length >= SEARCH_FROM && (
@@ -387,7 +385,7 @@ export function SendTier2Screen() {
 
 const STAGE_SCREEN: Record<SendStage, () => React.ReactElement> = {
   recipients: SendRecipientsScreen, new: SendNewRecipientScreen, bankCurrency: SendBankCurrencyScreen, usBank: SendUsBankScreen, ukBank: SendUkBankScreen, card: SendCardScreen,
-  poketUser: SendPoketUserScreen, wallet: SendWalletScreen, coinPicker: SendCoinPickerScreen, tier2: SendTier2Screen, unavailable: SendUnavailableScreen,
+  poketUser: SendPoketUserScreen, wallet: SendWalletScreen, coinPicker: SendCoinPickerScreen, tier2: SendTier2Screen,
 };
 
 /** The current Send screen, for WalletShell's #panelBody. */

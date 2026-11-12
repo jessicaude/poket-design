@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /** Sending to a Nigerian bank account (tPayout's amount, review and done), with the checkout's PIN steps, in the wallet demo. */
@@ -9,10 +10,10 @@ async function toAmount(page: Page, recipient: string) {
   await page.locator("#actSend").click();
   await expect(title(page)).toHaveText("Send");
   await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
-  await expect(page.locator(".keypad")).toBeVisible();
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
 }
 async function typeAmount(page: Page, digits: string) {
-  for (const d of digits) await page.locator(`[data-payoutkey="${d}"]`).click();
+  for (const d of digits) await press(page, d);
 }
 async function toPin(page: Page) {
   await page.locator("#payoutReview").click();
@@ -44,11 +45,12 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   const body = page.locator("#panelBody");
   await expect(page.locator("#payoutReview")).toBeDisabled();
   await typeAmount(page, "12500000");
-  await page.locator('[data-payoutkey="back"]').click();
-  await expect(body.locator(".amount-value")).toHaveText("₦12,500.00 NGN");
-  await expect(page.locator("#payoutSpeedPill")).toHaveText("Usually within seconds · ₦[fee] fee");
+  await press(page, "back");
+  await expect(body.locator("#theyGet")).toHaveText("12,500.00");
+  await expect(body.locator("#theyGetChip")).toHaveText("NGN");
+  await expect(page.locator("#theyGetArrival")).toHaveText("Usually within seconds"); // NGN: one speed (the fee, ₦[fee], is on review)
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
-  await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
+  await expect(page.locator("#youSendBox .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
 
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // Naira account has been paid before
   await page.locator("#payoutReview").click();
@@ -148,11 +150,11 @@ test("Cancel on the locked PIN returns to the wallet", async ({ page }) => {
 test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is the whole balance; Back steps back", async ({ page }) => {
   await toAmount(page, "other:r6");
   const body = page.locator("#panelBody");
-  await expect(page.locator("#payoutSpeedPill")).toHaveText("After [hold] · ₦[fee] fee"); // first payment to Ngozi Eze
+  await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]"); // first payment to Ngozi Eze
   await page.locator("#payoutMaxAmt").click();
-  await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
+  await expect(body.locator("#theyGet")).toHaveText("50,000.00");
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
-  await expect(page.locator("#panelBody .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
+  await expect(page.locator("#youSendBox .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
   await expect(body.locator(".info-card")).toHaveCount(0); // no exchange rate or "Recipient gets"
   await page.locator("#payoutReview").click();
   await expect(body.locator(".step-sub").first()).toHaveText("to Ngozi Eze");
@@ -161,7 +163,7 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦50,000.00 NGN", "₦[fee]", "After [hold]", "₦50,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
 
   await page.locator("#backToPayoutAmount").click();
-  await expect(body.locator(".amount-value")).toHaveText("₦50,000.00 NGN");
+  await expect(body.locator("#theyGet")).toHaveText("50,000.00");
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send"); // back to Send's recipients
 });

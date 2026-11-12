@@ -21,11 +21,9 @@ test("NGN fees are undecided: shown as ₦[fee], left out of the maths; other ba
   expect(fmtFee(0, "NGN")).toBe("₦[fee]");
   expect(fmtFee(50, "USD")).toBe("$0.50 USD");
   expect(fmtCurrency(3026, "USD")).toBe("$30.26 USD");
-  // A US bank: the fee and arrival of the speed chosen for this send
-  const us = (speed: string) => sendSummary({ ...recipient("r4"), paidBefore: true }, "cash:USD:open", 1000, 1000, 1, speed);
-  expect(us("rtp")).toMatchObject({ feeTarget: 150, feeText: "$1.50 USD", sourceTotal: 1150, totalText: "$11.50 USD", arrival: "Within minutes, any day" });
-  expect(us("ach")).toMatchObject({ feeTarget: 0, feeText: "Free", sourceTotal: 1000, arrival: "1 to 3 business days" });
-  expect(us("wire")).toMatchObject({ feeTarget: 1500, feeText: "$15.00 USD", sourceTotal: 2500, arrival: "Same day if sent before 5 PM ET" });
+  // A US bank: one speed, 1 to 3 business days; the fee is undecided ($[fee], 0 in the maths)
+  const us = sendSummary({ ...recipient("r4"), paidBefore: true }, "cash:USD:open", 1000, 1000, 1);
+  expect(us).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "1 to 3 business days" });
   // A debit card: $[fee], undecided (0 in the maths), instant
   const card = { id: "dc1", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const, bankName: "Visa", accountNumber: "4242" };
   expect(sendSummary(card, "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "Instantly", firstPayment: false });
@@ -47,20 +45,18 @@ test("step-up is judged on the USD value leaving the source; converting totals i
   expect(sendSummary(wallet, "coin:USDC:Base", 100, 100, 1).eta).toBe("About 1 minute");
 });
 
-test("Poket users from merchant-held or card-funded money: the tag carries to their balance", async () => {
+test("Poket users from card-funded money: the FIAT-ONLY tag carries to their balance", async () => {
   const { reservePayout, createPayout, getPoketUserBalances } = await import("@/lib/mock-api");
   const poket = { id: "pu1", isSelf: false, name: "Tobi Bello", currency: "NGN" as const, methodType: "poket" as const, handle: "tobi@lagos.ng" };
-  expect(sendSummary(poket, "cash:NGN:merchant", 100000, 100000, 1).tag).toBe("MERCHANT-HELD");
   expect(sendSummary(poket, "cash:USD:fiat", 500, 500, 1).tag).toBe("FIAT-ONLY");
   expect(sendSummary(poket, "cash:NGN:open", 100, 100, 1).tag).toBeUndefined();
   const send = async (sourceKey: string, amount: number) => {
     const r = await reservePayout({ currency: "NGN", amount });
     return createPayout({ currency: "NGN", amount, fee: 0, recipientId: "pu1", reservationId: r.id, kind: "poket", recipientName: "Tobi Bello", sourceKey, sourceTotal: amount, reservedIn: "source" });
   };
-  expect((await send("cash:NGN:merchant", 100000)).tag).toBe("MERCHANT-HELD");
   expect((await send("cash:USD:fiat", 500)).tag).toBe("FIAT-ONLY");
   expect((await send("cash:NGN:open", 2000)).tag).toBeUndefined();
-  expect(getPoketUserBalances("pu1")).toEqual({ "NGN:merchant": 100000, "USD:fiat": 500, "NGN:open": 2000 });
+  expect(getPoketUserBalances("pu1")).toEqual({ "USD:fiat": 500, "NGN:open": 2000 });
 });
 
 test("quick check: a first payment of $500 or more to a new card, wallet or Poket user; banks and your own card aren't checked", async () => {
@@ -128,7 +124,7 @@ test("store: the PIN reserves the amount; a first payment to an account is Sched
 });
 
 test("name enquiry mock and name matching", async () => {
-  const { nameEnquiry, reservePayout } = await import("@/lib/mock-api");
+  const { nameEnquiry } = await import("@/lib/mock-api");
   const { sameName } = await import("@/features/wallet/payout/usePayout");
   expect(await nameEnquiry("058", "0123456789", "Ada Osun")).toEqual({ status: "found", accountName: "Ada Osun" });
   expect(await nameEnquiry("058", "0123450000", "Ada Osun")).toEqual({ status: "not_found" });
@@ -137,14 +133,12 @@ test("name enquiry mock and name matching", async () => {
   await expect(nameEnquiry("999", "0123456789", "Ada Osun")).rejects.toThrow("invalid_request");
   expect(sameName("OSUN, ADA", "Ada  Osun")).toBe(true);
   expect(sameName("Ada Osun", "Ada Okafor")).toBe(false);
-  // Merchant-held money can't be paid out
-  await expect(reservePayout({ currency: "NGN", amount: 100, source: "merchant" })).rejects.toThrow("balance_not_withdrawable");
 });
 
 test("debit cards: only USD pays them; Visa and Mastercard debit only (credit cards refused)", async () => {
   const card = { kind: "card" as const, id: "card:x", self: false, card: { id: "x", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const } };
   expect(["cash:USD:open", "cash:USD:fiat"].every((k) => sourceAllowed(k, card, false))).toBe(true);
-  expect(["cash:NGN:open", "cash:NGN:merchant", "coin:USDC:Base", "cash:GBP:open"].some((k) => sourceAllowed(k, card, false))).toBe(false);
+  expect(["cash:NGN:open", "coin:USDC:Base", "cash:GBP:open"].some((k) => sourceAllowed(k, card, false))).toBe(false);
   const { saveDebitCard } = await import("@/lib/mock-api");
   await expect(saveDebitCard({ number: "4111 1111 1111 1111", name: "Ada Osun", zip: "10001", saved: true })).rejects.toThrow("credit_card");
   await expect(saveDebitCard({ number: "6011 0000 0000 0004", name: "Ada Osun", zip: "10001", saved: true })).rejects.toThrow("unsupported_card");
@@ -155,7 +149,6 @@ test("debit cards: only USD pays them; Visa and Mastercard debit only (credit ca
 test("NGN: one speed, Nigerian bank accounts only; a first payment is held", () => {
   expect(sourceAllowed("cash:NGN:open", asSend("r6"), false)).toBe(true);
   expect(sourceAllowed("cash:NGN:open", asSend("r4"), false)).toBe(false); // a US bank account
-  expect(sourceAllowed("cash:NGN:merchant", asSend("r6"), false)).toBe(false); // merchant-held: not to a bank
   expect(sendSummary(recipient("r6"), "cash:NGN:open", 100, 100, 1)).toMatchObject({ arrival: "After [hold]", firstPayment: true, converting: false });
 });
 

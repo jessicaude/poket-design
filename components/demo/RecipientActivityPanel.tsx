@@ -5,7 +5,7 @@ import { holderName } from "@/features/wallet/ngn/useNgn";
 
 /**
  * Demo only: what each Poket user you pay sees in their own activity (WGT-07): what they received, in their currency
- * (USD when naira converted on receipt), with its MERCHANT-HELD or FIAT-ONLY tag. The prototype's .events panel.
+ * (USD when naira converted on receipt), with its FIAT-ONLY tag. The prototype's .events panel.
  */
 export function RecipientActivityPanel() {
   useWithdrawals((s) => s.list); // a send (or a status change) refreshes the list

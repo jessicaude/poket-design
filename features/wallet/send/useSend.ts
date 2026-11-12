@@ -22,9 +22,9 @@ import { cardIssue, handleKind, initialsOf, routingBank, sortBank, validAddress 
  * Every new recipient can be saved ("Save recipient", on by default). Every kind then goes on to the same amount,
  * review, PIN, reservation and status screens (features/wallet/payout).
  */
-export type SendStage = "recipients" | "new" | "bankCurrency" | "usBank" | "ukBank" | "card" | "poketUser" | "wallet" | "coinPicker" | "tier2" | "unavailable";
+export type SendStage = "recipients" | "new" | "bankCurrency" | "usBank" | "ukBank" | "card" | "poketUser" | "wallet" | "coinPicker" | "tier2";
 export const isSendStage = (s: unknown): s is SendStage =>
-  ["recipients", "new", "bankCurrency", "usBank", "ukBank", "card", "poketUser", "wallet", "coinPicker", "tier2", "unavailable"].includes(s as string);
+  ["recipients", "new", "bankCurrency", "usBank", "ukBank", "card", "poketUser", "wallet", "coinPicker", "tier2"].includes(s as string);
 
 export type UsDraft = { routing: string; acct: string; name: string; nick: string; save: boolean };
 export type CardDraft = { num: string; name: string; zip: string; save: boolean };
@@ -41,7 +41,7 @@ const EMPTY_WALLET: WalletDraft = { asset: "USDC", net: "Base", address: "", nic
 type State = {
   stage: SendStage | null;
   /**
-   * The balance Send was opened from (a cvKey such as "cash:NGN:open", "cash:NGN:merchant", "cash:USD:fiat",
+   * The balance Send was opened from (a cvKey such as "cash:NGN:open", "cash:USD:fiat",
    * "coin:USDC:Base"), or null from the home (the NGN balance, the only one that can send so far).
    */
   source: string | null;
@@ -78,16 +78,6 @@ type State = {
   continueWallet: () => Promise<void>;
 };
 
-/**
- * Merchant-held naira can't be sent to a bank: choosing a bank account from it shows the "not available" screen
- * (with Convert). Every other source is handled on the amount screen, whose chip only offers balances that can pay
- * the recipient (features/wallet/send/sources.ts). Returns the action to take instead of continuing, or null.
- */
-export function sourceBlock(source: string | null, r?: SendRecipient): (() => void) | null {
-  if (source !== "cash:NGN:merchant") return null;
-  if (r && r.kind !== "bank") return null;
-  return () => useSend.setState({ stage: "unavailable" });
-}
 /** "US Dollar", "USDC on Base". */
 export function sourceName(source: string): string {
   const [k, a, b] = source.split(":");
@@ -125,7 +115,7 @@ export const useSend = create<State>((set, get) => {
     close: () => set({ stage: null, search: "", source: null }),
     back: () => {
       const prev: Record<SendStage, SendStage | null> = {
-        recipients: null, new: "recipients", bankCurrency: "new", usBank: "bankCurrency", ukBank: "bankCurrency", card: "new", poketUser: "new", wallet: "new", coinPicker: "wallet", tier2: "new", unavailable: "recipients",
+        recipients: null, new: "recipients", bankCurrency: "new", usBank: "bankCurrency", ukBank: "bankCurrency", card: "new", poketUser: "new", wallet: "new", coinPicker: "wallet", tier2: "new",
       };
       const stage = get().stage;
       const to = stage === "tier2" ? get().tier2Back : stage ? prev[stage] : null;
@@ -135,8 +125,6 @@ export const useSend = create<State>((set, get) => {
     setSearch: (search) => set({ search }),
 
     choose: (r) => {
-      const block = sourceBlock(get().source, r); // merchant-held naira and a bank account: "not available"
-      if (block) return block();
       // Sending to external wallets needs Tier 2 (docs/decisions.md; the explore prototype's tier2Gate).
       if (r.kind === "wallet" && useNgn.getState().tier < 2) return set({ stage: "tier2", tier2Back: "recipients" });
       set({ stage: null }); // keep the source: Back and "Change" return to Send with it

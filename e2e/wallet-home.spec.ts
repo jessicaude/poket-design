@@ -56,7 +56,7 @@ test("Stablecoins tab: coins by network, sorted by balance, with the day's drift
   await expect(page.locator("#totalBalance")).toHaveText("$122.86 USD");
 });
 
-test("Cash tab: currencies by value with flags; FIAT-ONLY tag and note; merchant-held NGN", async ({ page }) => {
+test("Cash tab: currencies by value with flags; FIAT-ONLY tag and note; one NGN row", async ({ page }) => {
   await cashTab(page);
   const rows = body(page).locator('[data-holdtype="cash"]');
   // USD shows as two rows: its open part and its card-funded (FIAT-ONLY) part, each sorted by value
@@ -68,10 +68,9 @@ test("Cash tab: currencies by value with flags; FIAT-ONLY tag and note; merchant
   await body(page).locator("[data-fiatinfo]").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("FIAT-ONLY");
 
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await expect(rows.locator(".tx-title")).toHaveText(["US Dollar", "Nigerian Naira", "US Dollar", "Nigerian Naira", "Euro", "British Pound", "Ghanaian Cedi"]); // $7.74 sorts after $15.60
-  await expect(body(page).locator('[data-holdbucket="merchant"] .tx-sub')).toHaveText("₦12,000.00 NGNMERCHANT-HELD");
-  await expect(page.locator("#totalBalance")).toHaveText("$105.60 USD"); // merchant-held counts toward the total
+  // One naira balance: no merchant-held row or tag
+  await expect(body(page).locator('[data-holdcur="NGN"]')).toHaveCount(1);
+  await expect(body(page)).not.toContainText("MERCHANT-HELD");
 });
 
 test("filter hides zero balances; View all lists every balance", async ({ page }) => {
@@ -98,7 +97,7 @@ test("filter hides zero balances; View all lists every balance", async ({ page }
   await expect(body(page).locator(".step-sub")).toHaveText("All stablecoin balances held in this wallet.");
 });
 
-test("rows open their balance screens: USD (with account details card and history), a coin, NGN, merchant-held", async ({ page }) => {
+test("rows open their balance screens: USD (with account details card and history), a coin, NGN", async ({ page }) => {
   await cashTab(page);
   await page.locator('[data-holdcur="USD"][data-holdbucket="fiat"]').click(); // the card-funded part
   await expect(page.locator("#backFromDetail")).toHaveText("Cash");
@@ -124,12 +123,6 @@ test("rows open their balance screens: USD (with account details card and histor
 
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   await expect(page.locator("#ngnBalanceAmount")).toHaveText("₦50,000.00 NGN"); // NGN keeps its own screen
-  await page.locator("#backFromDetail").click();
-
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await page.locator('[data-holdbucket="merchant"]').click();
-  await expect(body(page).locator(".step-sub").first()).toHaveText("Nigerian NairaMERCHANT-HELD");
-  await expect(page.locator("#vaOpen")).toHaveCount(0);
   await page.locator("#backFromDetail").click();
 
   await page.locator('[data-wallettab="assets"]').click();

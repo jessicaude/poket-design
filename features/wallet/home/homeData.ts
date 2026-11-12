@@ -5,7 +5,7 @@ import { CASH_CURRENCIES, cashBuckets, useHoldings, type CashCurrency, type Coin
 
 /**
  * Wallet home data, from tWalletHome in reference/poket-unified.html: cashRows, stablecoinRows, assetDelta, the total
- * balance (aggregateBalance) and the demo activity records (S.txns). Merchant-held NGN is an extra cash row.
+ * balance (aggregateBalance) and the demo activity records (S.txns).
  */
 
 /** The reference's fxToUSD. */
@@ -30,13 +30,12 @@ export const useWalletHome = create<HomeState>((set) => ({
   set: (p) => set(p),
 }));
 
-export type CashRow = { key: string; currency: CashCurrency; bucket: "open" | "fiat" | "merchant"; balance: number };
-/** cashRows(): each currency's buckets (FIAT-ONLY, open), plus merchant-held NGN; sorted by USD value. */
+export type CashRow = { key: string; currency: CashCurrency; bucket: "open" | "fiat"; balance: number };
+/** cashRows(): each currency's buckets (FIAT-ONLY, open); NGN is one balance, the NGN e-wallet. Sorted by USD value. */
 export function cashRows(hideZero: boolean): CashRow[] {
   const list: CashRow[] = [];
   for (const cur of CASH_CURRENCIES) {
     cashBuckets(cur).forEach((b) => list.push({ key: `${cur}:${b.bucket}`, currency: cur, bucket: b.bucket, balance: b.balance }));
-    if (cur === "NGN" && useNgn.getState().ngnMerchantBalance > 0) list.push({ key: "NGN:merchant", currency: "NGN", bucket: "merchant", balance: useNgn.getState().ngnMerchantBalance });
   }
   const filtered = hideZero ? list.filter((a) => a.balance > 0) : list;
   return filtered.sort((a, b) => b.balance * FX_TO_USD[b.currency] - a.balance * FX_TO_USD[a.currency]);
@@ -65,11 +64,11 @@ export function assetDelta(seed: string, balance: number): { pct: number; amtCen
   return { pct, amtCents: (balance * pct) / 100 };
 }
 
-/** aggregateBalance(): all cash in USD (including merchant-held NGN), plus stablecoins, in cents. */
+/** aggregateBalance(): all cash in USD, plus stablecoins, in cents. */
 export function totalBalanceUsd(): number {
   const h = useHoldings.getState(), n = useNgn.getState();
   let cash = 0;
-  for (const cur of CASH_CURRENCIES) cash += (cur === "NGN" ? n.ngnBalance + n.ngnMerchantBalance : h.cash[cur]) * FX_TO_USD[cur];
+  for (const cur of CASH_CURRENCIES) cash += (cur === "NGN" ? n.ngnBalance : h.cash[cur]) * FX_TO_USD[cur];
   let coins = 0;
   for (const a of Object.values(h.coins)) for (const v of Object.values(a)) coins += v || 0;
   return Math.round(cash) + coins;

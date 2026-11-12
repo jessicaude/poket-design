@@ -5,7 +5,7 @@ import {
   type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
 } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
-import { sourceBlock, useSend } from "../send/useSend";
+import { useSend } from "../send/useSend";
 import { asSendRecipient, defaultSource, sameAsTarget, targetKeyFor } from "../send/sources";
 import { sendSummary } from "../send/sendSummary";
 import { cvAvail, cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType } from "../convert/convertMath";
@@ -61,7 +61,6 @@ export const DEMO_PIN = "1234";
 /** Largest amount the keypad takes: 100,000,000 minor units (₦1,000,000.00). */
 const KEYPAD_MAX = 100000000;
 
-export type WireAddress = { street: string; city: string; state: string; zip: string };
 
 type State = {
   stage: PayoutStage | null;
@@ -71,12 +70,6 @@ type State = {
   recipient: PayoutRecipient | null;
   /** What the recipient gets ("They get"), in the recipient's currency. */
   cents: number;
-  /**
-   * A US bank send's speed, chosen per send on the amount screen (the explore prototype's speedsFor): rtp (Instant,
-   * if the bank supports it), ach (Standard, the default) or wire, which needs the recipient's address.
-   */
-  speed: string;
-  wire: WireAddress;
   ack: boolean;
   lastRef: string | null;
   /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
@@ -105,8 +98,6 @@ type State = {
 
   /** Send: a recipient (saved, or just added), straight to the amount. */
   sendTo: (r: PayoutRecipient) => void;
-  setSpeed: (speed: string) => void;
-  editWire: (p: Partial<WireAddress>) => void;
   /** The chip: pay from another balance (a new quote if it's another currency). */
   setPayFrom: (key: string) => void;
   /** Send's Review: a stablecoin wallet's address is screened first (the reference's gateAddress). */
@@ -148,7 +139,7 @@ type State = {
 };
 
 const TRANSIENT = {
-  stage: null, recipient: null, cents: 0, speed: "ach", wire: { street: "", city: "", state: "", zip: "" } as WireAddress, ack: false, lastRef: null, sent: null,
+  stage: null, recipient: null, cents: 0, ack: false, lastRef: null, sent: null,
   pinStage: "create" as PinStage, pinPurpose: "payout" as const, pinDraft: null, pinError: "", otpError: "",
   account: EMPTY_ACCOUNT,
   payFrom: null as string | null, payCents: 0, quoteAt: 0, jitter: 1, quoteExpired: false,
@@ -169,10 +160,10 @@ export const usePayout = create<State>((set, get) => {
    * fails (useWithdrawals). If it can't be created, the reservation is released. Every other send: executeSend.
    */
   const execute = async () => {
-    const { currency, recipient: r, cents, payFrom, payCents, jitter, speed } = get();
+    const { currency, recipient: r, cents, payFrom, payCents, jitter } = get();
     if (!r || !payFrom) return;
     if (!(r.methodType === "bank" && r.currency === "NGN")) return executeSend();
-    const s = sendSummary(r, payFrom, payCents, cents, jitter, speed);
+    const s = sendSummary(r, payFrom, payCents, cents, jitter);
     const total = cents + s.feeTarget; // NGN fees aren't decided: 0 in the maths (ngn.mdc)
     set({ stage: "processing" });
     const conversion = conversionDetails();
@@ -220,10 +211,9 @@ export const usePayout = create<State>((set, get) => {
     const q = cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter);
     return { paidText: cvFmt(payCents, q.f), receivedText: cvFmt(cents, q.to), rateText: cvRateText(q.f, q.to, jitter, false), feeText: cvFeeText(q) };
   };
-  /** Add to (or, negative, take from) a balance by its cvKey: cash (keeping FIAT-ONLY in step), merchant-held naira, a coin. */
+  /** Add to (or, negative, take from) a balance by its cvKey: cash (keeping FIAT-ONLY in step) or a coin. */
   const adjustBalance = (key: string, delta: number) => {
     const f = cvParse(key);
-    if (f.k === "cash" && f.bucket === "merchant") return useNgn.setState((s) => ({ ngnMerchantBalance: s.ngnMerchantBalance + delta }));
     if (f.k === "cash") {
       setCashAmount(f.cur, cashAmount(f.cur) + delta);
       if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) + delta) } }));
@@ -249,10 +239,9 @@ export const usePayout = create<State>((set, get) => {
    * balance and given back if the send fails. A Poket user is paid at once.
    */
   const executeSend = async () => {
-    const { recipient: r, payFrom, payCents, cents, jitter, speed, wire } = get();
+    const { recipient: r, payFrom, payCents, cents, jitter } = get();
     if (!r || !payFrom) return;
-    const s = sendSummary(r, payFrom, payCents, cents, jitter, speed);
-    const usBank = r.methodType === "bank" && r.currency === "USD";
+    const s = sendSummary(r, payFrom, payCents, cents, jitter);
     const fromNgn = payFrom === "cash:NGN:open";
     set({ stage: "processing" });
     const conversion = conversionDetails();
@@ -266,7 +255,6 @@ export const usePayout = create<State>((set, get) => {
         currency: s.kind === "poket" && src.k === "cash" ? src.cur as typeof r.currency : r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
         kind: s.kind, recipientName: r.name, ...(s.kind === "poket" ? { targetKey: s.targetKey } : {}), amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
         sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
-        ...(usBank ? { speed, ...(speed === "wire" ? { wireAddress: wire } : {}) } : {}),
       });
       if (w.status === "paid" && fromNgn) moveReserved(-s.sourceTotal, 0); // paid at once: nothing left on hold
       useWithdrawals.getState().refresh();
@@ -289,11 +277,7 @@ export const usePayout = create<State>((set, get) => {
     go: (stage) => set({ stage }),
 
     sendTo: (r) => {
-      // A US bank starts on Standard; a wire address saved with the recipient fills the wire fields
-      set({
-        ...TRANSIENT, currency: r.currency, recipients: listPayoutRecipients(), recipient: r, stage: "amount",
-        wire: { street: r.address ?? "", city: r.city ?? "", state: r.state ?? "", zip: r.zip ?? "" },
-      });
+      set({ ...TRANSIENT, currency: r.currency, recipients: listPayoutRecipients(), recipient: r, stage: "amount" });
       startAmount(r);
     },
     toReview: async () => {
@@ -306,8 +290,6 @@ export const usePayout = create<State>((set, get) => {
       }
       set({ ack: false, stage: "review" });
     },
-    setSpeed: (speed) => { set({ speed }); recompute(); },
-    editWire: (p) => set((s) => ({ wire: { ...s.wire, ...p } })),
     setPayFrom: (key) => { set({ payFrom: key, stage: "amount" }); newQuote(); recompute(); },
     refreshQuote: () => { newQuote(); recompute(); },
     expireQuote: () => set({ quoteExpired: true }),
@@ -342,11 +324,11 @@ export const usePayout = create<State>((set, get) => {
       recompute();
     },
     max: () => {
-      // The whole balance, less a decided fee (a US speed's, a wallet's); undecided fees (₦[fee], $[fee]) count as 0
-      const { payFrom, recipient: r, jitter, speed } = get();
+      // The whole balance, less a decided fee (a wallet's); undecided fees (₦[fee], $[fee]) count as 0
+      const { payFrom, recipient: r, jitter } = get();
       if (!payFrom || !r) return;
       const avail = cvAvail(cvParse(payFrom));
-      const fee = sendSummary(r, payFrom, avail, 0, jitter, speed).sourceTotal - avail;
+      const fee = sendSummary(r, payFrom, avail, 0, jitter).sourceTotal - avail;
       set({ payCents: Math.max(0, avail - fee) });
       recompute();
     },
@@ -358,8 +340,8 @@ export const usePayout = create<State>((set, get) => {
       const { payFrom, recipient, quoteExpired } = get();
       if (payFrom && recipient && quoteExpired && !sameAsTarget(payFrom, asSendRecipient(recipient))) return;
       // Step-up: the USD value of what leaves the source balance (amount and fees), whatever the recipient gets
-      const { cents, payCents, jitter, speed } = get();
-      if (get().stage === "review" && payFrom && recipient && needsStepUp(sendSummary(recipient, payFrom, payCents, cents, jitter, speed).usdOut)) return set({ stage: "stepup" });
+      const { cents, payCents, jitter } = get();
+      if (get().stage === "review" && payFrom && recipient && needsStepUp(sendSummary(recipient, payFrom, payCents, cents, jitter).usdOut)) return set({ stage: "stepup" });
       get().toPin();
     },
     toPin: () => {
@@ -431,11 +413,6 @@ export const usePayout = create<State>((set, get) => {
         // From Send, "Save recipient" unticked keeps it for this send only.
         ...(!save ? { saved: false } : {}),
       });
-      // A source that can't send to a bank (merchant-held naira): the recipient is saved, then the source decides
-      // what happens (sourceBlock).
-      const src = useSend.getState().source;
-      const block = sourceBlock(src);
-      if (block) { set({ ...TRANSIENT }); useSend.getState().open(src); block(); return; }
       // On to the amount (the explore prototype's Continue).
       set((s) => ({
         recipients: existing ? s.recipients : [...s.recipients, saved], recipient: saved, account: EMPTY_ACCOUNT,

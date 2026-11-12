@@ -11,8 +11,8 @@ import { QUICK_CHECK } from "../withdrawals";
 
 /** tPayout stage 'processing': what they get, to whom. */
 export function ProcessingScreen() {
-  const { cents, recipient, payFrom, payCents, jitter, speed } = usePayout();
-  const text = payFrom && recipient ? sendSummary(recipient, payFrom, payCents, cents, jitter, speed).theyGetText : "";
+  const { cents, recipient, payFrom, payCents, jitter } = usePayout();
+  const text = payFrom && recipient ? sendSummary(recipient, payFrom, payCents, cents, jitter).theyGetText : "";
   return (
     <div className="center-col" style={{ paddingTop: "50px" }}>
       <div className="sending-dots"><span /><span /><span /></div>
@@ -27,9 +27,9 @@ export function ProcessingScreen() {
  * A Poket user is paid at once ("Sent to"); a first payment to a bank account sends after [hold].
  */
 export function DoneScreen() {
-  const { recipient: r, sent, lastRef, close, payFrom, payCents, cents, jitter, speed } = usePayout();
+  const { recipient: r, sent, lastRef, close, payFrom, payCents, cents, jitter } = usePayout();
   if (!r || !sent || !payFrom) return null;
-  const s = sendSummary(r, payFrom, payCents, cents, jitter, speed);
+  const s = sendSummary(r, payFrom, payCents, cents, jitter);
   const held = sent.status === "scheduled";
   // A first payment of $500 or more to a new card, wallet or Poket user (the exploration's doneScreen when held)
   const checking = sent.status === "review" && !!sent.quickCheck;

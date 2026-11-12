@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -7,7 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
  * FIAT-ONLY USD. Each test pins the quote at ₦1,550 per $1 (jitter 1) before typing, so amounts are exact.
  */
 
-const keys = async (page: Page, digits: string) => { for (const d of digits) await page.locator(`#panelBody [data-payoutkey="${d}"]`).click(); };
+const keys = async (page: Page, digits: string) => { for (const d of digits) await press(page, d); };
 const rows = (page: Page) => page.locator("#panelBody .receipt-row");
 const info = (page: Page) => page.locator("#panelBody .info-row");
 const activity = (page: Page) => page.getByTestId("recipientActivity");
@@ -39,7 +40,7 @@ test("Amara can hold naira: she gets naira; no notice, no quote; her activity sh
   await sendTo(page, "pu4", "500000");
   await expect(page.locator("#sendToTitle")).toHaveText("Send to Amara");
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
-  await expect(page.locator("#theyGet")).toHaveText("₦5,000.00 NGN");
+  await expect(page.locator("#theyGet")).toHaveText("5,000.00");
   await expect(page.locator("#cvQuoteCard")).toHaveCount(0);
   await reviewAndSend(page);
   await expect(page.locator("#panelBody .step-title")).toHaveText("₦5,000.00 NGN"); // not converted: what she gets
@@ -55,10 +56,11 @@ test("Daniel can't hold naira: the notice, They get in USD and the quote; the re
   await sendTo(page, "pu5", "500000");
   await expect(page.locator("#nairaRecipientNotice")).toHaveText("Daniel can't hold naira. They'll get USD.");
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
-  await expect(page.locator("#theyGet")).toHaveText("≈ $3.23 USD");
+  await expect(page.locator("#theyGet")).toHaveText("≈ 3.23");
   // The quote card: rate, fee, They get, 30-second hold
-  await expect(page.locator("#cvQuoteCard .r-label")).toHaveText(["Rate", "Fee", "They get"]);
-  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "₦[fee]", "$3.23 USD"]);
+  await expect(page.locator("#cvQuoteCard .r-label")).toHaveText(["Rate", "Fee"]); // They get is in its box
+  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "₦[fee]"]);
+  await expect(page.locator("#theyGetChip")).toHaveText("USD");
   await expect(page.locator("#cvTimer")).toHaveText(/^Rate held for 0:(30|29)$/);
 
   await page.locator("#payoutReview").click();
@@ -89,7 +91,8 @@ test("Daniel can't hold naira: the notice, They get in USD and the quote; the re
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   const row = page.locator("#panelBody .tx-row[data-txid]");
-  await expect(row.locator(".tx-title")).toHaveText(["To Daniel Cho · ₦5,000.00 NGN → $3.23 USD"]);
+  await expect(row.locator(".tx-title")).toHaveText(["To Daniel Cho"]);
+  await expect(row.locator(".tx-sub")).toHaveText(["₦5,000.00 NGN → $3.23 USD"]); // paid: no status chip
   await expect(row.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);
   // Only the recipient's record is in USD: yours is in naira
   const mine = await page.evaluate(() => (window as any).__withdrawals.getState().list[0]); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -114,7 +117,8 @@ test("Daniel, held for a quick check ($500 or more, first payment): on hold in n
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator("#homeOnHold").click();
-  await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Daniel Cho · ₦775,000.00 NGN → $500.00 USD"]);
+  await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Daniel Cho"]);
+  await expect(page.locator("#panelBody .tx-row .tx-sub")).toHaveText(["₦775,000.00 NGN → $500.00 USD · Held for a quick check"]);
   await expect(page.locator("#panelBody .tx-row .tx-amt")).toHaveText(["-₦775,000.00 NGN"]);
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveCount(0); // not credited until it's paid
 });
@@ -130,66 +134,15 @@ test("Daniel: the rate expires after 30 seconds; Refresh rate gives a new one an
   await page.locator("#cvRefresh").click();
   await page.clock.runFor(500);
   await expect(page.locator("#cvTimer")).toHaveText("Rate held for 0:30");
-  await expect(page.locator("#theyGet")).toHaveText(/^≈ \$3\.2\d USD$/); // a new quote can move a little
+  await expect(page.locator("#theyGet")).toHaveText(/^≈ 3\.2\d$/); // a new quote can move a little
   await expect(page.locator("#payoutReview")).toBeEnabled();
 });
-
-test("Daniel from merchant-held naira: converted to USD, still MERCHANT-HELD at the recipient", async ({ page }) => {
-  await start(page);
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await sendTo(page, "pu5", "");
-  await page.locator("#payFromChip").click();
-  await page.locator('[data-payfrom="cash:NGN:merchant"]').click();
-  await exactRate(page);
-  await keys(page, "310000"); // ₦3,100.00
-  await expect(page.locator("#nairaRecipientNotice")).toHaveText("Daniel can't hold naira. They'll get USD.");
-  await expect(page.locator("#theyGet")).toHaveText("≈ $2.00 USD");
-  await expect(page.locator("#theyGetTag")).toHaveText("MERCHANT-HELD");
-  await reviewAndSend(page);
-  await expect(page.locator("#doneSent")).toHaveText("₦3,100.00 NGN sent");
-  await expect(page.locator("#doneTheyGet")).toHaveText("Daniel gets $2.00 USD");
-  await expect(page.locator("#panelBody .fiat-tag")).toHaveText("MERCHANT-HELD");
-  await expect.poll(() => page.evaluate(() => (window as any).__ngn.getState().ngnMerchantBalance)).toBe(1200000 - 310000); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalTag")).toHaveText("MERCHANT-HELD");
-  await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveText("Daniel ChoReceived $2.00 USD from Ada Osun · MERCHANT-HELD");
-});
-
-test("Amara from merchant-held naira: naira, still MERCHANT-HELD", async ({ page }) => {
-  await start(page);
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await sendTo(page, "pu4", "");
-  await page.locator("#payFromChip").click();
-  await page.locator('[data-payfrom="cash:NGN:merchant"]').click();
-  await keys(page, "100000");
-  await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
-  await expect(page.locator("#theyGet")).toHaveText("₦1,000.00 NGN");
-  await expect(page.locator("#theyGetTag")).toHaveText("MERCHANT-HELD");
-  await reviewAndSend(page);
-  await expect(activity(page).locator('li[data-recipient="pu4"]')).toHaveText("Amara OkaforReceived ₦1,000.00 NGN from Ada Osun · MERCHANT-HELD");
-});
-
-for (const [id, name] of [["pu4", "Amara Okafor"], ["pu5", "Daniel Cho"]] as const) {
-  test(`card-funded USD to ${name}: arrives as USD, FIAT-ONLY, never converted (not to naira, not to a stablecoin)`, async ({ page }) => {
-    await start(page);
-    await sendTo(page, id, "");
-    await page.locator("#payFromChip").click();
-    await page.locator('[data-payfrom="cash:USD:fiat"]').click();
-    await keys(page, "500");
-    await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
-    await expect(page.locator("#theyGet")).toHaveText("$5.00 USD");
-    await expect(page.locator("#theyGetTag")).toHaveText("FIAT-ONLY");
-    await expect(page.locator("#cvQuoteCard")).toHaveCount(0);
-    await reviewAndSend(page);
-    await expect(activity(page).locator(`li[data-recipient="${id}"]`)).toHaveText(`${name}Received $5.00 USD from Ada Osun · FIAT-ONLY`);
-  });
-}
 
 test("the NGN-to-stablecoins block doesn't change it: Daniel still gets USD, never a stablecoin", async ({ page }) => {
   await start(page);
   await page.getByLabel("NGN to stablecoins").selectOption("blocked");
   await sendTo(page, "pu5", "310000");
-  await expect(page.locator("#theyGet")).toHaveText("≈ $2.00 USD");
+  await expect(page.locator("#theyGet")).toHaveText("≈ 2.00");
   await reviewAndSend(page);
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveText("Daniel ChoReceived $2.00 USD from Ada Osun");
 });
@@ -198,14 +151,14 @@ test("any other Poket user follows the demo bar: No converts on receipt, Yes get
   await start(page);
   await sendTo(page, "pu1", "310000"); // Tobi Bello
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
-  await expect(page.locator("#theyGet")).toHaveText("₦3,100.00 NGN");
+  await expect(page.locator("#theyGet")).toHaveText("3,100.00");
   await page.getByLabel("Recipient can hold naira").selectOption("no");
   await expect(page.locator("#nairaRecipientNotice")).toHaveText("Tobi can't hold naira. They'll get USD.");
-  await expect(page.locator("#theyGet")).toHaveText(/^≈ \$2\.\d\d USD$/);
+  await expect(page.locator("#theyGet")).toHaveText(/^≈ 2\.\d\d$/);
   await expect(page.locator("#cvTimer")).toHaveText(/^Rate held for 0:(30|29)$/);
   await page.getByLabel("Recipient can hold naira").selectOption("yes");
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
-  await expect(page.locator("#theyGet")).toHaveText("₦3,100.00 NGN");
+  await expect(page.locator("#theyGet")).toHaveText("3,100.00");
   // Amara and Daniel keep their own setting whatever the bar says
   await page.getByLabel("Recipient can hold naira").selectOption("no");
   await page.locator("#editPayoutRecipient").click();

@@ -17,30 +17,46 @@ export function StatusChip({ status, quickCheck }: { status: WithdrawalStatus; q
 export const withdrawalIcon = (w: Withdrawal) =>
   w.kind === "poket" ? WICON.user : w.kind === "card" ? WICON.card : w.kind === "wallet" ? (w.amountText?.includes("USDT") ? WICON.usdt : WICON.usdc) : WICON.bank;
 
-/** An activity row for a withdrawal: the reference's txRow (withdraw type: bank icon, "Payout to {name}"), with its status chip. */
+/**
+ * An activity row for a send: the reference's txRow (icon, title, sub, amount), the same as every other row in the
+ * wallet. Title "To {name}"; the sub is what converted ("₦5,000.00 NGN → $3.23 USD", like the reference's conversion
+ * rows) or the account; the amount is what left your balance. A status chip follows the sub only while it isn't
+ * finished (Scheduled, Held for review, Sending) or when it went wrong (Failed, Reversed): paid rows have none, like
+ * the reference's completed rows.
+ */
 export function WithdrawalRow({ w }: { w: Withdrawal }) {
   const push = useWalletNav((s) => s.push);
+  const sub = w.conversion ? `${w.conversion.paidText} \u2192 ${w.conversion.receivedText}` : w.recipientSub;
   return (
     <div className="tx-row" data-txid={w.id} role="button" tabIndex={0} onClick={() => push({ name: "withdrawal", id: w.id })}
       onKeyDown={(e) => { if (e.key === "Enter") push({ name: "withdrawal", id: w.id }); }}>
       <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />
       <div className="tx-main">
-        {/* A send that converted: one row, "To {name} · {source amount} → {target amount}". */}
-        <div className="tx-title">{w.conversion ? <Grey>{`To ${w.recipientName} \u00b7 ${w.conversion.paidText} \u2192 ${w.conversion.receivedText}`}</Grey> : `To ${w.recipientName}`}</div>
-        <div className="tx-sub" style={{ display: "flex", alignItems: "center", gap: "6px" }}><StatusChip status={w.status} quickCheck={w.quickCheck} /><span>{w.recipientSub}</span></div>
+        <div className="tx-title">{`To ${w.recipientName}`}</div>
+        <div className="tx-sub"><Grey>{sub}</Grey>{w.status !== "paid" && <> · <StatusChip status={w.status} quickCheck={w.quickCheck} /></>}</div>
       </div>
       <div className="tx-amt"><Grey>{"-" + sentText(w)}</Grey></div>
     </div>
   );
 }
 
-/** "₦X on hold": NGN reserved for withdrawals not yet paid. Opens the list of them. */
-export function OnHoldLink({ reserved, id }: { reserved: number; id: string }) {
+/**
+ * "₦X on hold": NGN reserved for sends not yet paid. Opens the list of them. `line`: on the NGN balance screen, a
+ * grey line under the balance like a balance's second line (tHoldingDetail's step-sub); else inline (the home row).
+ */
+export function OnHoldLink({ reserved, id, line }: { reserved: number; id: string; line?: boolean }) {
   const push = useWalletNav((s) => s.push);
+  const open = (e: { stopPropagation: () => void }) => { e.stopPropagation(); push({ name: "on-hold" }); };
+  if (line) {
+    return (
+      <p className="step-sub" id={id} role="button" tabIndex={0} style={{ cursor: "pointer", marginBottom: 0 }}
+        onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(e); }}>
+        <Grey>{`${fmtCurrency(reserved, "NGN")} on hold`}</Grey> ›
+      </p>
+    );
+  }
   return (
-    <span className="btn-ghost" id={id} role="button" tabIndex={0}
-      onClick={(e) => { e.stopPropagation(); push({ name: "on-hold" }); }}
-      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); push({ name: "on-hold" }); } }}>
+    <span className="btn-ghost" id={id} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(e); }}>
       <Grey>{`${fmtCurrency(reserved, "NGN")} on hold`}</Grey>
     </span>
   );

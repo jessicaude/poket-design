@@ -6,7 +6,6 @@ import { canHoldNaira } from "./nairaRecipients";
 /**
  * Which balances can pay a Send recipient (the amount screen's "You send" chip), and which one it starts on.
  * The chip never offers a balance that can't be used for the recipient:
- *   - merchant-held naira, for bank accounts (it can't be sent to a bank);
  *   - card-funded (FIAT-ONLY) money, for naira or stablecoins;
  *   - NGN, for non-Nigerian bank accounts;
  *   - anything but USD cash (open or card-funded), for debit cards.
@@ -24,9 +23,9 @@ export function recipientTarget(r: SendRecipient): string | null {
 
 /**
  * What a recipient receives from this source. A Poket user takes the source's currency, except naira for someone who
- * can't hold it (WGT-07): that converts to USD on receipt, in the same bucket, so merchant-held stays MERCHANT-HELD
- * and card-funded stays FIAT-ONLY. It's always USD cash, never a stablecoin, so card-funded naira never becomes one
- * and the "NGN to stablecoins" block can't be crossed.
+ * can't hold it (WGT-07): that converts to USD on receipt, in the same bucket, so card-funded stays FIAT-ONLY. It's
+ * always USD cash, never a stablecoin, so card-funded money never becomes one and the "NGN to stablecoins" block can't
+ * be crossed.
  */
 export function targetFor(r: SendRecipient, source: string): string {
   const target = recipientTarget(r);
@@ -42,10 +41,9 @@ export const nairaConvertsOnReceipt = (r: SendRecipient, source: string) =>
 export function sourceAllowed(source: string, r: SendRecipient, ngnCoinsBlocked: boolean): boolean {
   const f = cvParse(source);
   // A debit card: only USD can pay it (open or card-funded), never converted
-  if (r.kind === "card") return f.k === "cash" && f.cur === "USD" && f.bucket !== "merchant";
+  if (r.kind === "card") return f.k === "cash" && f.cur === "USD";
   const isBank = r.kind === "bank";
   const ngnBank = isBank && r.bank.currency === "NGN";
-  if (isBank && f.k === "cash" && f.bucket === "merchant") return false;
   if (f.k === "cash" && f.bucket === "fiat" && (ngnBank || r.kind === "wallet")) return false;
   if (isBank && !ngnBank && f.k === "cash" && f.cur === "NGN") return false;
   const t = cvParse(targetFor(r, source));

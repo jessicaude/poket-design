@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -28,7 +29,7 @@ test("recipients: + New recipient first, Your accounts, Saved with marks; search
 test("a saved Nigerian bank account goes straight to the amount; Back returns to Send", async ({ page }) => {
   await page.goto("/demo/wallet?send=recipients");
   await page.locator('[data-sendrecipient="bank:r6"]').click();
-  await expect(page.locator(".keypad")).toBeVisible();
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
   await expect(page.locator("#sendToTitle")).toHaveText("Send to Ngozi"); // the exploration's "Send to {first name}"
   await page.locator("#editPayoutRecipient").click(); // "Change"
   await expect(title(page)).toHaveText("Send");
@@ -69,7 +70,7 @@ test("NGN bank account: the existing bank picker and name enquiry, Save recipien
   await page.locator("#ngnThirdPartyOk").check();
   await expect(page.locator("#saveRecipient")).toBeChecked();
   await page.locator("#ngnAcctSave").click();
-  await expect(page.locator(".keypad")).toBeVisible(); // straight on to the amount
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap) // straight on to the amount
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
   await expect(page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Zenith Bank · •••• 1111" })).toHaveCount(1); // saved
@@ -84,7 +85,7 @@ test("NGN bank account: the existing bank picker and name enquiry, Save recipien
   await expect(page.locator("#ngnAcctName")).toHaveText("Ada Osun");
   await page.locator("#saveRecipient").uncheck();
   await page.locator("#ngnAcctSave").click();
-  await expect(page.locator(".keypad")).toBeVisible();
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
   await page.locator("#backToPayoutRecipient2").click();
   await expect(page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "UBA" })).toHaveCount(0);
 
@@ -96,7 +97,7 @@ test("NGN bank account: the existing bank picker and name enquiry, Save recipien
   await expect(title(page)).toHaveText("Currency");
 });
 
-test("USD bank account: routing number and bank, account, holder, nickname; the speed is chosen per send, on the amount", async ({ page }) => {
+test("USD bank account: routing number and bank, account, holder, nickname; one speed on the amount", async ({ page }) => {
   await page.goto("/demo/wallet?send=bankCurrency");
   await page.locator('[data-sendcur="USD"]').click();
   await expect(title(page)).toHaveText("New bank account");
@@ -114,22 +115,12 @@ test("USD bank account: routing number and bank, account, holder, nickname; the 
   await expect(go).toBeEnabled();
   await go.click();
 
-  // On to the amount, paying from open USD; the speed (and a wire's address) is chosen here
+  // On to the amount, paying from open USD: one speed (no Instant or Wire), 1 to 3 business days
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
-  await expect(page.locator("#panelBody [data-speed] .t1")).toHaveText(["Instant", "Standard", "Wire"]);
-  await expect(page.locator("#panelBody [data-speed] .mono")).toHaveText(["$1.50 USD", "Free", "$15.00 USD"]);
-  await expect(page.locator('[data-speed="ach"]')).toHaveClass(/\bsel\b/); // the free one by default
-  for (const d of "1000") await page.locator(`[data-payoutkey="${d}"]`).click();
-  const review = page.locator("#payoutReview");
-  await expect(review).toBeEnabled();
-  await page.locator('[data-speed="wire"]').click();
-  await expect(review).toBeDisabled(); // a wire needs the address
-  await page.locator("#usStreet").fill("1 Main St");
-  await page.locator("#usCity").fill("Austin");
-  await page.locator("#usState").fill("tx");
-  await expect(page.locator("#usState")).toHaveValue("TX");
-  await page.locator("#usZip").fill("78701");
-  await expect(review).toBeEnabled();
+  await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0);
+  await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]"); // a new account: first-payment hold
+  for (const d of "1000") await press(page, d);
+  await expect(page.locator("#payoutReview")).toBeEnabled();
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
   const saved = page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Rent" });
@@ -191,7 +182,7 @@ test("NGN bank account: an optional nickname once the name is found; review show
   await page.locator("#ngnThirdPartyOk").check();
   await page.locator("#ngnAcctSave").click();
   await expect(page.locator("#sendToTitle")).toHaveText("Send to Landlord");
-  for (const d of "500000") await page.locator(`[data-payoutkey="${d}"]`).click();
+  for (const d of "500000") await press(page, d);
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "Account holder", "They get", "Fee", "Delivery", "Total charged"]);
@@ -225,7 +216,6 @@ test("from the NGN balance, a bank outside Nigeria says why it's paid from USD",
 
 test("from a naira balance, a debit card says naira can't pay it and which balance is paying", async ({ page }) => {
   await page.goto("/demo/wallet");
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]').click();
   await page.locator("#detailSend").click();
@@ -240,15 +230,6 @@ test("from a naira balance, a debit card says naira can't pay it and which balan
   // Switching to card-funded USD: still USD
   await page.locator("#payFromChip").click();
   await page.locator('[data-payfrom="cash:USD:fiat"]').click();
-  await expect(page.locator("#nairaOnlyNotice")).toHaveText("Naira can't pay a card. Paying from USD.");
-
-  // From merchant-held naira too (a card isn't a bank, so it reaches the amount, paid from USD)
-  await page.locator("#editPayoutRecipient").click();
-  await page.locator("#backFromSend").click();
-  await page.locator("#backFromDetail").click();
-  await page.locator('#panelBody [data-holdbucket="merchant"]').click();
-  await page.locator("#detailSend").click();
-  await page.locator('[data-sendrecipient^="card:"]').click();
   await expect(page.locator("#nairaOnlyNotice")).toHaveText("Naira can't pay a card. Paying from USD.");
 
   // From the home: no notice

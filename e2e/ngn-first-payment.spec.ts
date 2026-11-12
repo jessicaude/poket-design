@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -18,10 +19,10 @@ async function toAmount(page: Page, recipient: string) {
   await page.getByLabel("PIN", { exact: true }).selectOption("set"); // demo PIN 1234
   await page.locator("#actSend").click();
   await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
-  await expect(page.locator(".keypad")).toBeVisible();
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
 }
 async function typeAmount(page: Page, digits: string) {
-  for (const d of digits) await page.locator(`[data-payoutkey="${d}"]`).click();
+  for (const d of digits) await press(page, d);
 }
 async function toPin(page: Page) {
   await page.locator("#payoutReview").click();
@@ -66,7 +67,7 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
   // The account has now been paid: no notice next time
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="bank:r6"]').click();
-  await expect(page.locator(".keypad")).toBeVisible();
+  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
 });
 

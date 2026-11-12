@@ -37,20 +37,6 @@ export function sortBank(sort: string): { short: string; full: string } | null {
 /** A sort code as typed: digits only, shown 00-00-00. */
 export const formatSortCode = (v: string) => (v.replace(/\D/g, "").slice(0, 6).match(/.{1,2}/g) || []).join("-");
 
-export type UsSpeed = { id: "rtp" | "ach" | "wire"; label: string; eta: string; fee: number };
-/** speedsFor(bank): Instant (if the bank supports RTP), Standard, Wire. Fees in US cents. */
-export function usSpeeds(instant: boolean): UsSpeed[] {
-  const out: UsSpeed[] = [];
-  if (instant) out.push({ id: "rtp", label: "Instant", eta: "Within minutes, any day", fee: 150 });
-  out.push({ id: "ach", label: "Standard", eta: "1 to 3 business days", fee: 0 });
-  out.push({ id: "wire", label: "Wire", eta: "Same day if sent before 5 PM ET", fee: 1500 });
-  return out;
-}
-
-/** The wire address is complete: street, city, a 2-letter state, a 5-digit ZIP. */
-export const wireAddressOk = (a: { street?: string; city?: string; state?: string; zip?: string }) =>
-  !!((a.street || "").trim() && (a.city || "").trim() && /^[A-Z]{2}$/i.test(a.state || "") && /^\d{5}$/.test(a.zip || ""));
-
 /** A stablecoin address for the network: base58 for Solana, 0x + 40 hex otherwise. */
 export const validAddress = (net: WalletNetwork, a: string) => (net === "Solana" ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a) : /^0x[0-9a-fA-F]{40}$/.test(a));
 /** hl(addr): the first 6 and last 4 characters highlighted, the middle plain. */

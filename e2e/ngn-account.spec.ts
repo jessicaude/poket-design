@@ -154,3 +154,94 @@ test("ID options follow what the verified ID shows", async ({ page }) => {
   await page.locator("#ngnUseTemp").click();
   await expect(title(page)).toHaveText("Add naira");
 });
+
+/** The NGN balance screen (Cash → Nigerian Naira). */
+async function ngnBalance(page: Page, tier = "1") {
+  await page.goto("/demo/wallet");
+  await page.getByLabel("Tier").selectOption(tier);
+  await page.locator('[data-wallettab="cash"]').click();
+  await page.locator('#panelBody [data-holdcur="NGN"] .tx-title').click();
+  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+}
+
+test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and terms; then the card shows the account", async ({ page }) => {
+  await ngnBalance(page);
+  const card = page.locator("#vaOpen");
+  await expect(card).toHaveClass(/\bva-empty\b/);
+  await expect(card).toHaveText("Get NGN account detailsReceive NGN by NIP bank transfer. Free to receive.›");
+  // It sits between the actions and the history, as in the reference's tHoldingDetail
+  const order = await page.locator("#panelBody").evaluate((b) => [...b.querySelectorAll(".action-row, #vaOpen, .section-title")].map((e) => e.id || e.className));
+  expect(order).toEqual(["action-row", "vaOpen", "section-title"]);
+
+  await card.click();
+  await expect(title(page)).toHaveText("Bank transfer"); // the existing choice
+  await toIdEntry(page, "BVN");
+  await page.getByRole("button", { name: "Fill a matching number" }).click();
+  await page.locator("#ngnIdGo").click();
+  await expect(title(page)).toHaveText("Get NGN account details"); // the terms
+  await page.locator("#vaAgree").check();
+  await page.locator("#vaCreate").click();
+  await expect(title(page)).toHaveText("NGN account details");
+  const num = (await page.locator("#panelBody .va-v").nth(1).innerText()).trim();
+
+  // Back on the balance screen: the card now shows the account
+  await page.locator("#vaBack").click();
+  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(card).not.toHaveClass(/\bva-empty\b/);
+  await expect(card.locator(".t1")).toHaveText("NGN account details Ready");
+  await expect(card.locator(".t2")).toHaveText(`Account number ••${num.slice(-4)} · [Partner bank]`);
+  await card.click();
+  await expect(title(page)).toHaveText("NGN account details");
+});
+
+test("NGN balance: the card follows the account's status (Setting up, Frozen); a rejected one offers to get details again", async ({ page }) => {
+  await ngnBalance(page);
+  const card = page.locator("#vaOpen");
+  const setAccount = (d: object | null) => page.evaluate((x) => (window as any).__ngn.getState().set({ dedicated: x }), d); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await setAccount({ status: "pending", num: "8812345678" });
+  await expect(card.locator(".t1")).toHaveText("NGN account details Setting up");
+  await expect(card.locator(".va-status")).toHaveClass(/\bwarn\b/);
+  await expect(card.locator(".t2")).toHaveText("Usually ready within 1-2 business days");
+  await setAccount({ status: "frozen", num: "8812345678" });
+  await expect(card.locator(".t1")).toHaveText("NGN account details Frozen");
+  await expect(card.locator(".t2")).toHaveText("Account number ••5678 · [Partner bank]");
+});
+
+test("NGN balance: a rejected account shows Not approved, and Try again restarts the flow", async ({ page }) => {
+  await ngnBalance(page);
+  await page.evaluate(() => (window as any).__ngn.getState().set({ dedicated: { status: "rejected", num: "8812345678" } })); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const card = page.locator("#vaOpen");
+  await expect(card.locator(".t1")).toHaveText("NGN account details Not approved");
+  await expect(card.locator(".va-status")).toHaveClass(/\berr\b/);
+  await expect(card.locator(".t2")).toHaveText("We couldn't open your account. Try again or contact support.");
+  await expect(page.locator("#vaRetry")).toHaveText("Try again");
+  await card.locator(".t2").click(); // the card itself doesn't open anything
+  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await page.locator("#vaRetry").click();
+  await expect(title(page)).toHaveText("Bank transfer"); // the choice, then BVN or NIN and terms again
+  await toIdEntry(page, "NIN");
+});
+
+test("NGN balance at Tier 0: verify first (the step-up), then the account choice; top-ups stay under Deposit", async ({ page }) => {
+  await ngnBalance(page, "0");
+  const card = page.locator("#vaOpen");
+  await expect(card).toHaveText("Get NGN account detailsVerify your identity to get account details›");
+  await card.click();
+  await expect(title(page)).toHaveText("Additional verification needed");
+  await expect(page.locator("#panelBody .alert")).toHaveText("Account details are in your verified name, so we need to confirm who you are.");
+  await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the temporary top-up
+  // Cancel: back to the balance, still Tier 0
+  await page.locator("#stepupCancel").click();
+  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  // Deposit still tops up by temporary account at Tier 0
+  await page.locator("#detailDeposit").click();
+  await page.locator("#dmBank").click();
+  await expect(title(page)).toHaveText("Add naira");
+  // Continue stands in for verification: Tier 1, then the account choice
+  await page.evaluate(() => (window as any).__ngn.getState().close()); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await card.click();
+  await page.locator("#stepupIntroContinue").click();
+  await expect(title(page)).toHaveText("Bank transfer");
+  expect(await page.evaluate(() => (window as any).__ngn.getState().tier)).toBe(1); // eslint-disable-line @typescript-eslint/no-explicit-any
+});

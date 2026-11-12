@@ -17,6 +17,7 @@ import { NgnUnavailableScreen } from "./screens/NgnUnavailableScreen";
 import { AccountIntroScreen } from "./screens/AccountIntroScreen";
 import { AccountCreatingScreen } from "./screens/AccountCreatingScreen";
 import { AccountDetailsScreen } from "./screens/AccountDetailsScreen";
+import { VerifyScreen } from "./screens/VerifyScreen";
 
 /** One component per NGN stage. Stages not ported yet show a visible placeholder. */
 const SCREENS: Partial<Record<NgnStage, ComponentType>> = {
@@ -36,6 +37,7 @@ const SCREENS: Partial<Record<NgnStage, ComponentType>> = {
   intro: AccountIntroScreen,
   creating: AccountCreatingScreen,
   details: AccountDetailsScreen,
+  verify: VerifyScreen,
 };
 
 /** The current NGN stage, for WalletShell's #panelBody. Keyed so each stage gets the reference's .screen-fade entry. */

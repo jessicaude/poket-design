@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -12,7 +13,7 @@ const balances = (page: Page) => page.evaluate(() => {
   const n = w.__ngn.getState(), h = w.__holdings.getState();
   return { ngn: n.ngnBalance as number, reserved: n.ngnReserved as number, usdcBase: h.coins.USDC.Base as number };
 });
-const keys = async (page: Page, digits: string) => { for (const d of digits) await page.locator(`[data-payoutkey="${d}"]`).click(); };
+const keys = async (page: Page, digits: string) => { for (const d of digits) await press(page, d); };
 const rows = (page: Page) => page.locator("#panelBody .receipt-row");
 async function start(page: Page) {
   await page.goto("/demo/wallet");
@@ -32,7 +33,7 @@ test("a Poket user: free, Instantly; paid at once (nothing left on hold)", async
   await page.locator('[data-sendrecipient="poket:pu1"]').click();
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
   await keys(page, "100000");
-  await expect(page.locator("#theyGet")).toHaveText("₦1,000.00 NGN");
+  await expect(page.locator("#theyGet")).toHaveText("1,000.00");
   await page.locator("#payoutReview").click();
   await expect(rows(page).locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
   await expect(rows(page).locator(".r-value")).toHaveText(["tobi@lagos.ng", "₦1,000.00 NGN", "Free", "Instantly", "₦1,000.00 NGN"]);
@@ -61,7 +62,7 @@ test("a saved stablecoin wallet: Tier 2 first; then the address is screened befo
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USDC (Base)");
   await expect(page.locator("#cvQuoteCard")).toHaveCount(0);
   await keys(page, "500");
-  await expect(page.locator("#theyGet")).toHaveText("5.00 USDC");
+  await expect(page.locator("#theyGet")).toHaveText("5.00");
   await page.locator("#payoutReview").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Checking this address");
   await expect(rows(page).locator(".r-label")).toHaveText(["To", "They get", "Network", "Fee", "Delivery", "Total charged"]);
@@ -136,27 +137,6 @@ test("a Poket user over the limit in USDC isn't judged in naira: 100.00 USDC ste
   await expect(page.locator("#stepupIntroContinue")).toBeVisible();
 });
 
-test("a Poket user from merchant-held naira: allowed; their money keeps MERCHANT-HELD", async ({ page }) => {
-  await start(page);
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await page.locator('[data-wallettab="cash"]').click();
-  await page.locator('#panelBody [data-holdbucket="merchant"]').click();
-  await page.locator("#detailSend").click();
-  await page.locator('[data-sendrecipient="poket:pu1"]').click();
-  await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");
-  await keys(page, "100000");
-  await expect(page.locator("#theyGetTag")).toHaveText("MERCHANT-HELD");
-  await page.locator("#payoutReview").click();
-  await expect(page.locator("#reviewTheyGet")).toHaveText("₦1,000.00 NGNMERCHANT-HELD");
-  await confirmWithPin(page);
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Tobi BelloMERCHANT-HELD");
-  await expect.poll(() => page.evaluate(() => (window as any).__ngn.getState().ngnMerchantBalance)).toBe(1100000); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await expect.poll(() => balances(page)).toMatchObject({ ngn: 5000000, reserved: 0 }); // the open balance isn't touched
-  await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
-  await expect(page.locator("#withdrawalTag")).toHaveText("MERCHANT-HELD");
-});
-
 test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", async ({ page }) => {
   await start(page);
   await page.locator("#actSend").click();
@@ -164,7 +144,7 @@ test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", 
   await page.locator("#payFromChip").click();
   await page.locator('[data-payfrom="cash:USD:fiat"]').click();
   await keys(page, "500");
-  await expect(page.locator("#theyGet")).toHaveText("$5.00 USD"); // no conversion: the source's currency
+  await expect(page.locator("#theyGet")).toHaveText("5.00"); // no conversion: the source's currency
   await expect(page.locator("#theyGetTag")).toHaveText("FIAT-ONLY");
   await page.locator("#payoutReview").click();
   await expect(page.locator("#reviewTheyGet")).toHaveText("$5.00 USDFIAT-ONLY");

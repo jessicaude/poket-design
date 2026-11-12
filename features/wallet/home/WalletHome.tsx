@@ -29,7 +29,7 @@ const ASSET_ICON: Record<CoinAsset, "usdc" | "usdt"> = { USDC: "usdc", USDT: "us
 
 /** Re-render on any balance change. */
 function useBalances() {
-  useNgn((s) => s.ngnBalance); useNgn((s) => s.ngnMerchantBalance); useNgn((s) => s.ngnReserved);
+  useNgn((s) => s.ngnBalance); useNgn((s) => s.ngnReserved);
   useHoldings((s) => s.cash); useHoldings((s) => s.fiatOnly); useHoldings((s) => s.coins);
 }
 
@@ -51,7 +51,7 @@ function openCash(r: { currency: CashCurrency; bucket: CashRow["bucket"] }) {
   else nav.push({ name: "holding", holding: { k: "cash", cur: r.currency, bucket: r.bucket } });
 }
 
-/** cashRowHtml(a). NGN rows (open and merchant-held) use the naira format, open NGN with "₦X on hold" (NGN rules); other currencies the reference's quantity. */
+/** cashRowHtml(a). The NGN row uses the naira format, open NGN with "₦X on hold" (NGN rules); other currencies the reference's quantity. */
 function CashRowItem({ r }: { r: CashRow }) {
   const reserved = useNgn((s) => s.ngnReserved);
   const ngnOpen = r.currency === "NGN" && r.bucket === "open";
@@ -66,7 +66,6 @@ function CashRowItem({ r }: { r: CashRow }) {
             ? <><Grey>{fmtCurrency(r.balance, "NGN")}</Grey>{reserved > 0 && <> · <OnHoldLink id="homeOnHold" reserved={reserved} /></>}</>
             : <Grey>{qty}</Grey>}
           {r.bucket === "fiat" && <FiatTag />}
-          {r.bucket === "merchant" && <span className="fiat-tag">MERCHANT-HELD</span>}
         </div>
       </div>
       <div className="asset-value"><div className="tx-amt"><Grey>{fmtCurrency(r.balance, r.currency)}</Grey></div></div>
@@ -242,7 +241,7 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
   const activity = useActivity();
   const isCash = h.k === "cash";
   const balance = h.k === "cash"
-    ? (h.bucket === "merchant" ? useNgn.getState().ngnMerchantBalance : cashRows(false).find((r) => r.currency === h.cur && r.bucket === h.bucket)?.balance ?? 0)
+    ? (cashRows(false).find((r) => r.currency === h.cur && r.bucket === h.bucket)?.balance ?? 0)
     : useHoldings.getState().coins[h.asset][h.net] || 0;
   const name = h.k === "cash" ? CURRENCY_NAME[h.cur] : ASSET_NAME[h.asset];
   const icon = h.k === "cash" ? WICON[CURRENCY_ICON[h.cur]] : WICON[ASSET_ICON[h.asset]];
@@ -257,7 +256,7 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
     return false;
   });
   // vaCardHtml(cur) shows for every cash balance of a currency with account details (USD, EUR, GBP), FIAT-ONLY too.
-  const vaRails = h.k === "cash" && h.bucket !== "merchant" ? VA_RAILS[h.cur] : undefined;
+  const vaRails = h.k === "cash" ? VA_RAILS[h.cur] : undefined;
   return (
     <>
       <BackRow id="backFromDetail" label={isCash ? "Cash" : "Stablecoins"} onClick={back} />
@@ -269,7 +268,6 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
         <p className="step-sub" style={{ marginBottom: "2px" }}>
           {name}{h.k === "coin" && ` · ${h.net}`}
           {h.k === "cash" && h.bucket === "fiat" && <FiatTag info={false} />}
-          {h.k === "cash" && h.bucket === "merchant" && <span className="fiat-tag">MERCHANT-HELD</span>}
         </p>
         <div className="step-title" id="holdingAmount" style={{ fontSize: "28px", letterSpacing: "-.02em" }}><Grey>{h.k === "cash" ? fmtCurrency(balance, h.cur) : fmtUsd(balance)}</Grey></div>
         {h.k === "coin" && <p className="step-sub"><Grey>{fmtAsset(balance, h.asset)}</Grey></p>}

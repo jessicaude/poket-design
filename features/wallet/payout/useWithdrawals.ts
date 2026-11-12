@@ -26,7 +26,6 @@ function returnToSource(key: string, amount: number) {
     useHoldings.setState((s) => ({ coins: { ...s.coins, [asset]: { ...s.coins[asset], [net]: (s.coins[asset]?.[net] || 0) + amount } } }));
     return;
   }
-  if (b === "merchant") { useNgn.setState((s) => ({ ngnMerchantBalance: s.ngnMerchantBalance + amount })); return; }
   setCashAmount(a as CashCurrency, cashAmount(a as CashCurrency) + amount);
   if (b === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [a]: (s.fiatOnly[a as CashCurrency] || 0) + amount } }));
 }
