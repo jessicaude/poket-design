@@ -88,9 +88,7 @@ export const useConvert = create<State>((set, get) => {
       paidText: cvFmt(q.amt, q.f), receivedText: cvFmt(q.receive, q.to),
     });
     const f = q.f, t = q.to;
-    if (f.k === "cash" && f.bucket === "merchant") {
-      useNgn.setState((s) => ({ ngnMerchantBalance: s.ngnMerchantBalance - q.amt }));
-    } else if (f.k === "cash") {
+    if (f.k === "cash") {
       setCashAmount(f.cur, cashAmount(f.cur) - q.amt);
       if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) - q.amt) } }));
     } else {
@@ -141,7 +139,6 @@ export const useConvert = create<State>((set, get) => {
           const body: Record<string, string> = {
             "Card-funded cash can't convert to stablecoins": "Choose cash, or convert from a balance without the FIAT-ONLY tag.",
             "Card-funded money can't be converted to naira": "Choose another currency.",
-            "Merchant-held naira converts only to USD or USDC": "Choose USD or USDC.",
           };
           useWalletToast.getState().showNotice(reason, body[reason], 4000);
           return;

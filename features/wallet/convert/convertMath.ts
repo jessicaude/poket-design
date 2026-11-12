@@ -1,7 +1,6 @@
 import { WICON } from "@/lib/icons";
 import { DEMO_NGN_PER_USD } from "@/lib/money";
 import { fmtCurrency } from "../payout/payoutMath";
-import { useNgn } from "../ngn/useNgn";
 import {
   CASH_CURRENCIES, COIN_ASSETS, NETWORKS, bucketBalance, useHoldings,
   type CashCurrency, type CoinAsset, type Network,
@@ -13,11 +12,11 @@ import {
  * cash → stablecoin (onramp), stablecoin → cash (offramp), stablecoin → stablecoin (swap, or bridge to another network).
  * Card-funded (FIAT-ONLY) cash can only be converted to cash other than NGN, and the tag carries over.
  * NGN rules (ngn.mdc) on top of the reference: NGN fees are ₦[fee] (left out of the maths), card-funded money can't
- * become naira, merchant-held naira converts only to USD or USDC, and naira conversions have a ₦[limit] cap.
+ * become naira, and naira conversions have a ₦[limit] cap.
  */
 
-/** Cash buckets: open, card-funded (FIAT-ONLY), and merchant-held (NGN only). */
-export type Bucket = "open" | "fiat" | "merchant";
+/** Cash buckets: open and card-funded (FIAT-ONLY). */
+export type Bucket = "open" | "fiat";
 export type CashSide = { k: "cash"; cur: CashCurrency; bucket: Bucket };
 export type CoinSide = { k: "coin"; asset: CoinAsset; net: Network };
 export type Side = CashSide | CoinSide;
@@ -57,7 +56,6 @@ export const fmtAsset = (c: number, ticker: string) => (c / 100).toLocaleString(
 export const cvFmt = (c: number, o: Side) => (o.k === "cash" ? fmtCurrency(c, o.cur) : fmtAsset(c, o.asset));
 export const cvUsdPer = (o: Side) => (o.k === "cash" ? FX_TO_USD[o.cur] || 1 : 1);
 export const cvAvail = (o: Side) => o.k === "coin" ? useHoldings.getState().coins[o.asset]?.[o.net] || 0
-  : o.bucket === "merchant" ? (o.cur === "NGN" ? useNgn.getState().ngnMerchantBalance : 0)
   : bucketBalance(o.cur, o.bucket || "open");
 /** "0.00" amounts in the From and To panels. */
 export const fmtPlain = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -78,18 +76,16 @@ export function cvType(f: Side, to: Side): CvType | null {
 }
 /**
  * Why a target can't be chosen for this source, as shown on its row in "Convert to" (null: it can).
- * Card-funded cash can't become a stablecoin (reference) or naira (NGN rule); merchant-held naira converts only
- * to USD or USDC.
+ * Card-funded cash can't become a stablecoin (reference) or naira (NGN rule).
  */
 export function cvBlockReason(f: Side, to: Side | { k: "coin" }): string | null {
   if (f.k !== "cash") return null;
   if (f.bucket === "fiat" && to.k === "coin") return "Card-funded cash can't convert to stablecoins";
   if (f.bucket === "fiat" && to.k === "cash" && "cur" in to && to.cur === "NGN") return "Card-funded money can't be converted to naira";
-  if (f.bucket === "merchant" && !(("cur" in to && to.cur === "USD") || ("asset" in to && to.asset === "USDC"))) return "Merchant-held naira converts only to USD or USDC";
   return null;
 }
 export const cvBlockedPair = (f: Side, to: Side | { k: "coin" }) => cvBlockReason(f, to) !== null;
-/** Demo control "NGN to stablecoins: Blocked": naira (open or merchant-held) to USDC or USDT isn't available yet. */
+/** Demo control "NGN to stablecoins: Blocked": naira to USDC or USDT isn't available yet. */
 export const isNgnToStablecoin = (f: Side, to: Side) => f.k === "cash" && f.cur === "NGN" && to.k === "coin";
 
 /** NGN rules apply to any conversion from or to naira. */
@@ -199,7 +195,6 @@ export function cvOptions(isFrom: boolean, cashBucketsOf: (cur: CashCurrency) =>
   for (const cur of CASH_CURRENCIES) {
     if (isFrom) {
       cashBucketsOf(cur).forEach((b) => { if (b.balance > 0) opts.push({ k: "cash", cur, bucket: b.bucket }); });
-      if (cur === "NGN" && useNgn.getState().ngnMerchantBalance > 0) opts.push({ k: "cash", cur, bucket: "merchant" });
     } else opts.push({ k: "cash", cur, bucket: "open" });
   }
   const coins = useHoldings.getState().coins;

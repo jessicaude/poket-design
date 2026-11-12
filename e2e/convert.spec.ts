@@ -2,7 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Convert (tConvert in reference/poket-unified.html) with the NGN rules, in the wallet demo. Balances, as in the
- * reference's demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins.
+ * reference's demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins. The wallet demo
+ * also holds $50.00 of open USD, so these tests take it out first (referenceBalances).
  * NGN fees are ₦[fee] and left out of the maths, so ₦10,000.00 → 6.45 USDC (10,000 / 1,550).
  */
 
@@ -11,12 +12,18 @@ const keys = async (page: Page, digits: string) => { for (const d of digits) awa
 const state = (page: Page) => page.evaluate(() => {
   const w = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
   const h = w.__holdings.getState(), n = w.__ngn.getState();
-  return { ngn: n.ngnBalance as number, merchant: n.ngnMerchantBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
+  return { ngn: n.ngnBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
 });
 const setHoldings = (page: Page, patch: object) => page.evaluate((p) => (window as any).__holdings.getState().set(p), patch); // eslint-disable-line @typescript-eslint/no-explicit-any
+/** The reference's demo balances: all USD card-funded ($15.60 FIAT-ONLY), none open. */
+async function referenceBalances(page: Page) {
+  await page.waitForFunction(() => "__holdings" in window);
+  await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
+}
 
 async function open(page: Page, tier?: string) {
   await page.goto("/demo/wallet");
+  await referenceBalances(page);
   if (tier) await page.getByLabel("Tier").selectOption(tier);
   await page.locator("#actConvert").click();
   await expect(title(page)).toHaveText("Convert");
@@ -112,6 +119,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
 
 test("opening with NGN as the target and nothing to convert from: NGN stays, with Deposit", async ({ page }) => {
   await page.goto("/demo/wallet?ngn=deposit-method");
+  await referenceBalances(page);
   await page.locator("#dmConvert").click();
   await expect(title(page)).toHaveText("Convert");
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("NGN");
@@ -127,7 +135,8 @@ test("opening with NGN as the target and nothing to convert from: NGN stays, wit
 
   // With open (not card-funded) USD, it converts from USD into NGN
   await setHoldings(page, { fiatOnly: { USD: 0, NGN: 0, EUR: 0, GBP: 0, GHS: 0 } });
-  await page.locator('[data-holdbucket="open"] .tx-title').click();
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   await page.locator("#detailDeposit").click();
   await page.locator("#dmConvert").click();
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USD");
@@ -168,6 +177,7 @@ test("quote card from a coin: the fee is the coin equivalent, [fee] USDC", async
 
 test("NGN to stablecoins blocked (demo): USD by default; choosing USDC or USDT explains and offers USD", async ({ page }) => {
   await page.goto("/demo/wallet");
+  await referenceBalances(page);
   await page.getByLabel("NGN to stablecoins").selectOption("blocked");
   await page.locator("#actConvert").click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USD");
@@ -226,34 +236,6 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
   await expect(page.locator("#actConvert")).toBeVisible();
 });
 
-test("merchant-held naira converts to USD or USDC; the merchant-held Convert button opens it as the source", async ({ page }) => {
-  await page.goto("/demo/wallet");
-  await page.getByLabel("Tier").selectOption("1");
-  await page.getByLabel("Merchant-held balance").selectOption("yes");
-  await page.locator('#panelBody [data-holdbucket="merchant"]').click();
-  await page.locator("#withdrawUseConvert").click();
-  await expect(title(page)).toHaveText("Convert");
-  await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("NGNMERCHANT-HELD");
-  await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USDC (Base)");
-  await expect(page.locator(".cv-box-top").first()).toHaveText("FromAvailable ₦12,000.00 NGN Max");
-
-  await page.locator("#cvPickFrom").click();
-  await expect(page.locator("#panelBody [data-cvopt] .t1")).toHaveText(["US DollarFIAT-ONLY", "Nigerian Naira", "Nigerian NairaMERCHANT-HELD"]);
-  await page.locator("#cvPickBack").click();
-  await page.locator("#cvPickTo").click();
-  const eur = page.locator('[data-cvopt="cash:EUR:open"]');
-  await expect(eur.locator(".t2")).toHaveText("Merchant-held naira converts only to USD or USDC");
-  await expect(eur).toHaveClass(/\bcv-disabled\b/);
-  await expect(page.locator('[data-cvopt="coin:USDT:Base"]')).toHaveClass(/\bcv-disabled\b/);
-  await expect(page.locator('[data-cvopt="cash:USD:open"]')).not.toHaveClass(/\bcv-disabled\b/);
-  await page.locator("#cvPickBack").click();
-
-  await keys(page, "1000000");
-  await reviewAndConvert(page);
-  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your USDC on Base balance");
-  expect(await state(page)).toMatchObject({ merchant: 200000, ngn: 5000000, usdcBase: 645 });
-});
-
 test("conversions in the NGN balance history; View transaction opens the receipt", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await open(page, "1");
@@ -282,7 +264,8 @@ test("conversions in the NGN balance history; View transaction opens the receipt
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(ref);
   await page.locator("#backFromTxDetail").click();
 
-  await page.locator('[data-holdbucket="open"] .tx-title').click();
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   const row = page.locator("#panelBody .section-card .tx-row");
   await expect(row.locator(".tx-title")).toHaveText(["Converted NGN to USDC"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦10,000.00 NGN → 6.45 USDC"]);

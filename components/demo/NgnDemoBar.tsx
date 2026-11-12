@@ -5,6 +5,7 @@ import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
 import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
+import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
@@ -13,8 +14,8 @@ import { useConvert } from "@/features/wallet/convert/useConvert";
 export function NgnDemoBar() {
   const { stage, tier, eligibility, set, transferArrives, expireTemp, go, setIdNum } = useNgn();
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
-  const held = useNgn((s) => s.ngnMerchantBalance);
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
+  const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -45,9 +46,11 @@ export function NgnDemoBar() {
           <option value="none">Not set</option><option value="set">Set ({DEMO_PIN})</option>
         </select>
       </label>
-      <label className="opt-lbl"><span>Merchant-held</span>
-        <select aria-label="Merchant-held balance" value={held ? "yes" : "no"} onChange={(e) => set({ ngnMerchantBalance: e.target.value === "yes" ? 1200000 : 0 })}>
-          <option value="no">None</option><option value="yes">₦12,000.00</option>
+      <label className="opt-lbl"><span>Recipient can hold naira</span>
+        {/* WGT-07: Poket users other than Amara Okafor (yes) and Daniel Cho (no) */}
+        <select aria-label="Recipient can hold naira" value={othersHoldNaira ? "yes" : "no"}
+          onChange={(e) => { setOthersHoldNaira(e.target.value === "yes"); usePayout.getState().refreshQuote(); }}>
+          <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Name enquiry</span>

@@ -1,3 +1,4 @@
+import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -19,10 +20,9 @@ const action = (page: Page, name: string) => page.getByRole("button", { name, ex
 async function payAndOpen(page: Page, recipient: string, digits: string) {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
-  await page.locator(`[data-payoutrecipient="${recipient}"]`).click();
-  await page.locator("#payoutRecipientContinue").click();
-  for (const d of digits) await page.locator(`[data-payoutkey="${d}"]`).click();
+  await page.locator("#actSend").click();
+  await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
+  for (const d of digits) await press(page, d);
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -36,7 +36,7 @@ async function payAndOpen(page: Page, recipient: string, digits: string) {
 test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance screen; the list of held withdrawals", async ({ page }) => {
   await payAndOpen(page, "other:r6", "500000");
   await expect(title(page)).toHaveText("₦5,000.00 NGN");
-  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Payout to Ngozi Eze");
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("To Ngozi Eze");
   await expect(chip(page)).toHaveText("Scheduled");
   await expect(chip(page)).toHaveClass(/\bmuted\b/);
   await expect(msg(page)).toHaveText("Sends after [hold]");
@@ -45,24 +45,25 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
 
   // Home: the NGN row's subtitle
   await page.locator("#backFromTxDetail").click();
-  const row = page.locator('#panelBody [data-holdbucket="open"]');
+  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
+  const row = page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]');
   await expect(row.locator(".tx-amt")).toHaveText("₦45,000.00 NGN");
   await expect(row.locator(".tx-sub")).toHaveText("₦45,000.00 NGN · ₦5,000.00 NGN on hold");
   await page.locator("#homeOnHold").click();
   await expect(title(page)).toHaveText("₦5,000.00 NGN on hold");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("This money isn't in your available balance.");
-  await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["Payout to Ngozi Eze"]);
+  await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(page.locator("#panelBody .tx-row .va-status")).toHaveText(["Scheduled"]);
   await page.locator("#backFromOnHold").click();
 
   // NGN balance screen: the line under the balance, and the activity row
   await row.locator(".tx-title").click(); // the row's centre is the "on hold" link
   await expect(page.locator("#ngnBalanceAmount")).toHaveText("₦45,000.00 NGN");
-  await expect(page.locator("#ngnOnHold")).toHaveText("₦5,000.00 NGN on hold");
+  await expect(page.locator("#ngnOnHold")).toHaveText("₦5,000.00 NGN on hold ›");
   const activity = page.locator("#panelBody .section-card .tx-row");
-  await expect(activity.locator(".tx-title")).toHaveText(["Payout to Ngozi Eze"]);
+  await expect(activity.locator(".tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(activity.locator(".tx-sub .va-status")).toHaveText(["Scheduled"]);
-  await expect(activity.locator(".tx-sub > span:last-child")).toHaveText(["GTBank · •••• 6789"]);
+  await expect(activity.locator(".tx-sub")).toHaveText(["GTBank · •••• 6789 · Scheduled"]); // the account, then the chip while unfinished
   await expect(activity.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);
   await page.locator("#ngnOnHold").click();
   await expect(title(page)).toHaveText("₦5,000.00 NGN on hold");
@@ -131,7 +132,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
   await expect(chip(page)).toHaveClass(/\berr\b/);
   await expect(msg(page)).toHaveText("Funds returned to your balance");
   await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
-  await expect(page.locator("#toastEl .notice-title")).toHaveText("Payout reversed");
+  await expect(page.locator("#toastEl .notice-title")).toHaveText("Transfer reversed");
   await expect(page.locator("#toastEl .notice-body")).toHaveText("₦10,000.00 NGN to Naira account. Funds returned to your balance.");
 
   // The bell appears with a dot; the notification is listed; opening it marks it read
@@ -139,7 +140,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
   await expect(page.locator("#notifDot")).toBeVisible();
   await page.locator("#openNotifHeader").click();
   await expect(title(page)).toHaveText("Notifications");
-  await expect(page.locator("#panelBody .settings-row-title span").first()).toHaveText("Payout reversed");
+  await expect(page.locator("#panelBody .settings-row-title span").first()).toHaveText("Transfer reversed");
   await expect(page.locator("#panelBody .settings-row-sub")).toHaveText("₦10,000.00 NGN to Naira account. Funds returned to your balance.");
   await page.locator("#extBackHome").click();
   await expect(page.locator("#notifDot")).toBeHidden();
@@ -149,10 +150,9 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
 test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing reserved", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
-  await page.locator('[data-payoutrecipient="self:lb2"]').click();
-  await page.locator("#payoutRecipientContinue").click();
-  for (const d of "2000001") await page.locator(`[data-payoutkey="${d}"]`).click(); // ₦20,000.01, over the demo limit
+  await page.locator("#actSend").click();
+  await page.locator('[data-sendrecipient="bank:lb2"]').click();
+  for (const d of "2000001") await press(page, d); // ₦20,000.01, over the demo limit
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -173,10 +173,9 @@ test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing 
 test("at ₦[step-up] or under: straight to the PIN", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
-  await page.locator("#ngnWithdraw").click();
-  await page.locator('[data-payoutrecipient="self:lb2"]').click();
-  await page.locator("#payoutRecipientContinue").click();
-  for (const d of "2000000") await page.locator(`[data-payoutkey="${d}"]`).click(); // ₦20,000.00
+  await page.locator("#actSend").click();
+  await page.locator('[data-sendrecipient="bank:lb2"]').click();
+  for (const d of "2000000") await press(page, d); // ₦20,000.00
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();

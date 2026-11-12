@@ -25,7 +25,7 @@ type State = {
 };
 
 const INITIAL = {
-  cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 },
+  cash: { USD: 6560, EUR: 0, GBP: 0, GHS: 0 }, // $65.60: $50.00 open, $15.60 card-funded (FIAT-ONLY)
   fiatOnly: { USD: 1560, NGN: 0, EUR: 0, GBP: 0, GHS: 0 },
   coins: { USDC: { Polygon: 0, Base: 0 }, USDT: { Polygon: 0, Base: 0 } },
 };

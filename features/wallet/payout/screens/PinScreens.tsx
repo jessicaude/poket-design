@@ -54,7 +54,7 @@ export function PinScreen() {
   const t = {
     create: [pinPurpose === "reset" ? "Create a new PIN" : "Create your PIN", "Protects money leaving your account. 4 digits."],
     confirm: ["Confirm your PIN", "Enter it once more."],
-    entry: ["Enter your PIN", "Approves this withdrawal."],
+    entry: ["Enter your PIN", "Approves this payment."],
   }[pinStage];
   return (
     <>
@@ -77,7 +77,7 @@ export function PinLockedScreen() {
     <div className="center-state">
       <div className="success-mark fail-mark" dangerouslySetInnerHTML={{ __html: CHECKOUT_LOCK_MARK }} />
       <div className="step-title">Too many attempts</div>
-      <p className="step-sub" style={{ marginBottom: 0 }}>Your PIN is locked. Reset it with a passcode sent to your email to keep withdrawing.</p>
+      <p className="step-sub" style={{ marginBottom: 0 }}>Your PIN is locked. Reset it with a passcode sent to your email to keep sending.</p>
       <button className="btn-primary" id="pinLockedReset" onClick={startPinReset}>Reset PIN with passcode</button>
       <button className="btn-ghost" id="pinLockedClose" onClick={close}>Cancel</button>
     </div>
@@ -108,7 +108,7 @@ export function PinUpdatedScreen() {
     <div className="center-state">
       <div className="success-mark" dangerouslySetInnerHTML={{ __html: CHECKOUT_TICK_MARK }} />
       <div className="step-title">PIN updated</div>
-      <p className="step-sub" style={{ marginBottom: 0 }}>Your new PIN is set. Use it next time you withdraw.</p>
+      <p className="step-sub" style={{ marginBottom: 0 }}>Your new PIN is set. Use it next time you send.</p>
       <button className="btn-primary" id="doneToWallet" onClick={close}>Done</button>
     </div>
   );

@@ -1,0 +1,68 @@
+import type { WalletNetwork } from "@/lib/mock-api";
+import { detectBrand, fundingOf } from "@/lib/card";
+
+/**
+ * New-recipient helpers, ported from reference/poket-wallet-explore.html: ROUTING / MORE_BANKS / abaValid / routingBank
+ * (US bank fields), speedsFor (US speeds), sortBank (UK bank fields), the stablecoin address check and hl() (start
+ * and end highlighted).
+ */
+
+const ROUTING: Record<string, [string, string, boolean]> = {
+  "021000021": ["Chase", "JPMorgan Chase Bank, N.A.", true], "026009593": ["Bank of America", "Bank of America, N.A.", true],
+  "121000248": ["Wells Fargo", "Wells Fargo Bank, N.A.", true], "021000089": ["Citi", "Citibank, N.A.", false],
+  "051405515": ["Capital One", "Capital One, N.A.", true], "091000022": ["U.S. Bank", "U.S. Bank, N.A.", true],
+};
+const MORE_BANKS: [string, string, boolean][] = [["PNC", "PNC Bank, N.A.", true], ["Truist", "Truist Bank", true], ["TD Bank", "TD Bank, N.A.", true], ["Regions", "Regions Bank", false], ["Ally", "Ally Bank", false]];
+
+/** abaValid: 9 digits with a valid ABA checksum. */
+export function abaValid(r: string): boolean {
+  if (!/^\d{9}$/.test(r)) return false;
+  const d = [...r].map(Number);
+  return (3 * (d[0] + d[3] + d[6]) + 7 * (d[1] + d[4] + d[7]) + (d[2] + d[5] + d[8])) % 10 === 0;
+}
+/** routingBank: the bank for a valid routing number (made up for unknown ones, as in the prototype). */
+export function routingBank(r: string): { short: string; full: string; instant: boolean } | null {
+  if (!abaValid(r)) return null;
+  const b = ROUTING[r] || MORE_BANKS[[...r].reduce((s, c) => s + Number(c), 0) % MORE_BANKS.length];
+  return { short: b[0], full: b[1], instant: b[2] };
+}
+
+/** sortBank(sort): the bank for a 6-digit UK sort code, by its prefix (made up, as in the prototype). */
+export function sortBank(sort: string): { short: string; full: string } | null {
+  const d = sort.replace(/\D/g, "");
+  if (d.length !== 6) return null;
+  const m = d.startsWith("040004") ? "Monzo" : /^20/.test(d) ? "Barclays" : /^40/.test(d) ? "HSBC" : /^(30|77)/.test(d) ? "Lloyds" : /^(60|50)/.test(d) ? "NatWest" : "UK bank";
+  return { short: m, full: m };
+}
+/** A sort code as typed: digits only, shown 00-00-00. */
+export const formatSortCode = (v: string) => (v.replace(/\D/g, "").slice(0, 6).match(/.{1,2}/g) || []).join("-");
+
+/** A stablecoin address for the network: base58 for Solana, 0x + 40 hex otherwise. */
+export const validAddress = (net: WalletNetwork, a: string) => (net === "Solana" ? /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a) : /^0x[0-9a-fA-F]{40}$/.test(a));
+/** hl(addr): the first 6 and last 4 characters highlighted, the middle plain. */
+export const addressParts = (a: string): [string, string, string] => (a.length < 14 ? ["", a, ""] : [a.slice(0, 6), a.slice(6, -4), a.slice(-4)]);
+
+/** A Poket user's identifier: an @handle, an email, or a phone number (the reference Transfer's rules). */
+export function handleKind(q: string): "tag" | "email" | "phone" | null {
+  const v = q.trim();
+  if (v.startsWith("@")) return v.length > 2 ? "tag" : null;
+  if (v.includes("@")) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? "email" : null;
+  return v.replace(/\D/g, "").length >= 7 ? "phone" : null;
+}
+/** Initials for a name: "Tobi Bello" → "TB". */
+export const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
+/** The card's brand as the explore prototype shows it in the number field: Visa or Mastercard, else nothing. */
+export function cardBrandLabel(num: string): string {
+  const b = detectBrand(num.replace(/\D/g, ""));
+  return b === "visa" ? "Visa" : b === "mc" ? "Mastercard" : "";
+}
+/** What's wrong with a debit card number, or null: not Visa or Mastercard (from 4 digits), or a credit card (at 16). */
+export function cardIssue(num: string): string | null {
+  const n = num.replace(/\D/g, "");
+  if (n.length >= 4 && !cardBrandLabel(n)) return "Only Visa and Mastercard debit cards.";
+  if (n.length === 16 && fundingOf(n) === "credit") return "This is a credit card. Use a debit card.";
+  return null;
+}
+/** A card number as typed: digits only, in groups of 4. */
+export const formatCardDigits = (v: string) => (v.replace(/\D/g, "").slice(0, 16).match(/.{1,4}/g) || []).join(" ");

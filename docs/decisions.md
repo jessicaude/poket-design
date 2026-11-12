@@ -29,7 +29,13 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 ## Wallet
 - Deposits and top-ups can't be disputed.
 - Card-funded money is tagged **FIAT-ONLY**: it can be spent or withdrawn, but can't become stablecoin.
+- **One naira balance:** a user has one NGN balance, an NGN e-wallet. There's no merchant-held naira (no second NGN balance, no MERCHANT-HELD tag). Every NGN e-wallet can send naira to Nigerian banks within its tier limits.
+- Where virtual accounts are supported, the NGN balance shows "Get NGN account details" until the user has a dedicated account (BVN or NIN, then terms), then the account's details. At Tier 0 it asks the user to verify their identity first (it doesn't offer a top-up; top-ups stay under Deposit). A rejected account shows "Not approved" with Try again.
 - Sending to external wallets needs Tier 2.
+- Send replaces the wallet's Transfer and Payout actions (not the Payout (Get paid) widget). Sending is recipient-first: pick a saved recipient or add one (bank account, debit card, Poket user, stablecoin wallet), then the amount (you send, they get). Withdrawing to your own bank is sending to yourself.
+- Send to a debit card: Visa or Mastercard debit only (credit cards can't receive payouts), paid only from USD, arrives instantly. Fee not decided ($[fee]).
+- US bank sends have one speed: 1 to 3 business days, fee not decided ($[fee]). No Instant or Wire choice (and no wire address). Naira keeps its one speed.
+- Naira to Poket users (WGT-07): if the recipient can hold naira, they get naira. If they can't (no BVN or NIN, or not eligible), the naira converts to **USD on receipt**, and the sender sees it before sending ("{First name} can't hold naira. They'll get USD.", what they get and the quote, held 30 seconds). Existing rules still apply: card-funded money can't become stablecoins, and the naira-to-stablecoins block applies (the conversion is only ever to USD).
 
 ## Merchants
 - A merchant without a logo shows its **initials** on a colour derived from its name, in the same rounded square as a logo.

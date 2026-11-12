@@ -18,7 +18,7 @@ const BANK_BADGE = `<span style="display:inline-flex;color:var(--txt2)">${WICON.
 
 /** ngn-account: bank, account number, name enquiry. */
 export function NgnAccountScreen() {
-  const { account, go, back, setAccountNumber, setThirdPartyOk, lookUpName, saveNgnAccount } = usePayout();
+  const { account, go, back, setAccountNumber, setThirdPartyOk, lookUpName, saveNgnAccount, setAccountSave, setAccountNick } = usePayout();
   const { bank, number, enquiry, thirdPartyOk } = account;
   const canSave = enquiry.status === "matched" || (enquiry.status === "other" && thirdPartyOk);
   return (
@@ -77,6 +77,18 @@ export function NgnAccountScreen() {
         )}
       </div>
 
+      {(enquiry.status === "matched" || enquiry.status === "other") && (
+        // The exploration's optional nickname, once the name is found
+        <>
+          <label className="field-label" htmlFor="ngnNick">Nickname (optional)</label>
+          <input className="field-input" id="ngnNick" autoComplete="off" value={account.nick} onChange={(e) => setAccountNick(e.target.value)} />
+        </>
+      )}
+      {/* Every new recipient can be saved (the explore prototype's "Save recipient", on by default). */}
+      <div className="consent-row">
+        <input type="checkbox" id="saveRecipient" checked={account.save} onChange={(e) => setAccountSave(e.target.checked)} />
+        <label htmlFor="saveRecipient">Save recipient</label>
+      </div>
       <SpinButton id="ngnAcctSave" style={{ marginTop: "6px" }} disabled={!canSave} delay={400} onClick={saveNgnAccount}>
         {enquiry.status === "other" ? "Add recipient" : "Add account"}
       </SpinButton>

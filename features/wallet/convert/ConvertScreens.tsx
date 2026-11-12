@@ -21,7 +21,6 @@ import { useHoldings } from "../useHoldings";
 /** Re-render when any balance changes (amounts are read through the stores' getState). */
 function useBalancesTick() {
   useNgn((s) => s.ngnBalance);
-  useNgn((s) => s.ngnMerchantBalance);
   useHoldings((s) => s.cash);
   useHoldings((s) => s.fiatOnly);
   useHoldings((s) => s.coins);
@@ -37,10 +36,10 @@ function RateButton({ f, to }: { f: Side; to: Side }) {
   );
 }
 
-/** The cash bucket's tag after its name: FIAT-ONLY (reference) or MERCHANT-HELD. */
+/** The cash bucket's tag after its name: FIAT-ONLY (reference). */
 function BucketTag({ o }: { o: Side }) {
   if (o.k !== "cash" || o.bucket === "open") return null;
-  return <span className="fiat-tag">{o.bucket === "fiat" ? "FIAT-ONLY" : "MERCHANT-HELD"}</span>;
+  return <span className="fiat-tag">FIAT-ONLY</span>;
 }
 
 /** tConvert 'form': the From and To panels, the quote line and the keypad. */

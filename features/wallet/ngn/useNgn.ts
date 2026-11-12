@@ -17,7 +17,7 @@ export const NGN_STAGES = [
   "deposit-method",
   "ngnChoice", "tempAmount", "tempCreating", "temp", "tempArrived", "tempDone", "tempExpired",
   "ngnRoute", "ngnUnavailable", "ngnId", "ngnChecking", "ngnLocked",
-  "locked", "intro", "creating", "details",
+  "locked", "verify", "intro", "creating", "details",
 ] as const;
 export type NgnStage = (typeof NGN_STAGES)[number];
 export const isNgnStage = (s: unknown): s is NgnStage => NGN_STAGES.includes(s as NgnStage);
@@ -50,7 +50,6 @@ type State = {
   /** NGN taken out of ngnBalance for payouts not yet sent (approved with the PIN, or held for [hold]). */
   ngnReserved: Kobo;
   /** NGN a merchant holds for the user (e.g. store credit). It can be converted but not sent to a bank. */
-  ngnMerchantBalance: Kobo;
   eligibility: Eligibility;
   ngnId: NgnId | null;
   /** Failed ID matches, shared with Veriff. */
@@ -72,7 +71,7 @@ type State = {
   confirmClose: boolean;
 
   /** Demo controls (the prototype bar). */
-  set: (patch: Partial<Pick<State, "tier" | "ngnBalance" | "ngnReserved" | "ngnMerchantBalance" | "eligibility" | "ngnId" | "attempts" | "dedicated">>) => void;
+  set: (patch: Partial<Pick<State, "tier" | "ngnBalance" | "ngnReserved" | "eligibility" | "ngnId" | "attempts" | "dedicated">>) => void;
   reset: () => void;
 
   open: (stage?: NgnStage) => void;
@@ -82,6 +81,10 @@ type State = {
 
   /** dmBank: vaOpen('NGN'). */
   openBankTransfer: () => void;
+  /** The NGN balance's account card (vaOpen from the balance screen): Tier 0 verifies first; else the account flow. */
+  openAccountDetails: () => void;
+  /** 'verify' Continue: stands in for identity verification (not ported): Tier 1, then the account choice. */
+  verifyContinue: () => void;
   /** ngnPickDedicated: the intro if the ID is already matched, else choose an ID. */
   pickDedicated: () => void;
   /** data-ngnroute */
@@ -104,7 +107,7 @@ type State = {
 };
 
 const INITIAL = {
-  tier: 0 as Tier, ngnBalance: 5000000, ngnReserved: 0, ngnMerchantBalance: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
+  tier: 0 as Tier, ngnBalance: 5000000, ngnReserved: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
   stage: null, entry: null, temp: null, tempCents: 0, route: null, mismatch: false, idNum: "", confirmClose: false,
 };
 
@@ -150,6 +153,16 @@ export const useNgn = create<State>((set, get) => {
       const next: NgnStage = usable ? (tier < 1 ? "locked" : "details") : tier < 1 ? "tempAmount" : "ngnChoice";
       set({ entry: stage, stage: next, route: null, mismatch: false, temp: null, tempCents: 0, idNum: "", confirmClose: false });
     },
+
+    openAccountDetails: () => {
+      const { tier, dedicated, stage } = get();
+      const usable = dedicated && dedicated.status !== "rejected";
+      // Account details are in the verified name: Tier 0 verifies first (the step-up), it doesn't top up here
+      // (top-ups stay under Deposit). A rejected account starts again from the choice.
+      const next: NgnStage = tier < 1 ? "verify" : usable ? "details" : "ngnChoice";
+      set({ entry: stage, stage: next, route: null, mismatch: false, temp: null, tempCents: 0, idNum: "", confirmClose: false });
+    },
+    verifyContinue: () => set({ tier: 1 as Tier, stage: "ngnChoice" }),
 
     pickDedicated: () => set({ stage: get().ngnId ? "intro" : routeStage() }),
     // Attempts are shared with Veriff, so they may already be used up before this step.
@@ -227,8 +240,12 @@ export function parseNairaInput(text: string): Kobo {
   return naira * 100 + kobo || 0;
 }
 
-/** VA_SPEC.NGN in the reference. Partner-neutral: the bank is a placeholder. */
+/**
+ * VA_SPEC.NGN in the reference. Partner-neutral: the bank is a placeholder. `supported`: virtual accounts (a dedicated
+ * NGN account) are offered; the NGN balance screen then shows "Get NGN account details" until there's an account.
+ */
 export const NGN_VA = {
+  supported: true,
   rails: "NIP bank transfer",
   arrives: "Usually within seconds",
   bank: "[Partner bank]",
