@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CV_CHEV, WICON } from "@/lib/icons";
 import { useNgn } from "../ngn/useNgn";
@@ -13,9 +12,14 @@ import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountRevie
 import { usePayout } from "../payout/usePayout";
 import { asSendRecipient, nairaConvertsOnReceipt, sameAsTarget, sendSources, targetKeyFor } from "./sources";
 import { useNairaRecipients } from "./nairaRecipients";
+import { useSettings } from "../settings/useSettings";
+import { blockedByInstantOff, openDailyLimit, overDailyLimit, turnOnInstantTransfers } from "../settings/instant";
+import { useWithdrawals } from "../payout/useWithdrawals";
+import { formatNaira } from "@/lib/money";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
+import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
 import { useSend } from "./useSend";
 
 /*
@@ -43,18 +47,10 @@ export function SendAmountScreen() {
   useNairaRecipients((s) => s.othersHoldNaira); // the demo bar's "Recipient can hold naira" changes the target
   const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
-  // The keypad shows only while You send's amount is being typed: tapping it opens the keypad; Done, or a tap anywhere
-  // else (in the wallet or outside it), closes it. composedPath() sees through the wallet's shadow root.
-  const [keypad, setKeypad] = useState(false);
-  const typing = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!keypad) return;
-    // On click, not pointerdown: the tapped control (Review, the chip) acts first, then the keypad closes, so
-    // nothing moves under the finger mid-tap
-    const close = (e: MouseEvent) => { if (!typing.current || !e.composedPath().includes(typing.current)) setKeypad(false); };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [keypad]);
+  const instantOn = useSettings((s) => s.instantOn);
+  useSettings((s) => s.instantLimit); useWithdrawals((s) => s.list); // the daily limit and today's total
+  // The keypad shows only while You send's amount is being typed (useKeypadOnDemand)
+  const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
   const src = cvParse(payFrom), target = targetKeyFor(r, payFrom), tgt = cvParse(target);
   const converting = !sameAsTarget(payFrom, asSendRecipient(r));
@@ -70,7 +66,11 @@ export function SendAmountScreen() {
   const nairaRedirected = !!nairaBlocked && !!opened?.startsWith("cash:NGN:") && !payFrom.startsWith("cash:NGN:");
   // The total (with a decided fee, e.g. a wallet's) must fit the balance
   const over = summary.sourceTotal > avail;
-  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired);
+  // WGT-09: while instant transfers are off, a send to a Nigerian bank can't go on to review
+  const instantOff = blockedByInstantOff(r, instantOn);
+  // ...and while on, today's total to Nigerian banks can't go over the daily limit
+  const overLimit = instantOff ? null : overDailyLimit(r, cents);
+  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff && !overLimit;
   const amountText = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
     <>
@@ -92,6 +92,21 @@ export function SendAmountScreen() {
         // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&apos;t hold naira. They&apos;ll get USD.</span>
+        </div>
+      )}
+      {instantOff && (
+        // NEW copy: "Turn on" asks for the PIN, then the send carries on
+        <div className="alert warn" id="instantOffNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.alert} /><span>Instant transfers are off. <span className="btn-ghost" id="instantTurnOn" role="button" tabIndex={0}
+            style={{ display: "inline", padding: 0 }} onClick={turnOnInstantTransfers} onKeyDown={(e) => { if (e.key === "Enter") turnOnInstantTransfers(); }}>Turn on</span></span>
+        </div>
+      )}
+      {overLimit && (
+        // NEW link copy ("Change limit"): to Settings → Instant transfers → Daily limit
+        <div className="alert warn" id="dailyLimitNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.alert} /><span>Over your daily limit of <Grey>{formatNaira(overLimit.limit)}</Grey>. You have <Grey>{formatNaira(overLimit.left)}</Grey> left today.{" "}
+            <span className="btn-ghost" id="dailyLimitChange" role="button" tabIndex={0} style={{ display: "inline", padding: 0 }}
+              onClick={openDailyLimit} onKeyDown={(e) => { if (e.key === "Enter") openDailyLimit(); }}>Change limit</span></span>
         </div>
       )}
       {nairaRedirected && (

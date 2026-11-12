@@ -415,6 +415,17 @@ export function listWithdrawals(): Withdrawal[] {
   return withdrawals.map((w) => ({ ...w }));
 }
 
+/**
+ * GET /v1/ngn/instant-transfers/today (WGT-09): naira sent to Nigerian bank accounts today, in kobo (what the banks
+ * receive, whatever paid it). Failed and reversed sends don't count; scheduled, held and sending ones do.
+ */
+export function getInstantSentToday(now = new Date()): number {
+  return withdrawals
+    .filter((w) => (w.kind ?? "bank") === "bank" && w.currency === "NGN" && !["failed", "reversed"].includes(w.status)
+      && new Date(w.createdAt).toDateString() === now.toDateString())
+    .reduce((t, w) => t + w.amount, 0);
+}
+
 /** Which statuses each demo action can move a withdrawal from (the provider's webhooks, in production). */
 export const WITHDRAWAL_TRANSITIONS: Record<WithdrawalStatus, WithdrawalStatus[]> = {
   scheduled: ["sending", "review", "paid", "failed"],

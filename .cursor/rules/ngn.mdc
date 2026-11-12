@@ -212,6 +212,56 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
     label icons, monospace right-aligned values, green bold "Completed", the date's " - " part in italics, and the
     Reference chip that copies. Stablecoin amounts there add " on {network}".
 
+## Settings and instant transfers (WGT-09)
+- Settings opens from the wallet header's gear (#openSettingsHeader): features/wallet/settings/. Settings, Security and
+  Compliance are the reference's tSettings (with extSettingsRows), tSecurity and tAccountTier, with its class names
+  (settings-list / settings-row, info-card, select-row). Rows: Compliance, Instant transfers, Payment methods,
+  Subscriptions, Security, Log out; Payment methods, Subscriptions and Log out aren't ported (showNotPorted).
+  Compliance leaves out the reference's demo-only "Reset demo spend history" and its admin compliance log.
+- A settings row's HTML is set on the row itself so its chevron is the last <svg> (.settings-row>svg:last-child).
+- Instant transfers (NEW copy, not in the reference): the Settings row reads "On · ₦X NGN a day" (the daily limit,
+  formatNaira with the grey code) or "Off". Its screen has:
+  - the switch "Instant transfers to banks" (the wallet's inline role="switch", as on the reference's dispute form)
+    with "Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it's off, you can't send to
+    banks.";
+  - "Daily limit": the limit (formatNaira), "Up to ₦[tier max] at your tier" and Change (disabled while off);
+  - a raised limit waiting out the cooling-off period shows under it: the pending limit (formatNaira), "Starts in
+    [cooling-off]" and "Cancel change". Demo bar on this screen: "Skip cooling-off" applies it now.
+- Change opens the Daily limit screen: Send's amount box (cv-box: "Daily limit" and "Up to ₦[tier max] at your
+  tier" on top, the NGN chip and the amount) with the keypad on demand (useKeypadOnDemand, as on Send's amount
+  screen). Over the tier's maximum: "More than your tier allows (₦[tier max])." and Save is disabled (also when
+  unchanged). A line says what Save will do (NEW copy): "A lower limit applies at once." / "A higher limit starts
+  in [cooling-off]." Save asks for the PIN ("Lowers your daily limit." / "Raises your daily limit."): lower (or a
+  lower change while a raise is pending) applies at once and replaces any pending raise; higher shows the toast
+  "Your new limit starts in [cooling-off]" and becomes the pending limit. The typed amount survives Back from the
+  PIN (useSettings.limitDraft). [cooling-off] is a placeholder: the period isn't decided.
+  - the tier link "Raise your maximum: {next tier}" to Compliance (none at Tier 3).
+- The tier maximums aren't decided: screens show "₦[tier max]". INSTANT_TIER_MAX_DEMO_KOBO (₦100,000 / ₦1,000,000 /
+  ₦5,000,000 / ₦25,000,000 for Tiers 0 to 3) and the ₦50,000.00 default limit are demo values only; the limit in use
+  is never above the tier's maximum (effectiveLimit).
+- Demo bar "Instant transfers default: On / Off": what a new user starts with (switching starts the demo user over).
+- Compliance's "Increase my limits" opens the step-up (no warning line: the user asked); Continue raises the tier by
+  one, a demo stand-in for the verification steps, which aren't ported yet (as on the NGN account card).
+- Turning instant transfers on asks for the PIN (the checkout's PIN screens, usePayout.approveWithPin: "Enter your
+  PIN" / "Turns on instant transfers.", or create a PIN first), then the toast "Instant transfers are on." Back or
+  a wrong PIN leaves them off. Turning them off needs no PIN: a confirmation sheet ("Turn off instant transfers?",
+  "Sends to Nigerian banks won't go until you turn them back on.", Turn off / Keep them on; a tap outside cancels),
+  then it takes effect at once. The sheet (.pk-sheet in styles/wallet-overrides.css) is new: the wallet has none.
+- While off, a send to a Nigerian bank account (naira to a Nigerian bank, whatever pays it, USD converted too) shows
+  "Instant transfers are off. Turn on" on the amount screen (#instantOffNotice), and Review is disabled (the store's
+  toReview refuses too). "Turn on" asks for the PIN, then the send comes back as it was (approving or not).
+  Poket users, other banks, cards, stablecoin wallets, Convert and Checkout aren't affected
+  (blockedByInstantOff in features/wallet/settings/instant.ts).
+- The daily limit in Send: while on, a send to a Nigerian bank can't take today's total over the daily limit (the
+  limit in use: never above the tier's maximum). Today's total is the naira sent to Nigerian banks today, whatever
+  paid it (getInstantSentToday in lib/mock-api.ts): scheduled, held and sending sends count; failed and reversed
+  don't; Poket users, other banks, cards and wallets don't. Over it, the amount screen shows "Over your daily limit
+  of ₦X. You have ₦Y left today." (formatNaira, grey code) with "Change limit" (NEW copy: it leaves the send for
+  Settings → Instant transfers → Daily limit), and Review is disabled (the store's toReview refuses too). Exactly
+  what's left fits (overDailyLimit in features/wallet/settings/instant.ts).
+- Tests: e2e/settings.spec.ts (on and off, the PIN, the sheet, Send blocked when off, lowering, raising with
+  cooling-off, cancel, skip, the tier cap, the daily limit in Send).
+
 ## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
   methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:

@@ -6,6 +6,7 @@ import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
 import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
+import { useSettings } from "@/features/wallet/settings/useSettings";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
@@ -16,6 +17,7 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
+  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit } = useSettings();
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -53,6 +55,12 @@ export function NgnDemoBar() {
           <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
         </select>
       </label>
+      <label className="opt-lbl"><span>Instant transfers default</span>
+        {/* WGT-09: what a new user starts with (switching starts the demo user over with it) */}
+        <select aria-label="Instant transfers default" value={instantDefaultOn ? "on" : "off"} onChange={(e) => setInstantDefault(e.target.value === "on")}>
+          <option value="on">Instant transfers default: On</option><option value="off">Instant transfers default: Off</option>
+        </select>
+      </label>
       <label className="opt-lbl"><span>Name enquiry</span>
         <select aria-label="Name enquiry" value={enquiryDown ? "down" : "up"} onChange={(e) => setEnquiryDown(e.target.value === "down")}>
           <option value="up">Available</option><option value="down">Unavailable</option>
@@ -64,6 +72,8 @@ export function NgnDemoBar() {
         </select>
       </label>
       <span className="grow" />
+      {/* WGT-09: on Instant transfers with a raised limit waiting */}
+      {screen?.name === "instant-transfers" && instantPending !== null && <button className="pbtn" id="demoSkipCoolingOff" onClick={applyPendingLimit}>Skip cooling-off</button>}
       {stage === "ngnId" && (
         <>
           <button className="pbtn" onClick={() => setIdNum("00000000000")}>Fill a mismatching number</button>

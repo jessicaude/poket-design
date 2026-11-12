@@ -3,7 +3,7 @@ import {
   createPayout, hasPin, screenAddress, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
   type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
-} from "@/lib/mock-api";
+ getInstantSentToday } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
 import { useSend } from "../send/useSend";
 import { asSendRecipient, defaultSource, sameAsTarget, targetKeyFor } from "../send/sources";
@@ -12,6 +12,7 @@ import { cvAvail, cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType } from 
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency } from "../useHoldings";
 import { useConvert } from "../convert/useConvert";
 import { holderName, useNgn } from "../ngn/useNgn";
+import { INSTANT_TIER_MAX_DEMO_KOBO, useSettings } from "../settings/useSettings";
 import { needsStepUp, payoutMethodSub } from "./payoutMath";
 
 /**
@@ -75,8 +76,10 @@ type State = {
   /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
   sent: { id: string; amount: number; fee: number; status: WithdrawalStatus; quickCheck?: boolean } | null;
   pinStage: PinStage;
-  /** "reset" after Reset PIN with passcode (S.pinPurpose). */
-  pinPurpose: "payout" | "reset";
+  /** "reset" after Reset PIN with passcode (S.pinPurpose). "approve": a setting that needs the PIN (approveWithPin). */
+  pinPurpose: "payout" | "reset" | "approve";
+  /** "approve": what the PIN approves, under "Enter your PIN" (e.g. "Turns on instant transfers."). */
+  pinReason: string;
   pinDraft: string | null;
   pinError: string;
   otpError: string;
@@ -120,6 +123,12 @@ type State = {
   /** On to the PIN (after review, or Continue on the step-up placeholder). */
   toPin: () => void;
   pinComplete: (pin: string) => Promise<void>;
+  /**
+   * Ask for the PIN (or create one) to approve a setting, then run `onApproved`. Asked during a send (the amount
+   * screen's "Turn on"), the send comes back as it was, approved or cancelled; otherwise the PIN screens close.
+   */
+  approveWithPin: (reason: string, onApproved: () => void) => void;
+  cancelApprove: () => void;
   startPinReset: () => void;
   pinResetCode: (code: string) => Promise<void>;
 
@@ -140,10 +149,15 @@ type State = {
 
 const TRANSIENT = {
   stage: null, recipient: null, cents: 0, ack: false, lastRef: null, sent: null,
-  pinStage: "create" as PinStage, pinPurpose: "payout" as const, pinDraft: null, pinError: "", otpError: "",
+  pinStage: "create" as PinStage, pinPurpose: "payout" as State["pinPurpose"], pinReason: "", pinDraft: null, pinError: "", otpError: "",
   account: EMPTY_ACCOUNT,
   payFrom: null as string | null, payCents: 0, quoteAt: 0, jitter: 1, quoteExpired: false,
 };
+
+/** approveWithPin: what runs once the PIN is accepted. */
+let onApproved: (() => void) | null = null;
+/** approveWithPin during a send: the send's state, restored afterwards. */
+let resumeSnapshot: Partial<State> | null = null;
 
 export const usePayout = create<State>((set, get) => {
   /** Increments per enquiry, so a slow answer for an older bank/number is ignored. */
@@ -205,6 +219,20 @@ export const usePayout = create<State>((set, get) => {
     newQuote();
   };
   /** A send that converts: what leaves the source, what arrives, the rate and the conversion fee, for its one record. */
+  /** The PIN approved a setting: close the PIN screens, then run what it approved. */
+  const approved = () => {
+    const run = onApproved;
+    onApproved = null;
+    resumeAfterPin();
+    run?.();
+  };
+  /** Back to the send the PIN was asked from (its stage, amount and quote), else closed. */
+  const resumeAfterPin = () => {
+    const snap = resumeSnapshot;
+    resumeSnapshot = null;
+    if (snap) set({ ...snap, pinSet: hasPin(), pinStage: "create", pinPurpose: "payout", pinReason: "", pinDraft: null, pinError: "" });
+    else set({ ...TRANSIENT });
+  };
   const conversionDetails = () => {
     const { payFrom, payCents, recipient: r, cents, jitter } = get();
     if (!payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return undefined;
@@ -282,6 +310,14 @@ export const usePayout = create<State>((set, get) => {
     },
     toReview: async () => {
       const r = get().recipient;
+      // WGT-09: instant transfers off: sends to Nigerian banks don't go (the amount screen says so)
+      if (r?.methodType === "bank" && r.currency === "NGN" && !useSettings.getState().instantOn) return;
+      // ...nor over the daily limit (today's total to Nigerian banks, WGT-09)
+      if (r?.methodType === "bank" && r.currency === "NGN") {
+        const { instantLimit } = useSettings.getState();
+        const limit = Math.min(instantLimit, INSTANT_TIER_MAX_DEMO_KOBO[Math.max(0, Math.min(3, useNgn.getState().tier)) as 0 | 1 | 2 | 3]);
+        if (get().cents > Math.max(0, limit - getInstantSentToday())) return;
+      }
       if (r?.methodType === "wallet" && r.walletAddress) {
         set({ stage: "screening" });
         const { ok } = await screenAddress(r.walletAddress);
@@ -357,13 +393,24 @@ export const usePayout = create<State>((set, get) => {
         await setPin(pin);
         set({ pinDraft: null, pinError: "", pinSet: true });
         if (pinPurpose === "reset") return set({ stage: "moneyDone" });
+        if (pinPurpose === "approve") return approved();
         return execute();
       }
       const res = await verifyPin(pin);
-      if (res.ok) { set({ pinError: "" }); return execute(); }
+      if (res.ok) { set({ pinError: "" }); return pinPurpose === "approve" ? approved() : execute(); }
       if (res.locked) return set({ stage: "pinLocked", pinError: "" });
       set({ pinError: `Incorrect PIN. ${res.attemptsLeft} attempt${res.attemptsLeft === 1 ? "" : "s"} left.` });
     },
+
+    approveWithPin: (reason, run) => {
+      onApproved = run;
+      const st = get();
+      resumeSnapshot = st.stage ? { ...st } : null;
+      resetPinAttempts();
+      set({ ...(resumeSnapshot ? {} : TRANSIENT), stage: "pin", pinStage: hasPin() ? "entry" : "create", pinPurpose: "approve", pinReason: reason, pinDraft: null, pinError: "" });
+    },
+
+    cancelApprove: () => { onApproved = null; resumeAfterPin(); },
 
     startPinReset: () => set({ stage: "pinResetOtp", otpError: "" }),
     pinResetCode: async (code) => {
