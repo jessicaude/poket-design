@@ -3,7 +3,7 @@ import {
   createPayout, hasPin, screenAddress, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
   type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
-} from "@/lib/mock-api";
+ getInstantSentToday } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
 import { useSend } from "../send/useSend";
 import { asSendRecipient, defaultSource, sameAsTarget, targetKeyFor } from "../send/sources";
@@ -12,7 +12,7 @@ import { cvAvail, cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType } from 
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency } from "../useHoldings";
 import { useConvert } from "../convert/useConvert";
 import { holderName, useNgn } from "../ngn/useNgn";
-import { useSettings } from "../settings/useSettings";
+import { INSTANT_TIER_MAX_DEMO_KOBO, useSettings } from "../settings/useSettings";
 import { needsStepUp, payoutMethodSub } from "./payoutMath";
 
 /**
@@ -312,6 +312,12 @@ export const usePayout = create<State>((set, get) => {
       const r = get().recipient;
       // WGT-09: instant transfers off: sends to Nigerian banks don't go (the amount screen says so)
       if (r?.methodType === "bank" && r.currency === "NGN" && !useSettings.getState().instantOn) return;
+      // ...nor over the daily limit (today's total to Nigerian banks, WGT-09)
+      if (r?.methodType === "bank" && r.currency === "NGN") {
+        const { instantLimit } = useSettings.getState();
+        const limit = Math.min(instantLimit, INSTANT_TIER_MAX_DEMO_KOBO[Math.max(0, Math.min(3, useNgn.getState().tier)) as 0 | 1 | 2 | 3]);
+        if (get().cents > Math.max(0, limit - getInstantSentToday())) return;
+      }
       if (r?.methodType === "wallet" && r.walletAddress) {
         set({ stage: "screening" });
         const { ok } = await screenAddress(r.walletAddress);

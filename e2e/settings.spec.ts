@@ -352,3 +352,97 @@ test("while off, Convert is unaffected", async ({ page }) => {
   await expect(page.locator("#cvReview")).toBeEnabled();
   await expect(page.locator("#panelBody")).not.toContainText("Instant transfers are off");
 });
+
+/* ---------- The daily limit in Send: today's total to Nigerian banks (the mock's getInstantSentToday) ---------- */
+
+/** Tier 1, PIN set, a ₦25,000.00 daily limit (under the demo step-up, so sends go straight to the PIN). */
+async function limitedWallet(page: Page) {
+  await page.goto("/demo/wallet");
+  await expect(page.locator("#actSend")).toBeVisible();
+  await page.getByLabel("PIN", { exact: true }).selectOption("set");
+  await page.getByLabel("Tier").selectOption("1");
+  await page.evaluate(() => (window as any).__settings.setState({ instantLimit: 2500000 })); // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+async function amountTo(page: Page, recipient: string, digits: string) {
+  await page.locator("#actSend").click();
+  await page.locator(`[data-sendrecipient="${recipient}"]`).click();
+  await page.locator("#youSend").click();
+  for (const d of digits) await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
+  await page.locator("#keypadDone").click();
+}
+async function sendIt(page: Page) {
+  await page.locator("#payoutReview").click();
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  await expect(page.locator("#viewPayoutTx")).toBeVisible();
+}
+
+test("daily limit in Send: today's total can't go over it; the amount screen says how much is left, with Change limit", async ({ page }) => {
+  await limitedWallet(page);
+  await amountTo(page, "bank:lb2", "1500000"); // ₦15,000.00 to your Naira account (paid before)
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);
+  await sendIt(page);
+  await page.locator("#payoutDone").click();
+
+  await amountTo(page, "bank:lb2", "1500000"); // another ₦15,000.00: ₦30,000 today, over ₦25,000
+  await expect(page.locator("#dailyLimitNotice")).toHaveText("Over your daily limit of ₦25,000.00 NGN. You have ₦10,000.00 NGN left today. Change limit");
+  await expect(page.locator("#payoutReview")).toBeDisabled();
+  await page.evaluate(() => (window as any).__payout.getState().toReview()); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(page.locator("#confirmPayout")).toHaveCount(0); // the store refuses too
+  // Exactly what's left fits
+  await page.locator("#youSend").click();
+  for (let i = 0; i < 7; i++) await page.locator('#sendKeypad [data-payoutkey="back"]').click();
+  for (const d of "1000000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);
+  await expect(page.locator("#payoutReview")).toBeEnabled();
+  // Change limit: Settings → Instant transfers → Daily limit
+  await page.locator('#sendKeypad [data-payoutkey="0"]').click(); // ₦100,000.00: over again
+  await page.locator("#dailyLimitChange").click();
+  await expect(title(page)).toHaveText("Daily limit");
+  await page.locator("#backFromInstantLimit").click();
+  await expect(title(page)).toHaveText("Instant transfers");
+});
+
+test("daily limit in Send: a failed send doesn't count; Poket users aren't limited; naira converted from USD counts", async ({ page }) => {
+  await limitedWallet(page);
+  await amountTo(page, "bank:lb2", "1500000");
+  await sendIt(page);
+  await page.locator("#viewPayoutTx").click();
+  await page.getByRole("button", { name: "Fail", exact: true }).click();
+  await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
+  await page.locator("#backFromTxDetail").click();
+  await amountTo(page, "bank:lb2", "2500000"); // the whole ₦25,000 again
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);
+  await page.locator("#editPayoutRecipient").click();
+  await page.locator('[data-sendrecipient="poket:pu1"]').click();
+  await page.locator("#youSend").click();
+  for (const d of "3000000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click(); // ₦30,000.00, over the limit
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0); // a Poket user: not a bank
+  // USD paying a Nigerian bank: the naira it becomes counts against the limit
+  await page.locator("#editPayoutRecipient").click();
+  await page.locator('[data-sendrecipient="bank:lb2"]').click();
+  await page.locator("#payFromChip").click();
+  await page.locator('[data-payfrom="cash:USD:open"]').click();
+  await page.locator("#youSend").click();
+  for (const d of "2000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click(); // $20.00 ≈ ₦31,000
+  await expect(page.locator("#dailyLimitNotice")).toContainText("Over your daily limit of ₦25,000.00 NGN.");
+});
+
+test("mock: today's total counts sends to Nigerian banks today, not failed or reversed ones, other days or Poket users", async () => {
+  const { reservePayout, createPayout, setWithdrawalStatus, getInstantSentToday, resetPayoutServer } = await import("@/lib/mock-api");
+  resetPayoutServer();
+  const send = async (amount: number, recipientId: string, kind: "bank" | "poket" = "bank") => {
+    const r = await reservePayout({ currency: "NGN", amount });
+    return createPayout({ currency: "NGN", amount, fee: 0, recipientId, reservationId: r.id, kind, recipientName: "X", sourceKey: "cash:NGN:open", sourceTotal: amount });
+  };
+  await send(100000, "lb2");
+  const failed = await send(200000, "lb2");
+  await send(400000, "pu1", "poket");
+  expect(getInstantSentToday()).toBe(300000);
+  await setWithdrawalStatus(failed.id, "failed");
+  expect(getInstantSentToday()).toBe(100000);
+  const tomorrow = new Date(Date.now() + 86400000);
+  expect(getInstantSentToday(tomorrow)).toBe(0);
+});

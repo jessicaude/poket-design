@@ -13,7 +13,9 @@ import { usePayout } from "../payout/usePayout";
 import { asSendRecipient, nairaConvertsOnReceipt, sameAsTarget, sendSources, targetKeyFor } from "./sources";
 import { useNairaRecipients } from "./nairaRecipients";
 import { useSettings } from "../settings/useSettings";
-import { blockedByInstantOff, turnOnInstantTransfers } from "../settings/instant";
+import { blockedByInstantOff, openDailyLimit, overDailyLimit, turnOnInstantTransfers } from "../settings/instant";
+import { useWithdrawals } from "../payout/useWithdrawals";
+import { formatNaira } from "@/lib/money";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
@@ -46,6 +48,7 @@ export function SendAmountScreen() {
   const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   const instantOn = useSettings((s) => s.instantOn);
+  useSettings((s) => s.instantLimit); useWithdrawals((s) => s.list); // the daily limit and today's total
   // The keypad shows only while You send's amount is being typed (useKeypadOnDemand)
   const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
@@ -65,7 +68,9 @@ export function SendAmountScreen() {
   const over = summary.sourceTotal > avail;
   // WGT-09: while instant transfers are off, a send to a Nigerian bank can't go on to review
   const instantOff = blockedByInstantOff(r, instantOn);
-  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff;
+  // ...and while on, today's total to Nigerian banks can't go over the daily limit
+  const overLimit = instantOff ? null : overDailyLimit(r, cents);
+  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff && !overLimit;
   const amountText = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
     <>
@@ -94,6 +99,14 @@ export function SendAmountScreen() {
         <div className="alert warn" id="instantOffNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.alert} /><span>Instant transfers are off. <span className="btn-ghost" id="instantTurnOn" role="button" tabIndex={0}
             style={{ display: "inline", padding: 0 }} onClick={turnOnInstantTransfers} onKeyDown={(e) => { if (e.key === "Enter") turnOnInstantTransfers(); }}>Turn on</span></span>
+        </div>
+      )}
+      {overLimit && (
+        // NEW link copy ("Change limit"): to Settings → Instant transfers → Daily limit
+        <div className="alert warn" id="dailyLimitNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.alert} /><span>Over your daily limit of <Grey>{formatNaira(overLimit.limit)}</Grey>. You have <Grey>{formatNaira(overLimit.left)}</Grey> left today.{" "}
+            <span className="btn-ghost" id="dailyLimitChange" role="button" tabIndex={0} style={{ display: "inline", padding: 0 }}
+              onClick={openDailyLimit} onKeyDown={(e) => { if (e.key === "Enter") openDailyLimit(); }}>Change limit</span></span>
         </div>
       )}
       {nairaRedirected && (
