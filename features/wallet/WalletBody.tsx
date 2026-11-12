@@ -14,6 +14,7 @@ import { currentScreen, useWalletNav } from "./useWalletNav";
 import { NgnBalanceScreen } from "./withdrawals/NgnBalanceScreen";
 import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
+import { ComplianceScreen, ComplianceStepUpScreen, InstantLimitScreen, InstantTransfersScreen, SecurityScreen, SettingsScreen } from "./settings/SettingsScreens";
 import { ConversionReceiptScreen } from "./withdrawals/ConversionReceiptScreen";
 
 /**
@@ -43,6 +44,12 @@ export function WalletBody() {
       {screen.name === "assets-all" && <AssetsAllScreen />}
       {screen.name === "holding" && <HoldingDetailScreen h={screen.holding} />}
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
+      {screen.name === "settings" && <SettingsScreen />}
+      {screen.name === "security" && <SecurityScreen />}
+      {screen.name === "compliance" && <ComplianceScreen />}
+      {screen.name === "compliance-stepup" && <ComplianceStepUpScreen />}
+      {screen.name === "instant-transfers" && <InstantTransfersScreen />}
+      {screen.name === "instant-limit" && <InstantLimitScreen />}
     </div>
   );
 }

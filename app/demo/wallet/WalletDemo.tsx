@@ -11,6 +11,7 @@ import { useWalletNav } from "@/features/wallet/useWalletNav";
 import { isConvertStage, useConvert } from "@/features/wallet/convert/useConvert";
 import { useHoldings } from "@/features/wallet/useHoldings";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
+import { useSettings } from "@/features/wallet/settings/useSettings";
 
 /**
  * The body is the open flow (Send, NGN, Convert), else the wallet home (WalletBody).
@@ -23,9 +24,14 @@ export function WalletDemo({ css }: { css: string }) {
   const tab = useWalletHome((s) => s.tab);
   const setTab = (t: "home" | "card" | "activity") => { useWalletNav.getState().home(); useWalletHome.getState().set({ tab: t }); };
   const open = useNgn((s) => s.open);
+  // The header gear: Settings (the reference's go('settings')), in place of any open flow
+  const openSettings = () => {
+    useSend.getState().close(); usePayout.getState().close(); useConvert.getState().close(); useNgn.getState().close();
+    useWalletNav.getState().home(); useWalletNav.getState().push({ name: "settings" });
+  };
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome });
+    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);
@@ -43,7 +49,7 @@ export function WalletDemo({ css }: { css: string }) {
     <>
       <NgnDemoBar />
       <div style={{ paddingTop: "var(--bar)", ["--pk-bar" as string]: "var(--bar)" }}>
-        <WalletShell css={css} tab={tab} onTab={setTab} />
+        <WalletShell css={css} tab={tab} onTab={setTab} onSettings={openSettings} />
       </div>
       <RecipientActivityPanel />
     </>

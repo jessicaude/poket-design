@@ -10,7 +10,13 @@ export type WalletScreen =
   | { name: "notifications" }
   | { name: "assets-all" }
   | { name: "holding"; holding: Holding }
-  | { name: "tx"; id: string };
+  | { name: "tx"; id: string }
+  | { name: "settings" }
+  | { name: "security" }
+  | { name: "compliance" }
+  | { name: "compliance-stepup" }
+  | { name: "instant-transfers" }
+  | { name: "instant-limit" };
 
 type State = {
   stack: WalletScreen[];

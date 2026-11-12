@@ -212,6 +212,30 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
     label icons, monospace right-aligned values, green bold "Completed", the date's " - " part in italics, and the
     Reference chip that copies. Stablecoin amounts there add " on {network}".
 
+## Settings and instant transfers (WGT-09)
+- Settings opens from the wallet header's gear (#openSettingsHeader): features/wallet/settings/. Settings, Security and
+  Compliance are the reference's tSettings (with extSettingsRows), tSecurity and tAccountTier, with its class names
+  (settings-list / settings-row, info-card, select-row). Rows: Compliance, Instant transfers, Payment methods,
+  Subscriptions, Security, Log out; Payment methods, Subscriptions and Log out aren't ported (showNotPorted).
+  Compliance leaves out the reference's demo-only "Reset demo spend history" and its admin compliance log.
+- A settings row's HTML is set on the row itself so its chevron is the last <svg> (.settings-row>svg:last-child).
+- Instant transfers (NEW copy, not in the reference): the Settings row reads "On · ₦X NGN a day" (the daily limit,
+  formatNaira with the grey code) or "Off". Its screen has:
+  - the switch "Instant transfers to banks" (the wallet's inline role="switch", as on the reference's dispute form)
+    with "Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it's off, you can't send to
+    banks.";
+  - "Daily limit": the limit (formatNaira), "Up to ₦[tier max] at your tier" and Change (disabled while off), which
+    opens the amount keypad to set a new limit; over the tier's maximum shows "More than your tier allows
+    (₦[tier max])." and Save is disabled;
+  - the tier link "Raise your maximum: {next tier}" to Compliance (none at Tier 3).
+- The tier maximums aren't decided: screens show "₦[tier max]". INSTANT_TIER_MAX_DEMO_KOBO (₦100,000 / ₦1,000,000 /
+  ₦5,000,000 / ₦25,000,000 for Tiers 0 to 3) and the ₦50,000.00 default limit are demo values only; the limit in use
+  is never above the tier's maximum (effectiveLimit).
+- Demo bar "Instant transfers default: On / Off": what a new user starts with (switching starts the demo user over).
+- Compliance's "Increase my limits" opens the step-up (no warning line: the user asked); Continue raises the tier by
+  one, a demo stand-in for the verification steps, which aren't ported yet (as on the NGN account card).
+- Not wired yet: Send doesn't check the switch or the daily limit.
+
 ## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
   methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:

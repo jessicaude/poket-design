@@ -6,6 +6,7 @@ import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
 import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
+import { useSettings } from "@/features/wallet/settings/useSettings";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
@@ -16,6 +17,7 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
+  const { instantDefaultOn, setInstantDefault } = useSettings();
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -51,6 +53,12 @@ export function NgnDemoBar() {
         <select aria-label="Recipient can hold naira" value={othersHoldNaira ? "yes" : "no"}
           onChange={(e) => { setOthersHoldNaira(e.target.value === "yes"); usePayout.getState().refreshQuote(); }}>
           <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Instant transfers default</span>
+        {/* WGT-09: what a new user starts with (switching starts the demo user over with it) */}
+        <select aria-label="Instant transfers default" value={instantDefaultOn ? "on" : "off"} onChange={(e) => setInstantDefault(e.target.value === "on")}>
+          <option value="on">Instant transfers default: On</option><option value="off">Instant transfers default: Off</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Name enquiry</span>
