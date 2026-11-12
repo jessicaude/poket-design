@@ -72,28 +72,107 @@ test("Instant transfers: the switch, the daily limit, its tier maximum and the t
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
 });
 
-test("Change the daily limit: up to the tier's maximum; saved back to the screen and Settings", async ({ page }) => {
+/** The daily limit screen: open the keypad and type a new amount (kobo digits), then Done. */
+async function typeLimit(page: Page, digits: string) {
+  if (!(await page.locator("#limitKeypad").isVisible())) await page.locator("#instantLimitAmt").click();
+  for (let i = 0; i < 9; i++) await page.locator('[data-limitkey="back"]').click(); // up to ₦9,999,999.99
+  await press(page, digits);
+  await page.locator("#limitKeypadDone").click();
+}
+
+test("the daily limit screen: the amount box with the keypad on demand, capped at ₦[tier max]", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openInstantTransfers").click();
   await page.locator("#instantChange").click();
   await expect(title(page)).toHaveText("Daily limit");
-  await expect(body(page).locator(".step-sub")).toHaveText("Up to ₦[tier max] at your tier.");
-  await expect(page.locator("#instantLimitAmt")).toHaveText("₦50,000.00 NGN");
+  await expect(page.locator("#instantLimitBox .cv-box-top")).toHaveText("Daily limitUp to ₦[tier max] at your tier");
+  await expect(page.locator("#instantLimitAmt")).toHaveText("50,000.00");
+  await expect(page.locator("#limitKeypad")).toHaveCount(0); // hidden until the amount is tapped
+  await expect(page.locator("#instantLimitSave")).toBeDisabled(); // unchanged
+  await page.locator("#instantLimitAmt").click();
+  await expect(page.locator("#limitKeypad")).toBeVisible();
   await press(page, "0"); // ₦500,000.00: over Tier 0's demo maximum (₦100,000)
-  await expect(page.locator("#instantLimitAmt")).toHaveText("₦500,000.00 NGN");
+  await expect(page.locator("#instantLimitAmt")).toHaveText("500,000.00");
   await expect(page.locator("#instantLimitErr")).toHaveText("More than your tier allows (₦[tier max]).");
   await expect(page.locator("#instantLimitSave")).toBeDisabled();
-  for (let i = 0; i < 8; i++) await page.locator('[data-limitkey="back"]').click();
-  await expect(page.locator("#instantLimitSave")).toBeDisabled(); // nothing typed
-  await press(page, "7500000"); // ₦75,000.00
-  await expect(page.locator("#instantLimitErr")).toHaveCount(0);
-  await page.locator("#instantLimitSave").click();
-  await expect(title(page)).toHaveText("Instant transfers");
-  await expect(page.locator("#instantLimit")).toHaveText("₦75,000.00 NGN");
-  await page.locator("#backFromInstant").click();
-  await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦75,000.00 NGN a day");
+  await page.locator("#limitKeypadDone").click();
+  await expect(page.locator("#limitKeypad")).toHaveCount(0);
+  await page.locator("#instantLimitAmt").click();
+  await title(page).click(); // a tap elsewhere hides it too
+  await expect(page.locator("#limitKeypad")).toHaveCount(0);
 });
 
+test("lowering the limit applies at once, after the PIN", async ({ page }) => {
+  await openSettings(page);
+  await page.locator("#openInstantTransfers").click();
+  await page.locator("#instantChange").click();
+  await typeLimit(page, "2000000"); // ₦20,000.00
+  await expect(page.locator("#instantLimitWhen")).toHaveText("A lower limit applies at once.");
+  await page.locator("#instantLimitSave").click();
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Lowers your daily limit.");
+  await enterPin(page);
+  await expect(title(page)).toHaveText("Instant transfers");
+  await expect(page.locator("#instantLimit")).toHaveText("₦20,000.00 NGN");
+  await expect(page.locator("#instantPending")).toHaveCount(0);
+  await page.locator("#backFromInstant").click();
+  await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦20,000.00 NGN a day");
+});
+
+test("raising the limit needs the PIN, then waits out [cooling-off]: pending, Cancel change, and the demo's Skip cooling-off", async ({ page }) => {
+  test.setTimeout(60_000); // two raises, each typed on the keypad and approved with the PIN
+  await openSettings(page);
+  await page.locator("#openInstantTransfers").click();
+  await expect(page.locator("#demoSkipCoolingOff")).toHaveCount(0); // nothing pending
+  await page.locator("#instantChange").click();
+  await typeLimit(page, "7500000"); // ₦75,000.00
+  await expect(page.locator("#instantLimitWhen")).toHaveText("A higher limit starts in [cooling-off].");
+  await page.locator("#instantLimitSave").click();
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Raises your daily limit.");
+  // Back from the PIN: nothing changes
+  await page.locator("#pinApproveCancel").click();
+  await expect(title(page)).toHaveText("Daily limit");
+  await expect(page.locator("#instantLimitAmt")).toHaveText("75,000.00"); // the typed amount is kept
+  await page.locator("#instantLimitSave").click();
+  await enterPin(page);
+  await expect(page.locator("#toastEl")).toHaveText("Your new limit starts in [cooling-off]");
+  await expect(title(page)).toHaveText("Instant transfers");
+  // The current limit stays until then; the pending one shows under it
+  await expect(page.locator("#instantLimit")).toHaveText("₦50,000.00 NGN");
+  await expect(page.locator("#instantPendingAmt")).toHaveText("₦75,000.00 NGN");
+  await expect(page.locator("#instantPendingWhen")).toHaveText("Starts in [cooling-off]");
+  await page.locator("#instantCancelChange").click();
+  await expect(page.locator("#instantPending")).toHaveCount(0);
+  await expect(page.locator("#instantLimit")).toHaveText("₦50,000.00 NGN");
+
+  // Again, then the demo bar skips the cooling-off: it applies now
+  await page.locator("#instantChange").click();
+  await typeLimit(page, "9000000"); // ₦90,000.00
+  await page.locator("#instantLimitSave").click();
+  await enterPin(page);
+  await expect(page.locator("#instantPendingAmt")).toHaveText("₦90,000.00 NGN");
+  await page.locator("#demoSkipCoolingOff").click();
+  await expect(page.locator("#instantPending")).toHaveCount(0);
+  await expect(page.locator("#instantLimit")).toHaveText("₦90,000.00 NGN");
+  await expect(page.locator("#demoSkipCoolingOff")).toHaveCount(0);
+  await page.locator("#backFromInstant").click();
+  await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦90,000.00 NGN a day");
+});
+
+test("lowering while a raise is pending replaces it", async ({ page }) => {
+  await openSettings(page);
+  await page.locator("#openInstantTransfers").click();
+  await page.locator("#instantChange").click();
+  await typeLimit(page, "8000000");
+  await page.locator("#instantLimitSave").click();
+  await enterPin(page);
+  await expect(page.locator("#instantPendingAmt")).toHaveText("₦80,000.00 NGN");
+  await page.locator("#instantChange").click();
+  await typeLimit(page, "3000000"); // ₦30,000.00: lower than the current ₦50,000
+  await page.locator("#instantLimitSave").click();
+  await enterPin(page);
+  await expect(page.locator("#instantLimit")).toHaveText("₦30,000.00 NGN");
+  await expect(page.locator("#instantPending")).toHaveCount(0);
+});
 test("the tier link opens Compliance; Increase my limits steps up (demo: the tier rises) and raises the maximum", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openInstantTransfers").click();
@@ -111,6 +190,7 @@ test("the tier link opens Compliance; Increase my limits steps up (demo: the tie
   await expect(page.locator("#instantRaiseTier")).toHaveText("Raise your maximum: Tier 2: Standard");
   // Tier 1's maximum allows ₦500,000.00 now
   await page.locator("#instantChange").click();
+  await page.locator("#instantLimitAmt").click();
   await press(page, "0");
   await expect(page.locator("#instantLimitErr")).toHaveCount(0);
   await expect(page.locator("#instantLimitSave")).toBeEnabled();

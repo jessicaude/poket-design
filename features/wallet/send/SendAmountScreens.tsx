@@ -1,5 +1,4 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CV_CHEV, WICON } from "@/lib/icons";
 import { useNgn } from "../ngn/useNgn";
@@ -18,6 +17,7 @@ import { blockedByInstantOff, turnOnInstantTransfers } from "../settings/instant
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
+import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
 import { useSend } from "./useSend";
 
 /*
@@ -46,18 +46,8 @@ export function SendAmountScreen() {
   const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   const instantOn = useSettings((s) => s.instantOn);
-  // The keypad shows only while You send's amount is being typed: tapping it opens the keypad; Done, or a tap anywhere
-  // else (in the wallet or outside it), closes it. composedPath() sees through the wallet's shadow root.
-  const [keypad, setKeypad] = useState(false);
-  const typing = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!keypad) return;
-    // On click, not pointerdown: the tapped control (Review, the chip) acts first, then the keypad closes, so
-    // nothing moves under the finger mid-tap
-    const close = (e: MouseEvent) => { if (!typing.current || !e.composedPath().includes(typing.current)) setKeypad(false); };
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [keypad]);
+  // The keypad shows only while You send's amount is being typed (useKeypadOnDemand)
+  const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
   const src = cvParse(payFrom), target = targetKeyFor(r, payFrom), tgt = cvParse(target);
   const converting = !sameAsTarget(payFrom, asSendRecipient(r));

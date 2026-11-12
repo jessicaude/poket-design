@@ -224,9 +224,17 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   - the switch "Instant transfers to banks" (the wallet's inline role="switch", as on the reference's dispute form)
     with "Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it's off, you can't send to
     banks.";
-  - "Daily limit": the limit (formatNaira), "Up to ₦[tier max] at your tier" and Change (disabled while off), which
-    opens the amount keypad to set a new limit; over the tier's maximum shows "More than your tier allows
-    (₦[tier max])." and Save is disabled;
+  - "Daily limit": the limit (formatNaira), "Up to ₦[tier max] at your tier" and Change (disabled while off);
+  - a raised limit waiting out the cooling-off period shows under it: the pending limit (formatNaira), "Starts in
+    [cooling-off]" and "Cancel change". Demo bar on this screen: "Skip cooling-off" applies it now.
+- Change opens the Daily limit screen: Send's amount box (cv-box: "Daily limit" and "Up to ₦[tier max] at your
+  tier" on top, the NGN chip and the amount) with the keypad on demand (useKeypadOnDemand, as on Send's amount
+  screen). Over the tier's maximum: "More than your tier allows (₦[tier max])." and Save is disabled (also when
+  unchanged). A line says what Save will do (NEW copy): "A lower limit applies at once." / "A higher limit starts
+  in [cooling-off]." Save asks for the PIN ("Lowers your daily limit." / "Raises your daily limit."): lower (or a
+  lower change while a raise is pending) applies at once and replaces any pending raise; higher shows the toast
+  "Your new limit starts in [cooling-off]" and becomes the pending limit. The typed amount survives Back from the
+  PIN (useSettings.limitDraft). [cooling-off] is a placeholder: the period isn't decided.
   - the tier link "Raise your maximum: {next tier}" to Compliance (none at Tier 3).
 - The tier maximums aren't decided: screens show "₦[tier max]". INSTANT_TIER_MAX_DEMO_KOBO (₦100,000 / ₦1,000,000 /
   ₦5,000,000 / ₦25,000,000 for Tiers 0 to 3) and the ₦50,000.00 default limit are demo values only; the limit in use

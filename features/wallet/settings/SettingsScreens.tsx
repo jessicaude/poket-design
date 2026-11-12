@@ -13,7 +13,11 @@ import { fmtCurrency } from "../payout/payoutMath";
 import { showNotPorted } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
 import { turnOnInstantTransfers } from "./instant";
-import { INSTANT_TIER_MAX_DEMO_KOBO, TIER_MAX_PLACEHOLDER, effectiveLimit, useSettings } from "./useSettings";
+import { COOLING_OFF_PLACEHOLDER, INSTANT_TIER_MAX_DEMO_KOBO, TIER_MAX_PLACEHOLDER, effectiveLimit, useSettings } from "./useSettings";
+import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
+import { usePayout } from "../payout/usePayout";
+import { useWalletToast } from "../useWalletToast";
+import { cvBadgeHtml, cvParse } from "../convert/convertMath";
 
 /*
  * The wallet's Settings (the reference's tSettings with extSettingsRows), Security (tSecurity) and Compliance
@@ -178,7 +182,7 @@ function Switch({ id, on, label, onChange }: { id: string; on: boolean; label: s
 export function InstantTransfersScreen() {
   const { back, push } = useWalletNav();
   const tier = useNgn((s) => s.tier);
-  const { instantOn, instantLimit, setInstantOn } = useSettings();
+  const { instantOn, instantLimit, setInstantOn, instantPending, cancelPendingLimit } = useSettings();
   const next = tier < 3 ? tier + 1 : null;
   // On asks for the PIN first; off asks to confirm (a sheet), then takes effect at once
   const [confirmOff, setConfirmOff] = useState(false);
@@ -203,6 +207,17 @@ export function InstantTransfersScreen() {
           </span>
           <button type="button" className="cv-max" id="instantChange" disabled={!instantOn} onClick={() => push({ name: "instant-limit" })}>Change</button>
         </div>
+        {instantPending !== null && (
+          // A raised limit waiting out the cooling-off period (demo bar: Skip cooling-off)
+          <div className="info-row" id="instantPending" style={{ alignItems: "center" }}>
+            <span>
+              <span className="mono" id="instantPendingAmt" style={{ fontWeight: 600, color: "var(--txt)" }}><Grey>{formatNaira(instantPending)}</Grey></span>
+              <span style={{ display: "block", fontSize: "12px", color: "var(--txt3)", marginTop: "2px" }} id="instantPendingWhen">Starts in {COOLING_OFF_PLACEHOLDER}</span>
+            </span>
+            <span className="btn-ghost" id="instantCancelChange" role="button" tabIndex={0} style={{ color: "var(--brand-600)", fontWeight: 600 }} onClick={cancelPendingLimit}
+              onKeyDown={(e) => { if (e.key === "Enter") cancelPendingLimit(); }}>Cancel change</span>
+          </div>
+        )}
       </div>
       {next
         ? <span className="btn-ghost" id="instantRaiseTier" role="button" tabIndex={0} style={{ display: "inline-block", marginTop: "12px" }}
@@ -222,24 +237,63 @@ export function InstantTransfersScreen() {
   );
 }
 
-/** Change the daily limit: the wallet's amount keypad, up to the tier's maximum. */
+/**
+ * Change the daily limit: Send's amount box with the keypad on demand, capped at the tier's maximum (₦[tier max]).
+ * Save asks for the PIN; lower applies at once, higher starts after [cooling-off] (pending on the previous screen).
+ */
 export function InstantLimitScreen() {
   const back = useWalletNav((s) => s.back);
   const tier = useNgn((s) => s.tier);
-  const { instantLimit, setInstantLimit } = useSettings();
+  const { instantLimit, changeInstantLimit, limitDraft, setLimitDraft } = useSettings();
   const max = INSTANT_TIER_MAX_DEMO_KOBO[Math.max(0, Math.min(3, tier)) as 0 | 1 | 2 | 3];
-  const [kobo, setKobo] = useState(effectiveLimit(instantLimit, tier));
+  const current = effectiveLimit(instantLimit, tier);
+  // The typed amount lives in the store, so it's still there after Back from the PIN screens
+  const kobo = limitDraft ?? current;
+  const setKobo = (f: (c: number) => number) => setLimitDraft(f(kobo));
+  const { open: keypad, setOpen: setKeypad, ref } = useKeypadOnDemand();
   const key = (k: string) => setKobo((c) => (k === "back" ? Math.floor(c / 10) : c >= 1e12 ? c : c * 10 + Number(k)));
   const over = kobo > max;
+  const save = () => {
+    const raise = kobo > current;
+    usePayout.getState().approveWithPin(raise ? "Raises your daily limit." : "Lowers your daily limit.", () => {
+      changeInstantLimit(kobo);
+      setLimitDraft(null);
+      if (raise) useWalletToast.getState().showToast(`Your new limit starts in ${COOLING_OFF_PLACEHOLDER}`);
+      back(); // to Instant transfers
+    });
+  };
   return (
     <>
-      <BackRow id="backFromInstantLimit" label="Instant transfers" onClick={back} />
+      <BackRow id="backFromInstantLimit" label="Instant transfers" onClick={() => { setLimitDraft(null); back(); }} />
       <div className="step-title">Daily limit</div>
-      <p className="step-sub">Up to {TIER_MAX_PLACEHOLDER} at your tier.</p>
-      <div className="amount-display" style={{ padding: "4px 0 8px" }}><span className={`amount-value ${over ? "err" : ""}`} id="instantLimitAmt"><Grey>{formatNaira(kobo)}</Grey></span></div>
-      {over && <div className="cv-hint err" id="instantLimitErr">More than your tier allows ({TIER_MAX_PLACEHOLDER}).</div>}
-      <Keypad dataKey="limitkey" onKey={key} />
-      <button className="btn-primary" id="instantLimitSave" disabled={kobo <= 0 || over} onClick={() => { setInstantLimit(kobo); back(); }}>Save</button>
+      <div ref={ref} style={{ marginTop: "14px" }}>
+        <div className="cv-box" id="instantLimitBox" style={keypad ? { borderColor: "var(--brand-500)", boxShadow: "0 0 0 3px var(--brand-100)" } : undefined}>
+          <div className="cv-box-top"><span>Daily limit</span><span id="instantLimitMax">Up to {TIER_MAX_PLACEHOLDER} at your tier</span></div>
+          <div className="cv-box-row">
+            <span className="cv-pick" aria-disabled="true"><Raw html={cvBadgeHtml(cvParse("cash:NGN:open"), 28)} /><span className="cv-pick-name">NGN</span></span>
+            <span className={`cv-amt mono ${over ? "err" : ""}`} id="instantLimitAmt" role="button" tabIndex={0} aria-label="Daily limit amount" aria-expanded={keypad}
+              style={{ cursor: "text" }} onClick={() => setKeypad(true)} onKeyDown={(e) => { if (e.key === "Enter") setKeypad(true); }}>
+              {(kobo / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+        {over && <div className="cv-hint err" id="instantLimitErr">More than your tier allows ({TIER_MAX_PLACEHOLDER}).</div>}
+        {keypad && (
+          <div id="limitKeypad" style={{ marginTop: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
+              <button type="button" className="cv-max" id="limitKeypadDone" onClick={() => setKeypad(false)}>Done</button>
+            </div>
+            <Keypad dataKey="limitkey" onKey={key} />
+          </div>
+        )}
+      </div>
+      {/* NEW copy: what Save does, raise or lower */}
+      {!over && kobo > 0 && kobo !== current && (
+        <p className="step-sub" id="instantLimitWhen" style={{ marginTop: "12px" }}>
+          {kobo > current ? `A higher limit starts in ${COOLING_OFF_PLACEHOLDER}.` : "A lower limit applies at once."}
+        </p>
+      )}
+      <button className="btn-primary" id="instantLimitSave" style={{ marginTop: "12px" }} disabled={kobo <= 0 || over || kobo === current} onClick={save}>Save</button>
     </>
   );
 }

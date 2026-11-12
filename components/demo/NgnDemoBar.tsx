@@ -17,7 +17,7 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
-  const { instantDefaultOn, setInstantDefault } = useSettings();
+  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit } = useSettings();
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -72,6 +72,8 @@ export function NgnDemoBar() {
         </select>
       </label>
       <span className="grow" />
+      {/* WGT-09: on Instant transfers with a raised limit waiting */}
+      {screen?.name === "instant-transfers" && instantPending !== null && <button className="pbtn" id="demoSkipCoolingOff" onClick={applyPendingLimit}>Skip cooling-off</button>}
       {stage === "ngnId" && (
         <>
           <button className="pbtn" onClick={() => setIdNum("00000000000")}>Fill a mismatching number</button>
