@@ -11,10 +11,22 @@ const title = (page: Page) => body(page).locator(".step-title").first();
 async function openSettings(page: Page) {
   await page.goto("/demo/wallet");
   await expect(page.locator("#actSend")).toBeVisible();
+  await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#openSettingsHeader").click();
   await expect(title(page)).toHaveText("Settings");
 }
 const sub = (page: Page, id: string) => page.locator(`#${id} .settings-row-sub`);
+/** The switch off: the confirmation sheet, then Turn off. */
+async function turnOff(page: Page) {
+  await page.locator("#instantSwitch").click();
+  await page.locator("#instantOffConfirm").click();
+}
+/** The PIN screens, approving with the demo PIN (set by openSettings). */
+async function enterPin(page: Page, pin = "1234") {
+  await expect(page.locator("#panelBody .step-title")).toHaveText("Enter your PIN");
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type(pin);
+}
 const press = async (page: Page, keys: string) => { for (const k of keys) await page.locator(`[data-limitkey="${k}"]`).click(); };
 
 test("the header gear opens Settings: name and email, then the reference's rows plus Instant transfers", async ({ page }) => {
@@ -48,13 +60,14 @@ test("Instant transfers: the switch, the daily limit, its tier maximum and the t
   await expect(page.locator("#instantChange")).toBeEnabled();
   await expect(page.locator("#instantRaiseTier")).toHaveText("Raise your maximum: Tier 1: Basic");
 
-  await sw.click();
+  await turnOff(page);
   await expect(sw).toHaveAttribute("aria-checked", "false");
   await expect(page.locator("#instantChange")).toBeDisabled();
   await page.locator("#backFromInstant").click();
   await expect(sub(page, "openInstantTransfers")).toHaveText("Off");
   await page.locator("#openInstantTransfers").click();
   await sw.click();
+  await enterPin(page);
   await page.locator("#backFromInstant").click();
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
 });
@@ -133,4 +146,129 @@ test("Security: passcode delivery (text needs a phone number) and signed-in devi
   await expect(body(page).locator("[data-device]")).toHaveCount(1);
   await page.locator("#extBackSettings").click();
   await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 1 signed-in device");
+});
+
+test("turning off asks to confirm (a sheet), then takes effect at once; Keep them on or a tap outside cancels", async ({ page }) => {
+  await openSettings(page);
+  await page.locator("#openInstantTransfers").click();
+  const sw = page.locator("#instantSwitch");
+  await sw.click();
+  const sheet = page.locator("#instantOffSheet");
+  await expect(sheet.locator(".step-title")).toHaveText("Turn off instant transfers?");
+  await expect(sheet.locator(".step-sub")).toHaveText("Sends to Nigerian banks won't go until you turn them back on.");
+  await expect(sheet.locator("button")).toHaveText(["Turn off", "Keep them on"]);
+  await expect(sw).toHaveAttribute("aria-checked", "true"); // nothing changes until confirmed
+  await page.locator("#instantOffCancel").click();
+  await expect(sheet).toHaveCount(0);
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  await sw.click();
+  await sheet.click({ position: { x: 20, y: 20 } }); // the dimmed panel above the sheet
+  await expect(sheet).toHaveCount(0);
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  await turnOff(page);
+  await expect(sheet).toHaveCount(0);
+  await expect(sw).toHaveAttribute("aria-checked", "false"); // no PIN to turn off
+});
+
+test("turning on asks for the PIN, then says so; a wrong PIN or Back leaves them off", async ({ page }) => {
+  await openSettings(page);
+  await page.locator("#openInstantTransfers").click();
+  await turnOff(page);
+  const sw = page.locator("#instantSwitch");
+  await sw.click();
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Turns on instant transfers.");
+  await page.locator("#pinApproveCancel").click();
+  await expect(title(page)).toHaveText("Instant transfers");
+  await expect(sw).toHaveAttribute("aria-checked", "false");
+  await sw.click();
+  await enterPin(page, "0000");
+  await expect(page.locator("#panelBody .step-sub").first()).toContainText("Incorrect PIN. 2 attempts left.");
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  await expect(page.locator("#toastEl")).toHaveText("Instant transfers are on.");
+  await expect(title(page)).toHaveText("Instant transfers");
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+});
+
+test("turning on with no PIN yet creates one first", async ({ page }) => {
+  await page.goto("/demo/wallet");
+  await page.getByLabel("Instant transfers default").selectOption("off");
+  await page.locator("#openSettingsHeader").click();
+  await page.locator("#openInstantTransfers").click();
+  await page.locator("#instantSwitch").click();
+  await expect(page.locator("#panelBody .step-title")).toHaveText("Create your PIN");
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("4321");
+  await expect(page.locator("#panelBody .step-title")).toHaveText("Confirm your PIN");
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("4321");
+  await expect(page.locator("#instantSwitch")).toHaveAttribute("aria-checked", "true");
+});
+
+/** Instant transfers off (demo default), then Send to a recipient with an amount. */
+async function offThenSend(page: Page, recipient: string, digits = "500000") {
+  await page.goto("/demo/wallet");
+  await page.getByLabel("PIN", { exact: true }).selectOption("set");
+  await page.getByLabel("Instant transfers default").selectOption("off");
+  await page.locator("#actSend").click();
+  await page.locator(`[data-sendrecipient="${recipient}"]`).click();
+  await page.locator("#youSend").click();
+  for (const d of digits) await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
+  await page.locator("#keypadDone").click();
+}
+
+test("while off, sending naira to a Nigerian bank says so with Turn on, and Review is disabled; Turn on resumes the send", async ({ page }) => {
+  await offThenSend(page, "bank:r6");
+  await expect(page.locator("#instantOffNotice")).toHaveText("Instant transfers are off. Turn on");
+  await expect(page.locator("#payoutReview")).toBeDisabled();
+  await page.evaluate(() => (window as any).__payout.getState().toReview()); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(page.locator("#confirmPayout")).toHaveCount(0); // the store refuses too
+  await page.locator("#instantTurnOn").click();
+  await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Turns on instant transfers.");
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  // Back on the amount screen with the same send
+  await expect(page.locator("#sendToTitle")).toHaveText("Send to Ngozi");
+  await expect(page.locator("#youSend")).toHaveText("5,000.00");
+  await expect(page.locator("#instantOffNotice")).toHaveCount(0);
+  await expect(page.locator("#payoutReview")).toBeEnabled();
+  await page.locator("#payoutReview").click();
+  await expect(page.locator("#confirmPayout")).toBeVisible();
+});
+
+test("while off, naira to a Nigerian bank is blocked whatever pays it (USD converted too); Back from the PIN keeps the send", async ({ page }) => {
+  await offThenSend(page, "bank:r6", "");
+  await page.locator("#payFromChip").click();
+  await page.locator('[data-payfrom="cash:USD:open"]').click();
+  await page.locator("#youSend").click();
+  for (const d of "1000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
+  await expect(page.locator("#instantOffNotice")).toBeVisible();
+  await expect(page.locator("#payoutReview")).toBeDisabled();
+  await page.locator("#instantTurnOn").click();
+  await page.locator("#pinApproveCancel").click();
+  await expect(page.locator("#youSend")).toHaveText("10.00"); // the send is as it was
+  await expect(page.locator("#instantOffNotice")).toBeVisible();
+});
+
+for (const [recipient, label] of [["poket:pu1", "a Poket user"], ["bank:r4", "a US bank"]] as const) {
+  test(`while off, ${label} is unaffected`, async ({ page }) => {
+    await offThenSend(page, recipient, recipient === "bank:r4" ? "" : "500000");
+    if (recipient === "bank:r4") {
+      await page.locator("#payFromChip").click();
+      await page.locator('[data-payfrom="cash:USD:open"]').click();
+      await page.locator("#youSend").click();
+      for (const d of "1000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
+    }
+    await expect(page.locator("#instantOffNotice")).toHaveCount(0);
+    await expect(page.locator("#payoutReview")).toBeEnabled();
+  });
+}
+
+test("while off, Convert is unaffected", async ({ page }) => {
+  await page.goto("/demo/wallet");
+  await page.getByLabel("Instant transfers default").selectOption("off");
+  await page.evaluate(() => (window as any).__convert.getState().start({ from: "cash:NGN:open", to: "cash:USD:open" })); // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (const d of "500000") await page.locator(`#panelBody [data-cvkey="${d}"]`).click();
+  await expect(page.locator("#cvReview")).toBeEnabled();
+  await expect(page.locator("#panelBody")).not.toContainText("Instant transfers are off");
 });

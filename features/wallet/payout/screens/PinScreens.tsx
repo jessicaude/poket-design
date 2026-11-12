@@ -49,17 +49,19 @@ function DigitBoxes({ count, password, label, delay, onComplete, style }: {
 
 /** tPin: create, confirm or enter the 4-digit PIN. Wrong PINs show the attempts left; the third locks it. */
 export function PinScreen() {
-  const { pinStage, pinPurpose, pinError, pinComplete, back } = usePayout();
+  const { pinStage, pinPurpose, pinReason, pinError, pinComplete, back, cancelApprove } = usePayout();
   const [tries, setTries] = useState(0);
   const t = {
     create: [pinPurpose === "reset" ? "Create a new PIN" : "Create your PIN", "Protects money leaving your account. 4 digits."],
     confirm: ["Confirm your PIN", "Enter it once more."],
-    entry: ["Enter your PIN", "Approves this payment."],
+    entry: ["Enter your PIN", pinPurpose === "approve" ? pinReason : "Approves this payment."],
   }[pinStage];
   return (
     <>
       {/* Not in tPin (the checkout closes its sheet instead); it takes the place of the wallet's backToPayoutReview. */}
       {pinPurpose === "payout" && <BackRow id="backToPayoutReview" onClick={back} />}
+      {/* Approving a setting: Back cancels it */}
+      {pinPurpose === "approve" && <BackRow id="pinApproveCancel" onClick={cancelApprove} />}
       <div className="step-eyebrow">{pinStage === "entry" ? "Security check" : "One-time setup"}</div>
       <div className="step-title">{t[0]}</div>
       <p className="step-sub">{t[1]}{pinError && <> <span style={{ color: "var(--err-600)" }}>{pinError}</span></>}</p>

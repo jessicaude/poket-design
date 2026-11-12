@@ -12,6 +12,7 @@ import { BackRow, Grey, Keypad } from "../payout/parts";
 import { fmtCurrency } from "../payout/payoutMath";
 import { showNotPorted } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
+import { turnOnInstantTransfers } from "./instant";
 import { INSTANT_TIER_MAX_DEMO_KOBO, TIER_MAX_PLACEHOLDER, effectiveLimit, useSettings } from "./useSettings";
 
 /*
@@ -179,6 +180,9 @@ export function InstantTransfersScreen() {
   const tier = useNgn((s) => s.tier);
   const { instantOn, instantLimit, setInstantOn } = useSettings();
   const next = tier < 3 ? tier + 1 : null;
+  // On asks for the PIN first; off asks to confirm (a sheet), then takes effect at once
+  const [confirmOff, setConfirmOff] = useState(false);
+  const toggle = (on: boolean) => (on ? turnOnInstantTransfers() : setConfirmOff(true));
   return (
     <>
       <BackRow id="backFromInstant" label="Settings" onClick={back} />
@@ -188,7 +192,7 @@ export function InstantTransfersScreen() {
           <div className="t1">Instant transfers to banks</div>
           <div className="t2" id="instantExplain">Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it&apos;s off, you can&apos;t send to banks.</div>
         </div>
-        <Switch id="instantSwitch" on={instantOn} label="Instant transfers to banks" onChange={setInstantOn} />
+        <Switch id="instantSwitch" on={instantOn} label="Instant transfers to banks" onChange={toggle} />
       </div>
       <div className="section-title" style={{ marginTop: "18px" }}>Daily limit</div>
       <div className="info-card" id="instantLimitCard" style={instantOn ? undefined : { opacity: 0.55 }}>
@@ -204,6 +208,16 @@ export function InstantTransfersScreen() {
         ? <span className="btn-ghost" id="instantRaiseTier" role="button" tabIndex={0} style={{ display: "inline-block", marginTop: "12px" }}
             onClick={() => push({ name: "compliance" })}>Raise your maximum: {TIERS[next as 1 | 2 | 3].name}</span>
         : <p className="step-sub" style={{ marginTop: "12px" }}>You&apos;re at Poket&apos;s highest verification level.</p>}
+      {confirmOff && (
+        <div className="pk-sheet-scrim" id="instantOffSheet" onClick={(e) => { if (e.target === e.currentTarget) setConfirmOff(false); }}>
+          <div className="pk-sheet" role="dialog" aria-modal="true" aria-labelledby="instantOffTitle">
+            <div className="step-title" id="instantOffTitle">Turn off instant transfers?</div>
+            <p className="step-sub">Sends to Nigerian banks won&apos;t go until you turn them back on.</p>
+            <button className="btn-primary btn-danger" id="instantOffConfirm" onClick={() => { setInstantOn(false); setConfirmOff(false); }}>Turn off</button>
+            <button className="btn-secondary" id="instantOffCancel" style={{ width: "100%", marginTop: "8px" }} onClick={() => setConfirmOff(false)}>Keep them on</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

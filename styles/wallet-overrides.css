@@ -28,3 +28,10 @@
 /* Send's new stablecoin wallet: the address shows in full with its first 6 and last 4 characters highlighted
    (the explore prototype's hl()), in the wallet's darker brand green. */
 .addr-row em{font-style:normal;color:var(--brand-600)}
+
+/* A confirmation sheet over the wallet panel (WGT-09's "Turn off instant transfers?"). The wallet stylesheet has no
+   sheet, so this is new: the panel (.panel, position:relative) dims and the sheet rises from its bottom edge. */
+.pk-sheet-scrim{position:absolute;inset:0;z-index:30;display:flex;align-items:flex-end;background:rgba(16,24,20,.38);border-radius:inherit;overflow:hidden}
+.pk-sheet{width:100%;background:var(--bg);border-radius:20px 20px 0 0;padding:20px 20px 22px;box-shadow:0 -10px 30px rgba(0,0,0,.14);animation:pk-sheet-up 180ms var(--ease-out)}
+.pk-sheet .step-title{margin-top:0}
+@keyframes pk-sheet-up{from{transform:translateY(100%)}to{transform:none}}

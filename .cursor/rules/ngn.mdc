@@ -234,7 +234,17 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
 - Demo bar "Instant transfers default: On / Off": what a new user starts with (switching starts the demo user over).
 - Compliance's "Increase my limits" opens the step-up (no warning line: the user asked); Continue raises the tier by
   one, a demo stand-in for the verification steps, which aren't ported yet (as on the NGN account card).
-- Not wired yet: Send doesn't check the switch or the daily limit.
+- Turning instant transfers on asks for the PIN (the checkout's PIN screens, usePayout.approveWithPin: "Enter your
+  PIN" / "Turns on instant transfers.", or create a PIN first), then the toast "Instant transfers are on." Back or
+  a wrong PIN leaves them off. Turning them off needs no PIN: a confirmation sheet ("Turn off instant transfers?",
+  "Sends to Nigerian banks won't go until you turn them back on.", Turn off / Keep them on; a tap outside cancels),
+  then it takes effect at once. The sheet (.pk-sheet in styles/wallet-overrides.css) is new: the wallet has none.
+- While off, a send to a Nigerian bank account (naira to a Nigerian bank, whatever pays it, USD converted too) shows
+  "Instant transfers are off. Turn on" on the amount screen (#instantOffNotice), and Review is disabled (the store's
+  toReview refuses too). "Turn on" asks for the PIN, then the send comes back as it was (approving or not).
+  Poket users, other banks, cards, stablecoin wallets, Convert and Checkout aren't affected
+  (blockedByInstantOff in features/wallet/settings/instant.ts).
+- Not wired yet: Send doesn't check the daily limit.
 
 ## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which

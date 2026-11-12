@@ -13,6 +13,8 @@ import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountRevie
 import { usePayout } from "../payout/usePayout";
 import { asSendRecipient, nairaConvertsOnReceipt, sameAsTarget, sendSources, targetKeyFor } from "./sources";
 import { useNairaRecipients } from "./nairaRecipients";
+import { useSettings } from "../settings/useSettings";
+import { blockedByInstantOff, turnOnInstantTransfers } from "../settings/instant";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
@@ -43,6 +45,7 @@ export function SendAmountScreen() {
   useNairaRecipients((s) => s.othersHoldNaira); // the demo bar's "Recipient can hold naira" changes the target
   const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
+  const instantOn = useSettings((s) => s.instantOn);
   // The keypad shows only while You send's amount is being typed: tapping it opens the keypad; Done, or a tap anywhere
   // else (in the wallet or outside it), closes it. composedPath() sees through the wallet's shadow root.
   const [keypad, setKeypad] = useState(false);
@@ -70,7 +73,9 @@ export function SendAmountScreen() {
   const nairaRedirected = !!nairaBlocked && !!opened?.startsWith("cash:NGN:") && !payFrom.startsWith("cash:NGN:");
   // The total (with a decided fee, e.g. a wallet's) must fit the balance
   const over = summary.sourceTotal > avail;
-  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired);
+  // WGT-09: while instant transfers are off, a send to a Nigerian bank can't go on to review
+  const instantOff = blockedByInstantOff(r, instantOn);
+  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff;
   const amountText = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
     <>
@@ -92,6 +97,13 @@ export function SendAmountScreen() {
         // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&apos;t hold naira. They&apos;ll get USD.</span>
+        </div>
+      )}
+      {instantOff && (
+        // NEW copy: "Turn on" asks for the PIN, then the send carries on
+        <div className="alert warn" id="instantOffNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
+          <Raw html={WICON.alert} /><span>Instant transfers are off. <span className="btn-ghost" id="instantTurnOn" role="button" tabIndex={0}
+            style={{ display: "inline", padding: 0 }} onClick={turnOnInstantTransfers} onKeyDown={(e) => { if (e.key === "Enter") turnOnInstantTransfers(); }}>Turn on</span></span>
         </div>
       )}
       {nairaRedirected && (
