@@ -18,6 +18,7 @@ import { AccountIntroScreen } from "./screens/AccountIntroScreen";
 import { AccountCreatingScreen } from "./screens/AccountCreatingScreen";
 import { AccountDetailsScreen } from "./screens/AccountDetailsScreen";
 import { VerifyScreen } from "./screens/VerifyScreen";
+import { NGN_PAUSED_STAGES, NairaPausedBanner } from "../NairaPausedBanner";
 
 /** One component per NGN stage. Stages not ported yet show a visible placeholder. */
 const SCREENS: Partial<Record<NgnStage, ComponentType>> = {
@@ -47,6 +48,8 @@ export function NgnBody() {
   const C = SCREENS[stage];
   return (
     <div className="screen-fade" key={stage}>
+      {/* WGT-13: naira deposits by bank transfer show the paused banner on top while the naira partner is down */}
+      {NGN_PAUSED_STAGES.includes(stage) && <NairaPausedBanner />}
       {C ? <C /> : <NotPorted stage={stage} />}
     </div>
   );

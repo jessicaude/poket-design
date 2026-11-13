@@ -1,4 +1,5 @@
 "use client";
+import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { NGN_VA, useNgn } from "../ngn/useNgn";
@@ -29,6 +30,8 @@ export function NgnBalanceScreen() {
   ].sort((a, b) => b.at - a.at);
   return (
     <>
+      {/* WGT-13: while the naira partner is down */}
+      <NairaPausedBanner />
       <BackRow id="backFromDetail" label="Cash" onClick={back} />
       <div className="center-col" style={{ padding: "2px 0 4px" }}>
         <div className="asset-icon-wrap" style={{ marginBottom: "10px" }}>

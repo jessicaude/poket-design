@@ -329,7 +329,20 @@ WGT-10 is four parts, each with its rules below:
   clicks the demo bars' "To Checkout" / "To wallet" links, which move between the two demo pages without
   reloading, so the one mock keeps its count, as one account would).
 
-## Checkout (WGT-06: pay at checkout with NGN rails)
+## Partner downtime (WGT-13)
+- Demo bar "Naira partner: Up / Down" (useSettings.nairaPartnerDown; Up by default).
+- While down, a banner in the wallet's .alert warn style (features/wallet/NairaPausedBanner.tsx, #nairaPaused) tops:
+  the wallet home, the NGN balance screen, naira deposits by bank transfer (NgnBody stages in NGN_PAUSED_STAGES:
+  Deposit NGN, bank transfer, the temporary account, NGN account details and creating them; not the ID checks or the
+  results), adding a Nigerian bank (ngn-account, ngn-bank), and the amount and review of a send to a Nigerian bank.
+  Copy: "Naira bank transfers are paused. Your balance is safe, and sending to Poket users, converting and card
+  payments still work."
+- Screens that still work (a Poket user, other banks, cards, Convert) don't show it. When the partner is back, the
+  banner disappears at once, from any screen it's on.
+- The banner only informs: nothing is blocked while down (a send to a Nigerian bank can still be reviewed and sent).
+- Tests: e2e/partner-downtime.spec.ts.
+
+
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
   methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:
   /demo/ile-living. Checkout uses the prototype's classes (styles/prototype.css); the account card's va-* classes are

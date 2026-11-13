@@ -21,7 +21,7 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
-  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
+  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, nairaPartnerDown, setDemo } = useSettings();
   const selfiePhone = usePayout((s) => s.selfiePhone);
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
@@ -89,6 +89,12 @@ export function NgnDemoBar() {
         {/* WGT-10: a new device confirms itself with an email code the first time money moves */}
         <select aria-label="This device" value={deviceKnown ? "known" : "new"} onChange={(e) => setDeviceKnown(e.target.value === "known")}>
           <option value="known">This device: Known</option><option value="new">This device: New</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Naira partner</span>
+        {/* WGT-13: partner downtime pauses naira bank transfers (a banner on the affected screens) */}
+        <select aria-label="Naira partner" value={nairaPartnerDown ? "down" : "up"} onChange={(e) => setDemo({ nairaPartnerDown: e.target.value === "down" })}>
+          <option value="up">Naira partner: Up</option><option value="down">Naira partner: Down</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Single active device</span>

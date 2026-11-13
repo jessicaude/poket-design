@@ -40,7 +40,9 @@ type State = {
   flagUnusual: boolean;
   /** 3 failed ID checks (selfie checks and NGN ID matches, counted together): the account is blocked. */
   idBlocked: boolean;
-  setDemo: (patch: Partial<Pick<State, "selfieOutcome" | "flagUnusual" | "idBlocked">>) => void;
+  /** WGT-13: demo bar "Naira partner: Up / Down". While down, naira bank transfers are paused (NairaPausedBanner). */
+  nairaPartnerDown: boolean;
+  setDemo: (patch: Partial<Pick<State, "selfieOutcome" | "flagUnusual" | "idBlocked" | "nairaPartnerDown">>) => void;
   /**
    * Demo bar "Single active device" (to confirm: not in the PRD). On: binding a new device signs out every other one,
    * so Security lists only this device; a device signed out that way is asked to sign in again on its next action.
@@ -89,6 +91,7 @@ const fresh = (defaultOn: boolean) => ({
   selfieOutcome: "pass" as "pass" | "retry" | "declined",
   flagUnusual: false,
   idBlocked: false,
+  nairaPartnerDown: false,
   singleDevice: false,
   signedOut: false,
   signInPrompt: false,
@@ -123,7 +126,7 @@ export const useSettings = create<State>((set, get) => ({
   },
   cancelPendingLimit: () => set({ instantPending: null }),
   applyPendingLimit: () => { const p = get().instantPending; if (p !== null) set({ instantLimit: p, instantPending: null }); },
-  setInstantDefault: (on) => set((s) => ({ ...fresh(on), deviceKnown: s.deviceKnown, devices: s.devices, selfieOutcome: s.selfieOutcome, flagUnusual: s.flagUnusual, idBlocked: s.idBlocked, singleDevice: s.singleDevice, signedOut: s.signedOut, signInPrompt: s.signInPrompt })),
+  setInstantDefault: (on) => set((s) => ({ ...fresh(on), deviceKnown: s.deviceKnown, devices: s.devices, selfieOutcome: s.selfieOutcome, flagUnusual: s.flagUnusual, idBlocked: s.idBlocked, nairaPartnerDown: s.nairaPartnerDown, singleDevice: s.singleDevice, signedOut: s.signedOut, signInPrompt: s.signInPrompt })),
   reset: () => set(fresh(get().instantDefaultOn)),
 }));
 
