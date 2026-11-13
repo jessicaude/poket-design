@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Holding } from "./home/WalletHome";
+import type { DisputeTarget } from "./disputes/DisputeScreens";
 
 /** Wallet screens outside the payout and NGN flows. An empty stack is the home screen. */
 export type WalletScreen =
@@ -11,6 +12,12 @@ export type WalletScreen =
   | { name: "assets-all" }
   | { name: "holding"; holding: Holding }
   | { name: "tx"; id: string }
+  /** WGT-12: a Checkout payment's detail, and a dispute on a payment */
+  | { name: "payment"; id: string }
+  | { name: "refund"; id: string }
+  /** "Report a problem" on a Paid send to a Nigerian bank (and its recall request) */
+  | { name: "report"; id: string }
+  | { name: "dispute"; target: DisputeTarget }
   | { name: "settings" }
   | { name: "security" }
   | { name: "compliance" }

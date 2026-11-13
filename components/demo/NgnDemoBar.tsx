@@ -1,15 +1,18 @@
 "use client";
+import { resolveDispute } from "@/lib/disputes";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { NGN_ROUTES, useNgn, type Eligibility, type Tier } from "@/features/wallet/ngn/useNgn";
 import { DEMO_PIN, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
-import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
+import { RECALL_TRANSITIONS, WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+import { useAccount } from "@/store/account";
+import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 
@@ -39,11 +42,12 @@ export function NgnDemoBar() {
   const sendStage = useSend((s) => s.stage), payStage = usePayout((s) => s.stage), cvStage = useConvert((s) => s.stage);
   const flowOpen = !!sendStage || !!payStage || !!cvStage || !!stage;
   const screen = currentScreen(useWalletNav((s) => s.stack));
-  const { list, move, releaseHold } = useWithdrawals();
+  const { list, move, releaseHold, setRecall } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
   // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
   const held = !!w && partnerDown && w.status === "sending" && toNigerianBank(w);
+  const payment = useAccount((s) => (!payoutStage && screen?.name === "payment" ? s.account?.payments.find((p) => p.id === screen.id) : undefined));
   const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
@@ -133,6 +137,21 @@ export function NgnDemoBar() {
       {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}
       {partnerDown && <button className="pbtn" id="demoQueuedArrival" onClick={() => queueArrival(QUEUED_ARRIVAL_DEMO_KOBO)}>
         Transfer arrived while down{queued.length ? ` (${queued.length})` : ""}</button>}
+      {/* WGT-12: on a Checkout payment's detail, the merchant refunds it (all that's left, or half of it) */}
+      {/* WGT-12: an open dispute is resolved: refunded, released (the merchant keeps it) or reversed */}
+      {payment?.status === "disputed" && (
+        <>
+          <button className="pbtn" id="demoResolveRefund" onClick={() => resolveDispute(payment.id, "refund")}>Resolve: refund</button>
+          <button className="pbtn" id="demoResolveRelease" onClick={() => resolveDispute(payment.id, "release")}>Resolve: release</button>
+          <button className="pbtn" id="demoResolveReversal" onClick={() => resolveDispute(payment.id, "reversal")}>Resolve: reversal</button>
+        </>
+      )}
+      {payment && payment.status !== "disputed" && (
+        <>
+          <button className="pbtn" id="demoRefundFull" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "full")}>Merchant refunds: full</button>
+          <button className="pbtn" id="demoRefundPart" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "part")}>Merchant refunds: part</button>
+        </>
+      )}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}
@@ -150,6 +169,14 @@ export function NgnDemoBar() {
           <button className="pbtn" disabled={!can("paid")} onClick={() => move(w.id, "paid")}>Mark paid</button>
           <button className="pbtn" disabled={!can("failed")} onClick={() => move(w.id, "failed")}>Fail</button>
           <button className="pbtn" disabled={!can("reversed")} onClick={() => move(w.id, "reversed")}>Reverse</button>
+          {/* A recall request on a Paid send to a Nigerian bank: the receiving bank's answer */}
+          {w.recall && (
+            <>
+              <button className="pbtn" id="demoRecallProgress" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("in_progress")} onClick={() => setRecall(w.id, "in_progress")}>Recall: in progress</button>
+              <button className="pbtn" id="demoRecallRecovered" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("recovered")} onClick={() => setRecall(w.id, "recovered")}>Recall: recovered</button>
+              <button className="pbtn" id="demoRecallNot" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("not_recovered")} onClick={() => setRecall(w.id, "not_recovered")}>Recall: not recovered</button>
+            </>
+          )}
         </>
       )}
       {stage === "temp" && (

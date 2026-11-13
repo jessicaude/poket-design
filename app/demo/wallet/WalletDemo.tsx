@@ -14,6 +14,8 @@ import { isConvertStage, useConvert } from "@/features/wallet/convert/useConvert
 import { useHoldings } from "@/features/wallet/useHoldings";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
 import { useSettings } from "@/features/wallet/settings/useSettings";
+import { useAccount } from "@/store/account";
+import { DEMO_USER_EMAIL, findAccount } from "@/lib/mock-api";
 
 /**
  * The body is the open flow (Send, NGN, Convert), else the wallet home (WalletBody).
@@ -33,7 +35,10 @@ export function WalletDemo({ css }: { css: string }) {
   };
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents });
+    // WGT-12: the wallet is the demo user's (Ada Osun): her account, with any Checkout payments she made
+    const ada = findAccount(DEMO_USER_EMAIL);
+    if (ada && useAccount.getState().account?.email !== ada.email) useAccount.getState().signIn(structuredClone(ada));
+    Object.assign(window, { __account: useAccount, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);

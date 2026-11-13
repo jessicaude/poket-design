@@ -34,7 +34,7 @@ export function DeclinedScreen() {
 
 /** SCREENS['done'] (one-time payment) */
 export function DoneScreen() {
-  const { order, paid, close, showToast } = useCheckout();
+  const { order, paid, close } = useCheckout();
   if (!order || !paid) return null;
   const m = paid.method;
   const mini = m.kind === "bank" ? BANK_MINI : m.brand ? BRANDS[m.brand].mini : "";
@@ -52,7 +52,7 @@ export function DoneScreen() {
       </div>
       <Raw html={PROTECT_NOTE.replace(/__HOST__/g, order.merchant)} />
       <div className={`btn-pair ${order.merchant.length > 14 ? "stack" : ""}`}>
-        <button className="btn outline" onClick={() => showToast("Receipts aren’t ported yet")}>View receipt</button>
+        <button className="btn outline" id="doneView" onClick={() => useCheckout.getState().viewPayment(paid.ref, "done")}>View receipt</button>
         <button className="btn outline" title={`Back to ${order.merchant}`} onClick={() => close("done")}><span className="btn-txt">Back to {order.merchant}</span></button>
       </div>
     </>

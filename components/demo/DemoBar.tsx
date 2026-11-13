@@ -1,4 +1,7 @@
 "use client";
+import { resolveDispute } from "@/lib/disputes";
+import { useAccount } from "@/store/account";
+import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { useNairaPartner } from "@/store/partner";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -25,11 +28,25 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
   const { open, screen, transfer, transferArrives, expireTransfer, idv, openOnPhone, finishOnPhone, approveReview } = useCheckout();
   const { down: partnerDown, setDown: setPartnerDown } = useNairaPartner();
   // Screen demo actions (the prototype's SCREENS[...].demo): the ID handoff and manual review
-  const action = !open ? null
-    : screen === "vendor" ? (idv.vstage === "phone" ? { label: "Finish on phone", run: finishOnPhone } : { label: "Open on phone", run: openOnPhone })
-    : screen === "id-review" ? { label: "Approve review", run: approveReview }
-    : screen === "locked" ? { label: "Skip lock time", run: () => useAccountLock.getState().skip() }
-    : null;
+  // WGT-12: on a payment's detail, the merchant refunds it (the reference's demo with an extra button)
+  const viewed = useAccount((s) => (screen === "pay-detail" ? s.account?.payments.find((p) => p.id === useCheckout.getState().viewPay) : undefined));
+  // An open dispute: resolved by refund, release or reversal
+  type Act = { label: string; run: () => void };
+  const actions: Act[] = !open ? []
+    : viewed?.status === "disputed" ? [
+      { label: "Resolve: refund", run: () => resolveDispute(viewed.id, "refund") },
+      { label: "Resolve: release", run: () => resolveDispute(viewed.id, "release") },
+      { label: "Resolve: reversal", run: () => resolveDispute(viewed.id, "reversal") },
+    ]
+    : viewed && refundLeft(viewed) > 0 ? [
+      { label: "Merchant refunds: full", run: () => { merchantRefunds(viewed.id, "full"); } },
+      { label: "Merchant refunds: part", run: () => { merchantRefunds(viewed.id, "part"); } },
+    ]
+    : screen === "vendor" ? [idv.vstage === "phone" ? { label: "Finish on phone", run: finishOnPhone } : { label: "Open on phone", run: openOnPhone }]
+    : screen === "id-review" ? [{ label: "Approve review", run: approveReview }]
+    : screen === "locked" ? [{ label: "Skip lock time", run: () => useAccountLock.getState().skip() }]
+    : [];
+  const action = actions[0] ?? null;
   const onTransfer = checkout && open && screen === "bank-transfer" && (transfer.state === "waiting" || transfer.state === "arriving");
   // The bar wraps onto more rows when it doesn't fit: keep --bar (page offset, scrim, widget height) equal to its height
   const bar = useRef<HTMLDivElement>(null);
@@ -128,7 +145,7 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
     </div>
     {/* The prototype's DEMO pill (setDemo): the current screen's demo action */}
     <div className={`demo ${action ? "on" : ""}`} id="demo" role="region" aria-label="Demo action">
-      <span>DEMO</span>{action && <button type="button" id="demoBtn" onClick={action.run}>{action.label}</button>}
+      <span>DEMO</span>{actions.map((a, i) => <button key={a.label} type="button" id={i ? `demoBtn${i + 1}` : "demoBtn"} onClick={a.run}>{a.label}</button>)}
     </div>
     </>
   );

@@ -63,3 +63,15 @@
 .vendor .opt b{display:block;color:#1c1e2a;font-size:13.5px;margin-bottom:2px}
 .vendor .qr{width:132px;height:132px;margin:10px auto 2px;display:block}
 .vendor .wait{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:13px;color:#5a5f78;padding:10px 0}
+
+/* WGT-12 dispute form: tDispute's own <style> block (reference/poket-unified.html), copied as is. */
+.ud-chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
+.ud-chips.odd .ud-chip:last-child{grid-column:1/-1}
+.ud-chip{height:40px;padding:0 10px;border:1px solid var(--n-300);border-radius:10px;background:var(--bg,#fff);font-size:13px;font-weight:600;font-family:inherit;color:var(--txt);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ud-chip:hover{border-color:var(--n-400)}
+.ud-chip.on{background:var(--brand-50);border-color:var(--brand-500);color:var(--brand-600);box-shadow:0 2px 8px rgba(10,92,72,.1)}
+.ud-more{display:flex;align-items:center;gap:6px;width:100%;border:0;border-top:1px solid var(--bdr2);background:none;padding:12px 0 6px;font-family:inherit;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer;text-align:left}
+.ud-more .o{font-weight:400;color:var(--txt3)}
+.ud-more .c{margin-left:auto;display:flex;color:var(--txt3);transform:rotate(90deg);transition:transform .15s}
+.ud-more.open .c{transform:rotate(-90deg)}
+.ud-foot{border-top:1px solid var(--bdr2);margin-top:14px;padding-top:12px}

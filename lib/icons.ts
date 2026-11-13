@@ -156,3 +156,32 @@ export const EXPLORE_NETWORK_LOGO = {
 export const FILTER_ICON = "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"M4 6h16M7 12h10M10 18h4\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"/></svg>";
 /** icons.idcard from the reference's wallet engine (reference/poket-widgets.html), verbatim: the manual-review badge. */
 export const IDCARD_ICON = "<svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2.5\" stroke=\"currentColor\" stroke-width=\"1.6\"/><circle cx=\"8\" cy=\"12\" r=\"2\" stroke=\"currentColor\" stroke-width=\"1.4\"/><path d=\"M13 10h6M13 14h4\" stroke=\"currentColor\" stroke-width=\"1.4\" stroke-linecap=\"round\"/></svg>";
+
+/** Checkout's Poket account (WGT-12), verbatim from reference/poket-widgets.html: the tab bar's WICON (home, activity, card), TXI, DISPUTE_TX_IC, MSG_IC. */
+export const ACCT_ICON = {
+  "tabHome": "<svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-8.5Z\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
+  "tabActivity": "<svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M3 12h4l2 7 4-14 2 7h6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
+  "tabMethods": "<svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"3\" y=\"5.5\" width=\"18\" height=\"13\" rx=\"2.5\" stroke=\"currentColor\" stroke-width=\"1.6\"/><path d=\"M3 10h18M7 15h3\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\"/></svg>",
+  "pay": "<svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M3 12h4l2 7 4-14 2 7h6\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/></svg>",
+  "check": "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M5 12.5l4.5 4.5L19 7.5\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  "cal": "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"4\" y=\"5.5\" width=\"16\" height=\"14\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.7\"/><path d=\"M4 10h16M8.5 3.5v4M15.5 3.5v4\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg>",
+  "card": "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"3\" y=\"5.5\" width=\"18\" height=\"13\" rx=\"2.5\" stroke=\"currentColor\" stroke-width=\"1.8\"/><path d=\"M3 10h18\" stroke=\"currentColor\" stroke-width=\"1.8\"/></svg>",
+  "bag": "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M5.5 8h13l-1 12h-11l-1-12Z M9 8V6.5a3 3 0 0 1 6 0V8\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linejoin=\"round\"/></svg>",
+  "hash": "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M9.5 4 8 20M16 4l-1.5 16M4.5 9h15M4 15h15\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg>",
+  "copy": "<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.8\"/><path d=\"M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8\" stroke=\"currentColor\" stroke-width=\"1.8\"/></svg>",
+  "chev": "<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M6 3.5 10.5 8 6 12.5\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+  "disputeTx": "<svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M12 4 21 19H3L12 4Z\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linejoin=\"round\"/><path d=\"M12 10v4M12 16.5h.01\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg>",
+  "refund": "<svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M9 14 4 9l5-5\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M4 9h10.5a5.5 5.5 0 0 1 0 11H11\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"/></svg>",
+  "msg": "<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8.5A1.5 1.5 0 0 1 19 17h-8l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 5 5.5Z\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linejoin=\"round\"/></svg>"
+} as const;
+/** MERCHANTS[name].logo (inner SVG, 32×32 viewBox); null: no logo uploaded, so initials. */
+export const MERCHANT_LOGO: Record<string, string | null> = {
+  "Gigsy": "<rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#5b3fd6\"/><path d=\"M21.5 11.5a7 7 0 1 0 .8 7.5H16\" stroke=\"#fff\" stroke-width=\"2.6\" stroke-linecap=\"round\" fill=\"none\"/>",
+  "Ilé Living": "<rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#2f6b4f\"/><path d=\"M9 16.5 16 10l7 6.5V23a1 1 0 0 1-1 1h-3.5v-5h-5v5H10a1 1 0 0 1-1-1v-6.5Z\" fill=\"#f4efe6\"/><circle cx=\"16\" cy=\"16.2\" r=\"1.4\" fill=\"#2f6b4f\"/>",
+  "Kola Books": "<rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#7a4b2a\"/><path d=\"M8 11.5c2.8-.9 5.5-.6 8 1 2.5-1.6 5.2-1.9 8-1V22c-2.8-.9-5.5-.6-8 1-2.5-1.6-5.2-1.9-8-1V11.5Z\" fill=\"#f6e7c8\"/><path d=\"M16 12.5V23\" stroke=\"#7a4b2a\" stroke-width=\"1.2\"/>",
+  "Sooyah Bistro": "<rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#b5482a\"/><path d=\"M16 8.5c1.6 2.6 4.5 4.6 4.5 8.4a4.5 4.5 0 0 1-9 0c0-2 1-3.2 2-4.2.2 1.5.9 2.3 1.8 2.6-.4-2.6.2-4.7.7-6.8Z\" fill=\"#ffd9a8\"/>",
+  "Mama Tee’s Kitchen": null,
+  "Adire Market": "<rect width=\"32\" height=\"32\" rx=\"8\" fill=\"#2a3557\"/><g fill=\"#b9c6f0\"><circle cx=\"11\" cy=\"11\" r=\"2\"/><circle cx=\"21\" cy=\"11\" r=\"2\"/><circle cx=\"16\" cy=\"16\" r=\"2\"/><circle cx=\"11\" cy=\"21\" r=\"2\"/><circle cx=\"21\" cy=\"21\" r=\"2\"/></g>"
+};
+/** AV_COLORS: the initials' colours, picked from the name. */
+export const AV_COLORS = ["#2a3557","#7a4b2a","#2f6b4f","#6b3f6b","#3b5b7a","#8a5a00","#5b4a8a"];

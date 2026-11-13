@@ -19,7 +19,7 @@ export function MoneyU({ minor, currency }: { minor: number; currency: OrderCurr
 
 /** SCREENS['pay'] */
 export function PayScreen() {
-  const { order, settings, onboarding, selected, select, pay, go, showToast, quote, refreshQuote } = useCheckout();
+  const { order, settings, onboarding, selected, select, pay, go, quote, refreshQuote } = useCheckout();
   const account = useAccount((s) => s.account);
   const sel = account?.methods.find((m) => m.id === selected);
   const converting = isConverting(order, settings, sel);
@@ -43,7 +43,7 @@ export function PayScreen() {
     <>
       <h2 className="title">Pay {formatOrder(order.amount, order.currency)} to {order.merchant}</h2>
       <p className="sub">
-        {!onboarding && <>Signed in as {masked} · <button className="link" onClick={() => showToast("Your Poket isn’t ported yet")}>Your Poket</button></>}
+        {!onboarding && <>Signed in as {masked} · <button className="link" id="payAcct" onClick={() => useCheckout.getState().openAccount()}>Your Poket</button></>}
       </p>
       <div className="methods" role="radiogroup" aria-label="Payment method">
         {account.methods.map((m) => {
