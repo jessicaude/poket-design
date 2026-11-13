@@ -25,6 +25,8 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - Ada's demo account is seeded with three Checkout payments, as the reference does: a recent naira card payment, a naira bank transfer from 10 days ago, and a dollar card payment from 76 days ago (outside the dispute window).
 - In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported.
 
+- **Report a problem** on a Paid send to a Nigerian bank. "I sent it to the wrong account" requests a recall, saying up front that bank transfers can't always be recovered. It's then submitted, in progress, and either recovered (back in the NGN balance, with a notification) or not recovered ("The receiving bank didn't return it.", with a "Recall closed" notification).
+
 ## Payout (Get paid)
 - No identity step up front. Sanctions screening and a payout account name match run on every payout, in the background.
 - **Lifetime payouts ≥ $2,000:** keyed-in ID check (ID number + date of birth; no document, no selfie).

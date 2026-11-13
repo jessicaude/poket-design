@@ -15,6 +15,8 @@ export type WalletScreen =
   /** WGT-12: a Checkout payment's detail, and a dispute on a payment */
   | { name: "payment"; id: string }
   | { name: "refund"; id: string }
+  /** "Report a problem" on a Paid send to a Nigerian bank (and its recall request) */
+  | { name: "report"; id: string }
   | { name: "dispute"; target: DisputeTarget }
   | { name: "settings" }
   | { name: "security" }

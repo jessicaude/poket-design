@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toNigerianBank, useNairaPartner } from "@/store/partner";
-import { listWithdrawals, setWithdrawalStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
+import { listWithdrawals, reportSendProblem, requestRecall as requestRecallApi, setRecallStatus, setWithdrawalStatus, type RecallStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
+import { formatNaira } from "@/lib/money";
 import { useNgn } from "../ngn/useNgn";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { useNotifications } from "../useNotifications";
@@ -14,6 +15,11 @@ type State = {
   move: (id: string, to: WithdrawalStatus) => Promise<void>;
   /** Demo "Release first-payment hold": Scheduled → Sending → Paid. */
   releaseHold: (id: string) => Promise<void>;
+  /** "Report a problem" on a Paid send; the wrong-account reason requests a recall instead (Nigerian banks). */
+  reportProblem: (id: string, reason: string, details: string) => Promise<void>;
+  requestRecall: (id: string, reason: string, details: string) => Promise<void>;
+  /** Demo: the recall moves on. Recovered puts the naira back in the NGN balance, with a notification; Not recovered notifies "Recall closed". */
+  setRecall: (id: string, to: RecallStatus) => Promise<void>;
 };
 
 /** How long "Sending" lasts after a first-payment hold is released, in the demo. */
@@ -53,6 +59,19 @@ export const useWithdrawals = create<State>((set, get) => ({
       useNotifications.getState().add({ type: "payout", title: "Transfer reversed", desc });
       useWalletToast.getState().showNotice("Transfer reversed", desc, 3200);
     }
+  },
+
+  reportProblem: async (id, reason, details) => { await reportSendProblem(id, reason, details); get().refresh(); },
+  requestRecall: async (id, reason, details) => { await requestRecallApi(id, reason, details); get().refresh(); },
+  setRecall: async (id, to) => {
+    const w = await setRecallStatus(id, to);
+    if (to === "recovered") {
+      useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + w.amount }));
+      useNotifications.getState().add({ type: "payout", title: "Transfer recovered", desc: `${formatNaira(w.amount)} is back in your NGN balance.` });
+    } else if (to === "not_recovered") {
+      useNotifications.getState().add({ type: "payout", title: "Recall closed", desc: `We couldn’t recover your transfer to ${w.recipientName}.` });
+    }
+    get().refresh();
   },
 
   releaseHold: async (id) => {

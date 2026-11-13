@@ -366,6 +366,20 @@ WGT-10 is four parts, each with its rules below:
   paused. Try again later." are WGT-13's; the paused screens' titles are the steps' own.
 - Tests: e2e/partner-downtime.spec.ts.
 
+## Report a problem and recall (sends to Nigerian banks)
+- A Paid send to a Nigerian bank shows "Report a problem" on its status screen ("Payments to people can't be
+  disputed."), from send-report in reference/poket-widgets.html in the wallet's look; its reasons, with "Wrong
+  recipient" as "I sent it to the wrong account". Other reasons: Send report, "We're looking into it", then "You
+  reported a problem. We're looking into it and will email you." on the send.
+- "I sent it to the wrong account" opens a recall request (NEW): "Bank transfers can't always be recovered." up front
+  (before anything else), then Request recall, "Recall requested". On the send, the recall's chip and line:
+  Submitted, In progress, then Recovered ("₦X is back in your NGN balance.", the naira the bank received credited
+  to the NGN balance, with a "Transfer recovered" notification) or Not recovered ("We couldn't recover this
+  transfer. The receiving bank didn't return it.", with a "Recall closed" notification: "We couldn't recover your
+  transfer to {name}."). The send itself stays Paid.
+- Demo bar on the send: "Recall: in progress / recovered / not recovered" (RECALL_TRANSITIONS in lib/mock-api.ts).
+- Other sends (US banks, cards, wallets, Poket users) don't offer it. Tests: e2e/send-problem.spec.ts.
+
 ## Refunds of naira payments (WGT-12)
 - Ada's seeded Checkout payments (lib/mock-api.ts DIRECTORY, as the reference seeds them): Mama Tee's Kitchen
   ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago, Adire Market $65.00 by

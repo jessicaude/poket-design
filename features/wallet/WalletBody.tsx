@@ -1,4 +1,5 @@
 "use client";
+import { ReportProblemScreen } from "./withdrawals/ReportProblemScreen";
 import { ConvertBody } from "./convert/ConvertBody";
 import { SendBody } from "./send/SendScreens";
 import { useSend } from "./send/useSend";
@@ -60,6 +61,7 @@ export function WalletBody() {
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
       {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
       {screen.name === "refund" && <RefundDetailScreen id={screen.id} />}
+      {screen.name === "report" && <ReportProblemScreen id={screen.id} />}
       {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}
       {screen.name === "security" && <SecurityScreen />}

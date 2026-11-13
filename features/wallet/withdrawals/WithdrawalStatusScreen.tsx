@@ -1,4 +1,5 @@
 "use client";
+import { SendProblem } from "./ReportProblemScreen";
 import { fmtFee } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
@@ -45,6 +46,8 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
         {row("Fee", <Grey>{w.feeText ?? (w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency))}</Grey>)}
         {row("Reference", <span className="mono">{w.ref}</span>)}
       </div>
+      {/* A Paid send to a Nigerian bank: Report a problem (the wrong account: a recall request) */}
+      {w.status === "paid" && toNigerianBank(w) && <SendProblem w={w} />}
     </>
   );
 }

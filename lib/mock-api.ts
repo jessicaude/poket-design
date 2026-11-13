@@ -354,6 +354,15 @@ export type Withdrawal = {
   targetKey?: string;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
+  /** "Report a problem" on a Paid send (send-report in reference/poket-widgets.html): the reason chosen. */
+  problem?: { reason: string; details?: string; at: number };
+  /** A recall request (the reason "I sent it to the wrong account", sends to Nigerian banks): where it stands. */
+  recall?: { status: RecallStatus; at: number };
+};
+export type RecallStatus = "submitted" | "in_progress" | "recovered" | "not_recovered";
+/** The recall's moves: submitted → in progress → recovered or not recovered (the demo may skip in progress). */
+export const RECALL_TRANSITIONS: Record<RecallStatus, RecallStatus[]> = {
+  submitted: ["in_progress", "recovered", "not_recovered"], in_progress: ["recovered", "not_recovered"], recovered: [], not_recovered: [],
 };
 const withdrawals: Withdrawal[] = [];
 
@@ -477,6 +486,32 @@ export const WITHDRAWAL_TRANSITIONS: Record<WithdrawalStatus, WithdrawalStatus[]
 };
 
 /** Demo: move a withdrawal to a new status, as the payout provider would. Throws if the move isn't allowed. */
+/** POST /v1/payouts/{id}/problems: report a problem with a Paid send. */
+export async function reportSendProblem(id: string, reason: string, details: string): Promise<Withdrawal> {
+  const w = withdrawals.find((x) => x.id === id);
+  if (!w) throw new Error("unknown_withdrawal");
+  if (w.status !== "paid" || w.problem) throw new Error("cannot_report");
+  w.problem = { reason, ...(details.trim() ? { details: details.trim() } : {}), at: Date.now() };
+  return { ...w };
+}
+/** POST /v1/payouts/{id}/recall: ask the receiving bank to return a Paid send to a Nigerian bank. */
+export async function requestRecall(id: string, reason: string, details: string): Promise<Withdrawal> {
+  const w = withdrawals.find((x) => x.id === id);
+  if (!w) throw new Error("unknown_withdrawal");
+  if (w.status !== "paid" || w.kind !== "bank" || w.currency !== "NGN" || w.problem) throw new Error("cannot_recall");
+  w.problem = { reason, ...(details.trim() ? { details: details.trim() } : {}), at: Date.now() };
+  w.recall = { status: "submitted", at: Date.now() };
+  return { ...w };
+}
+/** Demo: the receiving bank's answer moves the recall on. */
+export async function setRecallStatus(id: string, to: RecallStatus): Promise<Withdrawal> {
+  const w = withdrawals.find((x) => x.id === id);
+  if (!w?.recall) throw new Error("no_recall");
+  if (!RECALL_TRANSITIONS[w.recall.status].includes(to)) throw new Error(`cannot_${w.recall.status}_to_${to}`);
+  w.recall = { status: to, at: Date.now() };
+  return { ...w };
+}
+
 export async function setWithdrawalStatus(id: string, to: WithdrawalStatus): Promise<Withdrawal> {
   const w = withdrawals.find((x) => x.id === id);
   if (!w) throw new Error("unknown_withdrawal");

@@ -6,7 +6,7 @@ import { NGN_ROUTES, useNgn, type Eligibility, type Tier } from "@/features/wall
 import { DEMO_PIN, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { currentScreen, useWalletNav } from "@/features/wallet/useWalletNav";
-import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
+import { RECALL_TRANSITIONS, WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
@@ -42,7 +42,7 @@ export function NgnDemoBar() {
   const sendStage = useSend((s) => s.stage), payStage = usePayout((s) => s.stage), cvStage = useConvert((s) => s.stage);
   const flowOpen = !!sendStage || !!payStage || !!cvStage || !!stage;
   const screen = currentScreen(useWalletNav((s) => s.stack));
-  const { list, move, releaseHold } = useWithdrawals();
+  const { list, move, releaseHold, setRecall } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
   // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
@@ -169,6 +169,14 @@ export function NgnDemoBar() {
           <button className="pbtn" disabled={!can("paid")} onClick={() => move(w.id, "paid")}>Mark paid</button>
           <button className="pbtn" disabled={!can("failed")} onClick={() => move(w.id, "failed")}>Fail</button>
           <button className="pbtn" disabled={!can("reversed")} onClick={() => move(w.id, "reversed")}>Reverse</button>
+          {/* A recall request on a Paid send to a Nigerian bank: the receiving bank's answer */}
+          {w.recall && (
+            <>
+              <button className="pbtn" id="demoRecallProgress" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("in_progress")} onClick={() => setRecall(w.id, "in_progress")}>Recall: in progress</button>
+              <button className="pbtn" id="demoRecallRecovered" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("recovered")} onClick={() => setRecall(w.id, "recovered")}>Recall: recovered</button>
+              <button className="pbtn" id="demoRecallNot" disabled={!RECALL_TRANSITIONS[w.recall.status].includes("not_recovered")} onClick={() => setRecall(w.id, "not_recovered")}>Recall: not recovered</button>
+            </>
+          )}
         </>
       )}
       {stage === "temp" && (
