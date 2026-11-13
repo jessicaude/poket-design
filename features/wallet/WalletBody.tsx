@@ -19,6 +19,8 @@ import { ConversionReceiptScreen } from "./withdrawals/ConversionReceiptScreen";
 import { AccountBlockedScreen, AccountLockedScreen } from "./AccountLockedScreen";
 import { useSettings } from "./settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+// WGT-13: credits and sends that waited on the naira partner move on when it's back
+import "./partnerRecovery";
 
 /**
  * WalletShell's default #panelBody: an open Send, Convert, send-to-bank or NGN flow first, then the current wallet screen

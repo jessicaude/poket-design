@@ -10,6 +10,7 @@ import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 
 /**
@@ -22,6 +23,7 @@ export function NgnDemoBar() {
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
   const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
+  const { down: partnerDown, setDown: setPartnerDown, queued, queueArrival } = useNairaPartner();
   const selfiePhone = usePayout((s) => s.selfiePhone);
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
@@ -40,7 +42,9 @@ export function NgnDemoBar() {
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
-  const can = (to: WithdrawalStatus) => !!w && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
+  // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
+  const held = !!w && partnerDown && w.status === "sending" && toNigerianBank(w);
+  const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
       {/* Demo only: to Checkout's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
@@ -91,6 +95,12 @@ export function NgnDemoBar() {
           <option value="known">This device: Known</option><option value="new">This device: New</option>
         </select>
       </label>
+      <label className="opt-lbl"><span>Naira partner</span>
+        {/* WGT-13: partner downtime pauses naira bank transfers (a banner on the affected screens) */}
+        <select aria-label="Naira partner" value={partnerDown ? "down" : "up"} onChange={(e) => setPartnerDown(e.target.value === "down")}>
+          <option value="up">Naira partner: Up</option><option value="down">Naira partner: Down</option>
+        </select>
+      </label>
       <label className="opt-lbl"><span>Single active device</span>
         {/* To confirm (not in the PRD): binding a new device signs out the other one */}
         <select aria-label="Single active device" value={singleDevice ? "on" : "off"} onChange={(e) => setSingleDevice(e.target.value === "on")}>
@@ -120,6 +130,9 @@ export function NgnDemoBar() {
         : <button className="pbtn" id="demoSelfieOpen" onClick={() => usePayout.getState().selfieOpenPhone()}>Open on phone</button>)}
       {/* Single active device: another device is bound, which signs this one out (its next tap asks it to sign in) */}
       {singleDevice && !signedOut && <button className="pbtn" id="demoOtherDeviceBinds" onClick={otherDeviceBinds}>Sign in on another device</button>}
+      {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}
+      {partnerDown && <button className="pbtn" id="demoQueuedArrival" onClick={() => queueArrival(QUEUED_ARRIVAL_DEMO_KOBO)}>
+        Transfer arrived while down{queued.length ? ` (${queued.length})` : ""}</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}
@@ -141,7 +154,8 @@ export function NgnDemoBar() {
       )}
       {stage === "temp" && (
         <>
-          <button className="pbtn" onClick={() => transferArrives()}>Transfer arrives</button>
+          {/* While down, an arrival waits for the partner ("Transfer arrived while down" above), so not here */}
+          {!partnerDown && <button className="pbtn" onClick={() => transferArrives()}>Transfer arrives</button>}
           <button className="pbtn" onClick={expireTemp}>Let it expire</button>
         </>
       )}

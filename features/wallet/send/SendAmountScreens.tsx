@@ -1,4 +1,6 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
+import { SendPausedNotice } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { CV_CHEV, WICON } from "@/lib/icons";
 import { useNgn } from "../ngn/useNgn";
@@ -48,6 +50,7 @@ export function SendAmountScreen() {
   const { recipient: r, payFrom, payCents, cents, jitter, quoteAt, quoteExpired, key, max, back, refreshQuote, expireQuote, go } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
   const instantOn = useSettings((s) => s.instantOn);
+  const partnerDown = useNairaPartner((s) => s.down);
   useSettings((s) => s.instantLimit); useWithdrawals((s) => s.list); // the daily limit and today's total
   // The keypad shows only while You send's amount is being typed (useKeypadOnDemand)
   const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
@@ -67,10 +70,12 @@ export function SendAmountScreen() {
   // The total (with a decided fee, e.g. a wallet's) must fit the balance
   const over = summary.sourceTotal > avail;
   // WGT-09: while instant transfers are off, a send to a Nigerian bank can't go on to review
-  const instantOff = blockedByInstantOff(r, instantOn);
+  // WGT-13: while the naira partner is down, sends to Nigerian banks are paused (first: it's why nothing else applies)
+  const partnerPaused = partnerDown && r.methodType === "bank" && r.currency === "NGN";
+  const instantOff = !partnerPaused && blockedByInstantOff(r, instantOn);
   // ...and while on, today's total to Nigerian banks can't go over the daily limit
   const overLimit = instantOff ? null : overDailyLimit(r, cents);
-  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff && !overLimit;
+  const ready = payCents > 0 && !over && cents > 0 && !(converting && quoteExpired) && !instantOff && !overLimit && !partnerPaused;
   const amountText = (c: number) => (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
     <>
@@ -93,6 +98,9 @@ export function SendAmountScreen() {
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&apos;t hold naira. They&apos;ll get USD.</span>
         </div>
+      )}
+      {partnerPaused && (
+        <SendPausedNotice style={{ marginTop: "12px", marginBottom: 0 }} />
       )}
       {instantOff && (
         // NEW copy: "Turn on" asks for the PIN, then the send carries on

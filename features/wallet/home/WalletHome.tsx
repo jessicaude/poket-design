@@ -1,4 +1,5 @@
 "use client";
+import { NairaPausedBanner } from "../NairaPausedBanner";
 import type { ReactNode } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { FILTER_ICON, WICON } from "@/lib/icons";
@@ -160,6 +161,8 @@ export function WalletHome() {
   const activity = useActivity();
   return (
     <div className="screen-fade">
+      {/* WGT-13: while the naira partner is down */}
+      <NairaPausedBanner />
       <div className="balance-hero">
         <div className="bh-top">
           <div>

@@ -5,6 +5,8 @@ import { useWithdrawals } from "../payout/useWithdrawals";
 import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
 import { StatusChip, withdrawalIcon } from "./parts";
+import { NairaPausedBanner } from "../NairaPausedBanner";
+import { toNigerianBank } from "@/store/partner";
 
 /** The reference's formatTxDate: "Nov 10, 2026 - 3:04 PM". */
 const fmtDate = (ts: number) => {
@@ -22,6 +24,8 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
   const row = (k: string, v: React.ReactNode) => <div className="info-row"><span>{k}</span><span>{v}</span></div>;
   return (
     <>
+      {/* WGT-13: a send to a Nigerian bank that's Sending waits for the naira partner */}
+      {w.status === "sending" && toNigerianBank(w) && <NairaPausedBanner />}
       <BackRow id="backFromTxDetail" onClick={back} />
       <div className="center-col" style={{ padding: "6px 8px 0" }}>
         <div className="tx-ic tx-ic-lg out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />

@@ -545,7 +545,8 @@ export async function listNgBanks(): Promise<NgBank[]> {
 }
 
 export type NameEnquiry = { status: "found"; accountName: string } | { status: "not_found" };
-const enquiryServer = { available: true };
+/** `partner`: the naira partner is up (WGT-13); while it's down, the name enquiry is unavailable too. */
+const enquiryServer = { available: true, partner: true };
 
 /**
  * POST /v1/ngn/name-enquiry: the name on a 10-digit account at a bank. Throws "lookup_unavailable" when the
@@ -555,13 +556,15 @@ const enquiryServer = { available: true };
 export async function nameEnquiry(bankCode: string, accountNumber: string, holderName: string): Promise<NameEnquiry> {
   if (!/^\d{10}$/.test(accountNumber) || !NG_BANKS.some((b) => b.code === bankCode)) throw new Error("invalid_request");
   await wait(900);
-  if (!enquiryServer.available) throw new Error("lookup_unavailable");
+  if (!enquiryServer.available || !enquiryServer.partner) throw new Error("lookup_unavailable");
   if (accountNumber.endsWith("0000")) return { status: "not_found" };
   if (accountNumber.endsWith("1111")) return { status: "found", accountName: otherAccountName(accountNumber + bankCode) };
   return { status: "found", accountName: holderName };
 }
 /** Demo control: make the name enquiry service unavailable. */
 export function setNameEnquiryAvailable(available: boolean) { enquiryServer.available = available; }
+/** Demo control (WGT-13): the naira partner up or down. */
+export function setNairaPartnerAvailable(up: boolean) { enquiryServer.partner = up; }
 
 /** The reference's resolveNgAccountName: a seeded Nigerian name for an account that isn't yours. */
 function otherAccountName(seed: string): string {

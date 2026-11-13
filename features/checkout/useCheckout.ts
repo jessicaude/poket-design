@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useNairaPartner } from "@/store/partner";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
@@ -193,6 +194,7 @@ export const useCheckout = create<State>((set, get) => ({
     const { order, settings } = get();
     const account = useAccount.getState().account;
     if (!order || (account && idBlockOf(account))) return; // a blocked account can't pay
+    if (useNairaPartner.getState().down) return; // WGT-13: no naira bank transfers while the naira partner is down
     set({ screen: "bank-transfer", transfer: { state: "creating", va: null } });
     const p = { amount: order.amount, merchant: order.merchant, orderRef: order.orderRef };
     const va = settings?.bankTransferAccount === "pool" ? await getMerchantPoolAccount(p) : await createCheckoutVirtualAccount(p);

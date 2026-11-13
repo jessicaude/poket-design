@@ -1,10 +1,11 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
 import { Raw } from "@/components/ui/Raw";
 import { BANK_TILE, CARD_TILE, ICON, WALLET_ICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
 import { useCheckout } from "../useCheckout";
 
-type Rail = { id: string; icon: string; title: string; sub: string; converted?: boolean };
+type Rail = { id: string; icon: string; title: string; sub: string; converted?: boolean; paused?: boolean };
 
 /** The merchant's own rails (the reference's list): paid in USD. */
 const USD_RAILS: Rail[] = [
@@ -19,6 +20,7 @@ const USD_RAILS: Rail[] = [
 export function AddMethodScreen() {
   const { order, settings, go, addCard, startTransfer, showToast } = useCheckout();
   const account = useAccount((s) => s.account);
+  const partnerDown = useNairaPartner((s) => s.down);
   if (!account || !order) return null;
 
   // An NGN order lists only the naira rails the merchant accepts; with Conversion on, also its other rails, paid in USD.
@@ -27,12 +29,14 @@ export function AddMethodScreen() {
     const a = settings?.accepts;
     rails = [
       ...(a?.ngnCard ? [{ id: "ngn-card", icon: CARD_TILE, title: "Card", sub: "Nigerian debit or credit card" }] : []),
-      ...(a?.ngnBank ? [{ id: "ngn-bank", icon: BANK_TILE, title: "Bank transfer", sub: "Pay into an account we show you" }] : []),
+      // WGT-13: while the naira partner is down, it's shown Paused and can't be chosen (naira cards still work)
+      ...(a?.ngnBank ? [{ id: "ngn-bank", icon: BANK_TILE, title: "Bank transfer", sub: "Pay into an account we show you", paused: partnerDown }] : []),
       ...(a?.conversion ? USD_RAILS.map((r) => ({ ...r, converted: true })) : []),
     ];
   }
   const choose = (r: Rail) =>
-    r.id === "card" ? addCard("USD")
+    r.paused ? undefined
+    : r.id === "card" ? addCard("USD")
     : r.id === "ngn-card" ? addCard("NGN")
     : r.id === "ngn-bank" ? startTransfer() // a one-time account or the merchant's pool (Bank transfer account)
     : showToast(`${r.title} isn’t ported yet`);
@@ -44,9 +48,10 @@ export function AddMethodScreen() {
       <p className="sub">Must be in your legal name, {account.first} {account.last}.</p>
       <div className="methods">
         {rails.map((r) => (
-          <button key={r.id + (r.converted ? "-usd" : "")} type="button" className="method" data-addpm={r.id} data-converted={r.converted || undefined} onClick={() => choose(r)}>
+          <button key={r.id + (r.converted ? "-usd" : "")} type="button" className={`method${r.paused ? " off" : ""}`} data-addpm={r.id} data-converted={r.converted || undefined}
+            aria-disabled={r.paused || undefined} onClick={() => choose(r)}>
             <Raw html={r.icon} />
-            <span className="m1">{r.title}{r.converted && <span className="chip">Paid in USD, converted</span>}<small>{r.sub}</small></span>
+            <span className="m1">{r.title}{r.converted && <span className="chip">Paid in USD, converted</span>}{r.paused && <span className="chip" id="ngnBankPaused">Paused</span>}<small>{r.sub}</small></span>
             <span className="chev">›</span>
           </button>
         ))}

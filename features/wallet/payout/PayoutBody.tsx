@@ -7,6 +7,7 @@ import { DoneScreen, ProcessingScreen } from "./screens/ProcessingDoneScreens";
 import { NgnAccountScreen, NgnBankScreen } from "./screens/NgnAccountScreens";
 import { SelfieCheckingScreen, SelfieRetryScreen, SelfieScreen } from "./screens/SelfieScreens";
 import { DeviceScreen } from "./screens/DeviceScreen";
+import { NairaPausedBanner, payoutPausedStage } from "../NairaPausedBanner";
 import { AddressScreeningBlockedScreen, AddressScreeningScreen, PayFromScreen, SendAmountScreen } from "../send/SendAmountScreens";
 
 /** One component per stage, from the amount on (the recipient is chosen in Send). */
@@ -36,5 +37,6 @@ export function PayoutBody() {
   const pinKey = usePayout((s) => (s.stage === "pin" ? s.pinStage : ""));
   if (!stage) return null;
   const C = SCREENS[stage];
-  return <div className="screen-fade" key={stage + pinKey}><C /></div>;
+  // WGT-13: a send to (or adding) a Nigerian bank shows the paused banner on top while the naira partner is down
+  return <div className="screen-fade" key={stage + pinKey}>{payoutPausedStage(stage) && <NairaPausedBanner />}<C /></div>;
 }

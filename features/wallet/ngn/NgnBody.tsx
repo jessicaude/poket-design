@@ -18,6 +18,9 @@ import { AccountIntroScreen } from "./screens/AccountIntroScreen";
 import { AccountCreatingScreen } from "./screens/AccountCreatingScreen";
 import { AccountDetailsScreen } from "./screens/AccountDetailsScreen";
 import { VerifyScreen } from "./screens/VerifyScreen";
+import { NGN_PAUSED_STAGES, NairaPausedBanner } from "../NairaPausedBanner";
+import { NGN_PAUSED_SCREENS, NgnPausedScreen } from "./screens/NgnPausedScreen";
+import { useNairaPartner } from "@/store/partner";
 
 /** One component per NGN stage. Stages not ported yet show a visible placeholder. */
 const SCREENS: Partial<Record<NgnStage, ComponentType>> = {
@@ -43,10 +46,15 @@ const SCREENS: Partial<Record<NgnStage, ComponentType>> = {
 /** The current NGN stage, for WalletShell's #panelBody. Keyed so each stage gets the reference's .screen-fade entry. */
 export function NgnBody() {
   const stage = useNgn((s) => s.stage);
+  const partnerDown = useNairaPartner((s) => s.down);
   if (!stage) return null;
   const C = SCREENS[stage];
+  // WGT-13: while the naira partner is down, bank transfer deposits and new account details are paused
+  if (partnerDown && NGN_PAUSED_SCREENS[stage]) return <div className="screen-fade" key={`${stage}-paused`}><NgnPausedScreen stage={stage} /></div>;
   return (
     <div className="screen-fade" key={stage}>
+      {/* WGT-13: naira deposits by bank transfer show the paused banner on top while the naira partner is down */}
+      {NGN_PAUSED_STAGES.includes(stage) && <NairaPausedBanner />}
       {C ? <C /> : <NotPorted stage={stage} />}
     </div>
   );
