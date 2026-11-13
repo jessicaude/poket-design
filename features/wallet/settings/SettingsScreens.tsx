@@ -68,10 +68,10 @@ export function SettingsScreen() {
         <SettingsRow id="openCompliance" icon={WICON.tierIc} title="Compliance" sub={`${tierName(tier)} · limits, verification level`} onClick={() => push({ name: "compliance" })} />
         {/* WGT-09 (NEW) */}
         <SettingsRow id="openInstantTransfers" icon={WICON.send} title="Instant transfers" sub={instantSummaryHtml(instantOn, instantLimit, tier)} onClick={() => push({ name: "instant-transfers" })} />
-        <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren't ported yet.")} />
-        <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren't ported yet.")} />
+        <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren’t ported yet.")} />
+        <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren’t ported yet.")} />
         <SettingsRow id="openSecurity" icon={WICON.shieldIc} title="Security" sub={`Passcode delivery · ${devices.length} signed-in device${devices.length === 1 ? "" : "s"}`} onClick={() => push({ name: "security" })} />
-        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={() => showNotPorted("Logging out isn't ported yet.")} />
+        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={() => showNotPorted("Logging out isn’t ported yet.")} />
       </div>
     </>
   );
@@ -170,7 +170,7 @@ export function ComplianceScreen() {
 
 /**
  * The step-up from Compliance (tStepupIntro, then back to Compliance). Demo stand-in: Continue raises the tier by
- * one in place of the verification steps, which aren't ported yet.
+ * one in place of the verification steps, which aren’t ported yet.
  */
 export function ComplianceStepUpScreen() {
   const back = useWalletNav((s) => s.back);

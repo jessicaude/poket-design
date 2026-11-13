@@ -248,7 +248,7 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
       <div className="action-row" style={{ marginTop: "14px" }}>
         {h.k === "cash" ? (
           <>
-            <button className="action-btn" id="detailDeposit" onClick={() => showNotPorted(`Depositing ${h.cur} isn't ported yet.`)}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
+            <button className="action-btn" id="detailDeposit" onClick={() => showNotPorted(`Depositing ${h.cur} isn’t ported yet.`)}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
             {/* Send replaces Transfer and Payout, with this balance as the source. */}
             <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(fromKey)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
             <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: fromKey })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
@@ -261,7 +261,7 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
         )}
       </div>
       {vaRails && h.k === "cash" && (
-        <div className="va-card va-empty" id="vaOpen" data-vacur={h.cur} role="button" tabIndex={0} onClick={() => showNotPorted(`${h.cur} account details aren't ported yet.`)}>
+        <div className="va-card va-empty" id="vaOpen" data-vacur={h.cur} role="button" tabIndex={0} onClick={() => showNotPorted(`${h.cur} account details aren’t ported yet.`)}>
           <div className="va-ic"><Raw html={WICON.bank} /></div>
           <div className="va-meta"><div className="t1">Get {h.cur} account details</div><div className="t2">Receive {h.cur} by {vaRails}. Free to receive.</div></div>
           <span className="va-chev">{"›"}</span>

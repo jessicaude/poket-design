@@ -1,9 +1,9 @@
 import { formatNairaShort } from "@/lib/money";
+import { notify } from "./notificationCatalogue";
 import { DEMO_ACCOUNT_SENDER } from "@/lib/mock-api";
 import { creditNgn } from "./history/credits";
 import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useWithdrawals } from "./payout/useWithdrawals";
-import { useNotifications } from "./useNotifications";
 
 /**
  * WGT-13: when the naira partner comes back (down → up), what waited moves on. The banner and paused screens clear by
@@ -15,7 +15,7 @@ export async function recoverFromDowntime() {
   for (const amount of useNairaPartner.getState().takeQueued()) {
     // WGT-11: each is its own record, marked delayed
     creditNgn({ kind: "delayed", amount, from: DEMO_ACCOUNT_SENDER });
-    useNotifications.getState().add({ type: "info", title: "Transfer received", desc: `${formatNairaShort(amount)} from ${DEMO_ACCOUNT_SENDER.split(" · ")[0]} added to your NGN balance, after a delay.` });
+    notify("delayedTransferReceived", { amount: formatNairaShort(amount), sender: DEMO_ACCOUNT_SENDER.split(" · ")[0] });
   }
   const { list, move } = useWithdrawals.getState();
   for (const w of list.filter((x) => toNigerianBank(x) && x.status === "sending")) await move(w.id, "paid");

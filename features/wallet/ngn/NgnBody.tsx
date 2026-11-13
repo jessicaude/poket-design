@@ -67,7 +67,7 @@ function NotPorted({ stage }: { stage: NgnStage }) {
     <>
       <button className="back-row" onClick={back}>Back</button>
       <div className="step-title">[Not ported yet: {stage}]</div>
-      <p className="step-sub">Port tVaNgn stage &apos;{stage}&apos; from reference/poket-unified.html.</p>
+      <p className="step-sub">Port tVaNgn stage &lsquo;{stage}&rsquo; from reference/poket-unified.html.</p>
     </>
   );
 }

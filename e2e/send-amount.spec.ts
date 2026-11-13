@@ -152,7 +152,7 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]); // no Speed row
   await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$10.00 USD", "$[fee]", "After [hold]", "$10.00 USD + $[fee]"]);
-  await expect(page.locator("#confirmPayout")).toHaveText("Send $10.00 USD");
+  await expect(page.locator("#confirmPayout")).toHaveText("Send $10.00");
   await expect(page.locator("#panelBody")).toContainText("First payment to a new account sends after [hold]");
   await approve(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Jordan Blake after [hold]");

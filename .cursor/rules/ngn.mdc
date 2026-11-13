@@ -7,6 +7,9 @@ alwaysApply: true
 - Copy: follow docs/copy.md (the Poket copy standard: tone, buttons, errors, paused states, holds, money, notifications,
   and the terms to use for BVN, NIN, NRBVN, account numbers, name checks and bank transfers). Where it differs from
   older copy below or in the code, new copy follows docs/copy.md.
+- Notifications: docs/notifications.md lists every one (trigger, title, body). Send them only with notify() from
+  features/wallet/notificationCatalogue.ts, and add any new one to both (e2e/notifications.spec.ts checks they match;
+  e2e/copy-lint.spec.ts checks every string for em dashes, straight apostrophes, NUBAN, NIP and "name enquiry").
 - Source for NGN screens: reference/poket-unified.html. Search for tVaNgn, tDepositMethod,
   ngnTempCreate, ngnIdCheck and VA_SPEC.NGN. Match its copy, states and behaviour exactly.
 - Naira format: ₦ symbol, two decimals, thousands separators, followed by the grey code,

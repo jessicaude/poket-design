@@ -1,7 +1,7 @@
 import { create } from "zustand";
+import { notify } from "../notificationCatalogue";
 import { DEMO_ACCOUNT_SENDER, DEMO_POKET_SENDER, listNgnCredits, recordNgnCredit, type NgnCredit, type NgnCreditKind } from "@/lib/mock-api";
-import { formatNaira, type Kobo } from "@/lib/money";
-import { useNotifications } from "../useNotifications";
+import { formatNairaShort, type Kobo } from "@/lib/money";
 import { useNgn } from "../ngn/useNgn";
 import { attribute } from "./ledger";
 
@@ -36,6 +36,6 @@ export const DEMO_POKET_TRANSFER_KOBO: Kobo = 1000000;
 export function receiveNaira(kind: "account" | "poket", amount: Kobo) {
   const from = kind === "account" ? DEMO_ACCOUNT_SENDER : DEMO_POKET_SENDER;
   const c = creditNgn({ kind, amount, from });
-  useNotifications.getState().add({ type: "info", title: "Transfer received", desc: `${formatNaira(amount).replace(/ NGN$/, "")} from ${from.split(" · ")[0]} added to your NGN balance.` });
+  notify("transferReceived", { amount: formatNairaShort(amount), sender: from.split(" · ")[0] });
   return c;
 }

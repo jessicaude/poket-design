@@ -26,7 +26,7 @@ test("balance card: total in USD, the eye hides it, the email chip", async ({ pa
   await expect(page.locator("#totalBalance")).toHaveText("$97.86 USD");
 });
 
-test("actions: Send and Convert open their flows; Deposit isn't ported", async ({ page }) => {
+test("actions: Send and Convert open their flows; Deposit isn’t ported", async ({ page }) => {
   await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Send", "Convert"]); // Send replaces Transfer and Payout
   await page.locator("#actDeposit").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");

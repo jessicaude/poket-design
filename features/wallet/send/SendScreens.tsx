@@ -378,7 +378,7 @@ export function SendTier2Screen() {
           <div className="info-row" key={label}><span>{label}</span><span>{done ? <span className="va-status">{"✓"} Done</span> : <span className="va-status muted">{`Step ${i + 1}`}</span>}</span></div>
         ))}
       </div>
-      <button className="btn-primary" id="tier2Go" style={{ marginTop: "14px" }} onClick={() => showNotPorted("Tier 2 verification isn't ported yet.")}>Continue verification</button>
+      <button className="btn-primary" id="tier2Go" style={{ marginTop: "14px" }} onClick={() => showNotPorted("Tier 2 verification isn’t ported yet.")}>Continue verification</button>
     </>
   );
 }

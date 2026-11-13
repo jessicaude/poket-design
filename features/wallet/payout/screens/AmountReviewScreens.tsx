@@ -1,4 +1,6 @@
 "use client";
+// docs/copy.md: a button that moves money carries the amount, without the code ("Send ₦5,000.00")
+import { withoutCode } from "@/lib/money";
 import { useNairaPartner } from "@/store/partner";
 import { SendPausedNotice } from "../../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
@@ -86,7 +88,7 @@ export function ReviewScreen() {
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
         <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&rsquo;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
       </label>
-      <SpinButton id="confirmPayout" disabled={!ack || (s.converting && quoteExpired) || partnerPaused} delay={500} onClick={confirm}>{`Send ${cvFmt(payCents, src)}`}</SpinButton>
+      <SpinButton id="confirmPayout" disabled={!ack || (s.converting && quoteExpired) || partnerPaused} delay={500} onClick={confirm}>{`Send ${withoutCode(cvFmt(payCents, src))}`}</SpinButton>
     </>
   );
 }

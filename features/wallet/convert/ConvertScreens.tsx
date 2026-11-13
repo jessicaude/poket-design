@@ -260,8 +260,8 @@ export function ConvertEmptyScreen() {
       <div className="center-col" style={{ paddingTop: "18px" }}>
         <p className="step-sub" id="cvEmpty" style={{ textAlign: "center" }}>You have no USD or USDC to convert yet</p>
       </div>
-      {/* USD and USDC deposits (tDepositSelect) aren't ported: the wallet's "not in the prototype" notice. */}
-      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => showNotPorted("USD and USDC deposits aren't ported yet.")}>Deposit</button>
+      {/* USD and USDC deposits (tDepositSelect) aren’t ported: the wallet's "not in the prototype" notice. */}
+      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => showNotPorted("USD and USDC deposits aren’t ported yet.")}>Deposit</button>
     </>
   );
 }

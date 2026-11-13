@@ -88,7 +88,7 @@ test("a send's done screen: We’ve emailed you a receipt", async ({ page }) => 
   await page.locator("#keypadDone").click();
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
-  await expect(page.locator("#confirmPayout")).toHaveText(/^Send ₦5,000\.00/);
+  await expect(page.locator("#confirmPayout")).toHaveText("Send ₦5,000.00");
   await page.locator("#confirmPayout").click();
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");

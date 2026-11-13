@@ -1,6 +1,6 @@
 import { create } from "zustand";
+import { notify } from "../notificationCatalogue";
 import { formatNairaShort } from "@/lib/money";
-import { useNotifications } from "../useNotifications";
 import { useNairaPartner } from "@/store/partner";
 import {
   DEMO_NGN_START, checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
@@ -195,7 +195,7 @@ export const useNgn = create<State>((set, get) => {
       const { amount, ref } = await simulateTransferArrives();
       // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
       creditNgn({ kind: "temp", amount, from: holderName(), ref });
-      useNotifications.getState().add({ type: "info", title: "Transfer received", desc: `${formatNairaShort(amount)} added to your NGN balance.` });
+      notify("topUpReceived", { amount: formatNairaShort(amount) });
       set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 

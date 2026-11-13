@@ -130,7 +130,7 @@ test("opening with NGN as the target and nothing to convert from: NGN stays, wit
   await expect(page.locator("#cvEmptyDeposit")).toHaveText("Deposit");
   await page.locator("#cvEmptyDeposit").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("USD and USDC deposits aren't ported yet.");
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("USD and USDC deposits aren’t ported yet.");
   await expect(page.locator("#cvEmpty")).toBeVisible(); // still on the empty state
   await expect(page.locator("#cvPickFrom")).toHaveCount(0);
   await page.locator("#backHome").click();

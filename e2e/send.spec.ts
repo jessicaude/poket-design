@@ -187,7 +187,7 @@ test("NGN bank account: an optional nickname once the name is found; review show
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "Account holder", "They get", "Fee", "Delivery", "Total charged"]);
   await expect(rows.filter({ hasText: "Account holder" }).locator(".r-value")).toHaveText(holder);
-  await expect(page.locator("#confirmPayout")).toHaveText("Send ₦5,000.00 NGN");
+  await expect(page.locator("#confirmPayout")).toHaveText("Send ₦5,000.00");
   await page.locator("#backToPayoutAmount").click();
   await page.locator("#backToPayoutRecipient2").click();
   await expect(page.locator("#panelBody [data-sendrecipient]").filter({ hasText: "Landlord" }).locator(".t2")).toHaveText("Zenith Bank · •••• 1111");
@@ -314,7 +314,7 @@ test("stablecoin wallet: Tier 2 first; coin and network; address validated and h
   await expect(title(page)).toHaveText("Unlock sending to external wallets"); // Tier 0
   await expect(page.locator("#tier2Steps .info-row")).toHaveText(["Account✓ Done", "IdentityStep 2", "Address and source of fundsStep 3"]);
   await page.locator("#tier2Go").click();
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Tier 2 verification isn't ported yet.");
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("Tier 2 verification isn’t ported yet.");
   await page.locator("#backFromTier2").click();
 
   await page.getByLabel("Tier").selectOption("2");
