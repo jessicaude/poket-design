@@ -87,9 +87,16 @@ const QR = qrSvg();
 /** SCREENS['vendor']: the ID and selfie handoff (Veriff, or Plaid for a US SSN). Demo bar: Open on phone, Finish on phone. */
 export function VendorScreen() {
   const idv = useCheckout((s) => s.idv);
-  const plaid = idv.vendor === "plaid";
+  return <VendorHandoff plaid={idv.vendor === "plaid"} phone={idv.vstage === "phone"} />;
+}
+
+/**
+ * The vendor handoff itself (SCREENS['vendor']'s markup), shared with the wallet's selfie check: Plaid's selfie or
+ * Veriff's ID and selfie, the QR code, then "Continue on your phone".
+ */
+export function VendorHandoff({ plaid, phone }: { plaid: boolean; phone: boolean }) {
   const brand = <div className={`vlogo ${plaid ? "plaid" : ""}`}><img src={plaid ? VENDOR_LOGOS.plaid : VENDOR_LOGOS.veriff} alt={plaid ? "Plaid" : "Veriff"} /></div>;
-  if (idv.vstage === "phone") {
+  if (phone) {
     return (
       <div className="vendor">{brand}<h2 className="vt">Continue on your phone</h2>
         <div className="wait"><div className="spinner" />{plaid ? "Take a short selfie video on your phone." : "Take a photo of your ID and a short selfie on your phone."} Keep this window open.</div>

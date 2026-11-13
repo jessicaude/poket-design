@@ -32,11 +32,36 @@ export function saveAccount(a: Account) {
   if (DIRECTORY[key]) DIRECTORY[key] = structuredClone(a);
 }
 
-/** POST /v1/auth/verify. In the demo any 6 digits work; 000000 is a wrong code. */
+/**
+ * Wrong verification codes lock the account: after CODE_LIMIT_DEMO wrong codes in a row ([n]: a demo value, never
+ * shown) it's locked for ACCOUNT_LOCK_MS (2 hours). Checkout's sign-up and log-in codes and the wallet's device codes
+ * count together. A right code resets the count.
+ */
+export const CODE_LIMIT_DEMO = 5;
+export const ACCOUNT_LOCK_MS = 2 * 60 * 60 * 1000;
+/** The error a code check throws when the account is (or has just become) locked. */
+export const ACCOUNT_LOCKED = "account_locked";
+const codeServer = { failures: 0, lockedUntil: 0 };
+
+/** POST /v1/auth/verify. In the demo any 6 digits work; 000000 is a wrong code. Throws ACCOUNT_LOCKED while locked. */
 export async function verifyCode(code: string): Promise<void> {
   await wait(700);
-  if (code === "000000") throw new Error("That code isn’t right. Check it and try again.");
+  if (accountLockedUntil()) throw new Error(ACCOUNT_LOCKED);
+  if (code === "000000") {
+    codeServer.failures++;
+    if (codeServer.failures >= CODE_LIMIT_DEMO) {
+      codeServer.failures = 0;
+      codeServer.lockedUntil = Date.now() + ACCOUNT_LOCK_MS;
+      throw new Error(ACCOUNT_LOCKED);
+    }
+    throw new Error("That code isn’t right. Check it and try again.");
+  }
+  codeServer.failures = 0;
 }
+/** When the account's lock ends (ms), or null when it isn't locked. */
+export const accountLockedUntil = () => (codeServer.lockedUntil > Date.now() ? codeServer.lockedUntil : null);
+/** Demo: "Skip lock time" (and tests): unlock now, and start the count again. */
+export function skipAccountLock() { codeServer.lockedUntil = 0; codeServer.failures = 0; }
 
 /** POST /v1/payments */
 export async function createPayment(method: PaymentMethod, outcome: CardOutcome): Promise<{ id: string }> {
@@ -334,6 +359,8 @@ export async function createPayout(p: {
   usdOut?: number;
   /** A Poket user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
   targetKey?: string;
+  /** The 3rd failed selfie check before the send: it's held for review (status "review"), not sent. */
+  heldForReview?: boolean;
 }): Promise<Withdrawal> {
   const kind = p.kind ?? "bank";
   // WGT-07: a Poket user who can't hold naira never receives naira
@@ -364,6 +391,7 @@ export async function createPayout(p: {
   const wallet = kind === "wallet" ? STABLECOIN_WALLETS.find((x) => x.id === p.recipientId) : undefined;
   const isNew = kind === "card" ? !recipient!.isSelf && !recipient!.paidBefore : kind === "poket" ? !poketUser?.paidBefore : kind === "wallet" ? !wallet?.paidBefore : false;
   if (isNew && (p.usdOut ?? 0) >= QUICK_CHECK_USD_CENTS) { w.status = "review"; w.quickCheck = true; }
+  if (p.heldForReview) { w.status = "review"; delete w.quickCheck; }
   if (recipient) recipient.paidBefore = true;
   if (poketUser) poketUser.paidBefore = true;
   if (wallet) wallet.paidBefore = true;

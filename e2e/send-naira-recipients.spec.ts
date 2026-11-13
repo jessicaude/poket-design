@@ -1,4 +1,5 @@
 import { press } from "./keypad";
+import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -106,7 +107,7 @@ test("Daniel, held for a quick check ($500 or more, first payment): on hold in n
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
-  await page.locator("#stepupIntroContinue").click(); // over the demo step-up limit
+  await passSelfie(page); // over the demo step-up limit
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#quickCheck")).toBeVisible();

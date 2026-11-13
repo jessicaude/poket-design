@@ -1,4 +1,5 @@
 import { press } from "./keypad";
+import { expectSelfie, passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -108,8 +109,7 @@ test("a USDC wallet paid from NGN: step-up on the naira leaving; the total inclu
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
   // ₦27,325 (about $17.63) leaves the NGN balance: step-up, though the wallet gets only 16.13 USDC
-  await expect(page.locator("#stepupIntroContinue")).toBeVisible();
-  await page.locator("#stepupIntroContinue").click();
+  await passSelfie(page);
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
@@ -134,7 +134,7 @@ test("a Poket user over the limit in USDC isn't judged in naira: 100.00 USDC ste
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
-  await expect(page.locator("#stepupIntroContinue")).toBeVisible();
+  await expectSelfie(page);
 });
 
 test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", async ({ page }) => {
@@ -165,7 +165,7 @@ test("a first payment of $500 or more to a new Poket user is held for a quick ch
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
-  await page.locator("#stepupIntroContinue").click();
+  await passSelfie(page);
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#quickCheck")).toHaveText("Held for a quick check");
@@ -189,7 +189,7 @@ test("a first payment of $500 or more to a new Poket user is held for a quick ch
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
-  await page.locator("#stepupIntroContinue").click();
+  await passSelfie(page);
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Sent to Tobi Bello");

@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { NGN_ROUTES, useNgn, type Eligibility, type Tier } from "@/features/wallet/ngn/useNgn";
 import { DEMO_PIN, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
@@ -7,6 +9,8 @@ import { WITHDRAWAL_TRANSITIONS, type WithdrawalStatus } from "@/lib/mock-api";
 import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
+import { useAccountLock } from "@/store/lock";
+import { useSend } from "@/features/wallet/send/useSend";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
@@ -17,15 +21,30 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
-  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit } = useSettings();
+  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
+  const selfiePhone = usePayout((s) => s.selfiePhone);
+  // The locked screen shows over any open money flow (WalletBody)
+  const locked = useAccountLock((s) => s.until) !== null;
+  // The bar wraps onto more rows when it doesn't fit: keep --bar (the page's offset) equal to its height, as DemoBar does
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--bar", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); document.documentElement.style.removeProperty("--bar"); };
+  }, []);
+  const sendStage = useSend((s) => s.stage), payStage = usePayout((s) => s.stage), cvStage = useConvert((s) => s.stage);
+  const flowOpen = !!sendStage || !!payStage || !!cvStage || !!stage;
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
   const can = (to: WithdrawalStatus) => !!w && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
-    <div className="pbar" role="region" aria-label="Prototype controls">
-      <span className="name">Poket design</span>
+    <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
+      {/* Demo only: to Checkout's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
+      <Link className="pbtn" id="demoToCheckout" href="/demo/ile-living">To Checkout</Link>
       <label className="opt-lbl"><span>Tier</span>
         <select aria-label="Tier" value={tier} onChange={(e) => set({ tier: Number(e.target.value) as Tier })}>
           {[0, 1, 2, 3].map((t) => <option key={t} value={t}>Tier {t}</option>)}
@@ -55,6 +74,29 @@ export function NgnDemoBar() {
           <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
         </select>
       </label>
+      <label className="opt-lbl"><span>Selfie check</span>
+        {/* The selfie check before a send (over ₦[step-up], or flagged as unusual) */}
+        <select aria-label="Selfie check" value={selfieOutcome} onChange={(e) => setDemo({ selfieOutcome: e.target.value as typeof selfieOutcome })}>
+          <option value="pass">Selfie check: passes</option><option value="retry">Selfie check: needs retry</option><option value="declined">Selfie check: declined</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Flag as unusual</span>
+        <select aria-label="Flag as unusual" value={flagUnusual ? "on" : "off"} onChange={(e) => setDemo({ flagUnusual: e.target.value === "on" })}>
+          <option value="off">Flag as unusual: Off</option><option value="on">Flag as unusual: On</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>This device</span>
+        {/* WGT-10: a new device confirms itself with an email code the first time money moves */}
+        <select aria-label="This device" value={deviceKnown ? "known" : "new"} onChange={(e) => setDeviceKnown(e.target.value === "known")}>
+          <option value="known">This device: Known</option><option value="new">This device: New</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Single active device</span>
+        {/* To confirm (not in the PRD): binding a new device signs out the other one */}
+        <select aria-label="Single active device" value={singleDevice ? "on" : "off"} onChange={(e) => setSingleDevice(e.target.value === "on")}>
+          <option value="off">Single active device: Off</option><option value="on">Single active device: On</option>
+        </select>
+      </label>
       <label className="opt-lbl"><span>Instant transfers default</span>
         {/* WGT-09: what a new user starts with (switching starts the demo user over with it) */}
         <select aria-label="Instant transfers default" value={instantDefaultOn ? "on" : "off"} onChange={(e) => setInstantDefault(e.target.value === "on")}>
@@ -72,6 +114,14 @@ export function NgnDemoBar() {
         </select>
       </label>
       <span className="grow" />
+      {/* The selfie check's handoff (as Checkout's DEMO pill on its vendor screen) */}
+      {payStage === "selfie" && !locked && (selfiePhone
+        ? <button className="pbtn" id="demoSelfieFinish" onClick={() => usePayout.getState().selfieFinish()}>Finish on phone</button>
+        : <button className="pbtn" id="demoSelfieOpen" onClick={() => usePayout.getState().selfieOpenPhone()}>Open on phone</button>)}
+      {/* Single active device: another device is bound, which signs this one out (its next tap asks it to sign in) */}
+      {singleDevice && !signedOut && <button className="pbtn" id="demoOtherDeviceBinds" onClick={otherDeviceBinds}>Sign in on another device</button>}
+      {/* On the locked screen: end the 2-hour lock now */}
+      {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}
       {screen?.name === "instant-transfers" && instantPending !== null && <button className="pbtn" id="demoSkipCoolingOff" onClick={applyPendingLimit}>Skip cooling-off</button>}
       {stage === "ngnId" && (

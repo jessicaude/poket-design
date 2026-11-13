@@ -30,8 +30,8 @@ alwaysApply: true
     - Demo stand-in: Continue raises the tier to 1 (useNgn.verifyContinue) in place of the verification steps
       (the reference's tStepupTier2 / tStepupTier3, Veriff), which aren't ported yet. When they are, Continue starts
       them and the tier changes only once verification succeeds; don't treat the instant upgrade as product
-      behaviour. (The other step-ups, before a PIN or a conversion, just continue without changing the
-      tier.)
+      behaviour. (Convert's step-up just continues without changing the tier; sends have a selfie
+      check instead.)
   - An account: "NGN account details" with its status chip (Ready, Setting up, Frozen) and "Account number ••1234 ·
     [Partner bank]" (Setting up: "Usually ready within 1-2 business days"); opens its details.
   - Rejected: "NGN account details" with a "Not approved" chip (err), "We couldn't open your account. Try again or
@@ -64,7 +64,7 @@ These rules apply to every NGN transfer to a bank account, whether to the user's
 don't use it for this in copy or new names. The current code still uses older names (features/wallet/payout/,
 usePayout, createPayout, withdrawals.ts); read them as "send".
 - Code: features/wallet/send/ chooses the recipient (useSend); features/wallet/payout/ runs the send from the amount
-  on (usePayout.ts: amount, review, stepup, the checkout's PIN screens pin, pinLocked, pinResetOtp, moneyDone, then
+  on (usePayout.ts: amount, review, selfie, selfieChecking, selfieRetry, device, the checkout's PIN screens pin, pinLocked, pinResetOtp, moneyDone, then
   processing and done; ngn-account and ngn-bank for a new Nigerian bank account; payoutMath.ts: formatting and
   placeholders; screens/). WalletBody picks the open flow, else the wallet home.
 - Send is the only way in: the wallet home and every balance screen have Send (no Transfer, Payout or Withdraw
@@ -157,7 +157,7 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
 - Name enquiry: a bank account is added on ngn-account (bank from NG_BANKS in lib/mock-api.ts, 10-digit number,
   automatic nameEnquiry()). A name that matches the verified user saves as their own account; any other name must be
   confirmed as a third-party payee. Without a successful name enquiry, an account can't be added.
-- Every NGN e-wallet can send naira to Nigerian banks, within its tier limits (the step-up above ₦[step-up]); no
+- Every NGN e-wallet can send naira to Nigerian banks, within its tier limits (the selfie check above ₦[step-up]); no
   balance or account type is excluded.
 - Fees aren't decided: show ₦[fee] (FEE_PLACEHOLDER, fmtFee, fmtWithFee in payoutMath.ts) and keep them out of the maths
   (payoutFee returns 0 for NGN). Don't show the reference's computed naira fees.
@@ -177,10 +177,24 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   for Nigerian banks, "About 1 minute" for wallets, "1 to 3 business days" for US banks...; never the naira copy for other sends),
   Paid, Failed / Reversed "Funds returned to your balance".
   Chips use the wallet's .va-status tones; no new colours.
-- Step-up: a send whose USD value leaving the source balance (the amount plus every decided fee, in whatever
-  currency it's paid from) is over ₦[step-up] shows the reference's step-up screen (tStepupIntro) before the PIN.
-  It's never judged on what the recipient gets. The limit stays the ₦[step-up] placeholder on screen;
-  STEP_UP_DEMO_USD_CENTS (₦20,000.00 at the demo rate, about $12.90) is a demo value only.
+- Selfie check (WGT-10; replaces the step-up placeholder for sends): a send whose USD value leaving the source balance (the
+  amount plus every decided fee, in whatever currency it's paid from) is over ₦[step-up], or any send while the demo's
+  "Flag as unusual" is on, asks for a selfie check at review's Send, before the PIN. It's never judged on what the
+  recipient gets. STEP_UP_DEMO_USD_CENTS (₦20,000.00 at the demo rate, about $12.90) is a demo value only.
+  - Checkout's identity screens (features/wallet/payout/screens/SelfieScreens.tsx): the vendor handoff
+    (VendorHandoff from Checkout: Plaid, "Let's confirm it's you", "Take a quick selfie", the QR code, then
+    "Continue on your phone"; demo bar: Open on phone, Finish on phone; Cancel back to review), then "Checking your
+    ID". The .vendor classes are copied into styles/wallet-overrides.css.
+  - Outcomes (demo bar "Selfie check"): passes: on to the PIN. Needs retry: "We couldn't read your ID" with the
+    reference's VF_RETRY_REASONS_SELFIE and the tries left; declined: "We couldn't verify your identity" with the
+    tries left; both offer Try again and Finish later (back to review). Nothing is reserved without the PIN.
+  - Failures count toward the same 3 ID check attempts as the NGN ID matches (useNgn.attempts, NGN_MAX_ATTEMPTS).
+    The 3rd holds the send for review: it's created with status "review" (createPayout heldForReview), its money
+    reserved, never approved with the PIN; the done screen shows "Held for review" / "We're checking this payment.
+    We'll let you know." Then the account shows the blocked state (useSettings.idBlocked): any Send, Convert,
+    Deposit or PIN step shows Checkout's "We couldn't verify your identity" / "If you think this is a mistake,
+    contact Poket support." (AccountBlockedScreen); balances still show.
+  - Tests: e2e/selfie-check.spec.ts.
 
 ## Convert and the wallet home
 - Convert lives in features/wallet/convert/ (useConvert.ts: the reference's S.cv stages; convertMath.ts: cv* helpers).
@@ -261,6 +275,59 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   what's left fits (overDailyLimit in features/wallet/settings/instant.ts).
 - Tests: e2e/settings.spec.ts (on and off, the PIN, the sheet, Send blocked when off, lowering, raising with
   cooling-off, cancel, skip, the tier cap, the daily limit in Send).
+
+## WGT-10: device binding, account lock, selfie check
+WGT-10 is four parts, each with its rules below:
+- Device binding: a new device confirms itself with an email code the first time money moves ("Device binding").
+- Single active device (to confirm: not in the PRD): binding signs out the other devices, behind a demo switch.
+- Account lock: [n] wrong codes (wallet device codes and Checkout codes together) lock the account for 2 hours
+  ("Account lock after wrong codes").
+- Selfie check before sends over ₦[step-up] or flagged as unusual, sharing the 3 ID check attempts (the "Selfie
+  check" rule under "Sending naira to a bank account").
+- Tests: e2e/device.spec.ts, e2e/single-device.spec.ts, e2e/lock.spec.ts, e2e/selfie-check.spec.ts.
+
+## Device binding (WGT-10)
+- Demo bar "This device: Known / New" (useSettings.deviceKnown). Known devices never see device binding.
+- On a new device, the first time money moves (any send, at review's Send; or turning on instant transfers, before
+  its PIN), payout stage 'device' shows "Confirm this device" (usePayout.requireDevice): a 6-digit code to the
+  user's email (masked), in Checkout's sign-up code entry design (id-summary, "Enter the 6-digit code we sent you",
+  six boxes that verify themselves, Resend code; classes copied into styles/wallet-overrides.css). The mock's
+  verifyCode: 000000 is wrong ("That code isn't right. Check it and try again.", the boxes clear).
+- A correct code binds the device: it's listed first under Security's signed-in devices as "This device" (Active
+  now), and the action carries on where it left off (the send's selfie check if it needs one, then its PIN; instant
+  transfers' PIN). Cancel returns to where it was (a send's review as it was). Once bound, it isn't asked again.
+- Convert, the daily limit and other settings don't ask. The subtitle "It's the first time money moves from this
+  device. We sent a code to your email." is NEW copy.
+- Tests: e2e/device.spec.ts.
+
+### Single active device (to confirm: not in the PRD)
+- Demo bar "Single active device: Off / On" (useSettings.singleDevice; Off by default, which is WGT-10 as above).
+- On: binding a new device (the code on "Confirm this device") signs out every other device, so Security's signed-in
+  devices lists only "This device". Switching it on doesn't sign anyone out by itself; only a binding does.
+- The signed-out device's side: demo bar "Sign in on another device" (shown while it's on). The wallet stays as it
+  was until its next tap anywhere in the panel (header and tabs too, WalletShell): that tap does nothing else and
+  the panel shows "You've been signed out" / "Your account was signed in on another device. Sign in again to use
+  Poket here." / Sign in (NEW copy). Signing in closes any open flow, goes to the wallet home, and this device is new
+  again (not listed; the other device "Last active just now"), so it confirms itself the next time money moves.
+- The demo's Sign in is a stand-in: no real sign-in (email code) screens.
+- Tests: e2e/single-device.spec.ts.
+
+## Account lock after wrong codes (WGT-10)
+- Too many wrong verification codes lock the account for 2 hours: after [n] wrong codes in a row (CODE_LIMIT_DEMO =
+  5 in lib/mock-api.ts, a demo value that's never shown). The wallet's device codes (WGT-10) and Checkout's sign-up
+  and log-in codes count together (one verifyCode); a right code resets the count.
+- "Account locked" / "Too many incorrect codes. Try again in 2 hours." with a live countdown (H:MM:SS); NEW copy.
+  The lock is mirrored in store/lock.ts (useAccountLock, useLockLeft); it ends on its own when the time's up.
+- While locked, money can't move anywhere in the wallet: any open Send, Convert, Deposit or PIN step (so turning on
+  instant transfers too) shows the locked screen instead (WalletBody); balances and Settings still show. When the
+  lock ends, the step comes back where it was. In Checkout, the code step turns into the locked screen, and opening
+  the widget during the lock shows it (any customer).
+- The merchant gets account.locked once, with `reason: "too_many_incorrect_codes"`, the widget and `locked_until`
+  (the wallet demo shows its events panel too).
+- Demo: "Skip lock time" on the locked screen (the wallet's demo bar; Checkout's DEMO pill).
+- Tests: e2e/lock.spec.ts (including wrong codes in the wallet and then Checkout adding up to one lock: the test
+  clicks the demo bars' "To Checkout" / "To wallet" links, which move between the two demo pages without
+  reloading, so the one mock keeps its count, as one account would).
 
 ## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which

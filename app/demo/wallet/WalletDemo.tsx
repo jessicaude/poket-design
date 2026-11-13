@@ -4,6 +4,8 @@ import { WalletShell } from "@/features/wallet/WalletShell";
 import { useWalletHome } from "@/features/wallet/home/homeData";
 import { NgnDemoBar } from "@/components/demo/NgnDemoBar";
 import { RecipientActivityPanel } from "@/components/demo/RecipientActivityPanel";
+import { EventsPanel } from "@/components/demo/EventsPanel";
+import { useEvents } from "@/store/events";
 import { isNgnStage, useNgn } from "@/features/wallet/ngn/useNgn";
 import { isPayoutStage, usePayout } from "@/features/wallet/payout/usePayout";
 import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
@@ -31,7 +33,7 @@ export function WalletDemo({ css }: { css: string }) {
   };
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings });
+    Object.assign(window, { __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);
@@ -52,6 +54,8 @@ export function WalletDemo({ css }: { css: string }) {
         <WalletShell css={css} tab={tab} onTab={setTab} onSettings={openSettings} />
       </div>
       <RecipientActivityPanel />
+      {/* What the merchant hosting the wallet receives (e.g. account.locked); bottom right, clear of the wallet */}
+      <EventsPanel host="the merchant" style={{ right: "16px" }} />
     </>
   );
 }

@@ -3,7 +3,7 @@ import {
   createPayout, hasPin, screenAddress, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
   type NgBank, type PayoutCurrency, type PayoutRecipient, type WithdrawalStatus,
- getInstantSentToday } from "@/lib/mock-api";
+ getInstantSentToday, verifyCode } from "@/lib/mock-api";
 import { useWithdrawals } from "./useWithdrawals";
 import { useSend } from "../send/useSend";
 import { asSendRecipient, defaultSource, sameAsTarget, targetKeyFor } from "../send/sources";
@@ -11,8 +11,9 @@ import { sendSummary } from "../send/sendSummary";
 import { cvAvail, cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType } from "../convert/convertMath";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency } from "../useHoldings";
 import { useConvert } from "../convert/useConvert";
-import { holderName, useNgn } from "../ngn/useNgn";
+import { NGN_MAX_ATTEMPTS, holderName, useNgn } from "../ngn/useNgn";
 import { INSTANT_TIER_MAX_DEMO_KOBO, useSettings } from "../settings/useSettings";
+import { handleCodeError } from "@/store/lock";
 import { needsStepUp, payoutMethodSub } from "./payoutMath";
 
 /**
@@ -26,9 +27,9 @@ import { needsStepUp, payoutMethodSub } from "./payoutMath";
  */
 export const PAYOUT_STAGES = [
   "amount", "review",
-  "pin", "pinLocked", "pinResetOtp", "moneyDone",
+  "pin", "pinLocked", "pinResetOtp", "moneyDone", "device",
   "processing", "done",
-  "ngn-account", "ngn-bank", "stepup", "payFrom", "screening", "screeningBlocked",
+  "ngn-account", "ngn-bank", "selfie", "selfieChecking", "selfieRetry", "payFrom", "screening", "screeningBlocked",
 ] as const;
 export type PayoutStage = (typeof PAYOUT_STAGES)[number];
 export const isPayoutStage = (s: unknown): s is PayoutStage => PAYOUT_STAGES.includes(s as PayoutStage);
@@ -129,6 +130,24 @@ type State = {
    */
   approveWithPin: (reason: string, onApproved: () => void) => void;
   cancelApprove: () => void;
+  /**
+   * The selfie check before a send's PIN (Checkout's vendor handoff and "Checking your ID"). selfiePhone: on the phone;
+   * selfieFail: the last failure (retry or declined) and its reason. Failures count toward the 3 ID check attempts
+   * (useNgn.attempts, with NGN ID matches); the 3rd holds the send for review and blocks the account.
+   */
+  selfiePhone: boolean;
+  selfieFail: { kind: "retry" | "declined"; reason: string } | null;
+  selfieOpenPhone: () => void;
+  selfieFinish: () => void;
+  selfieTryAgain: () => void;
+  selfieCancel: () => void;
+  /**
+   * WGT-10: run `next` once this device is bound. A known device runs it now; a new one shows "Confirm this device"
+   * (a 6-digit code to the user's email) first, then continues where it left off (a send comes back as it was).
+   */
+  requireDevice: (next: () => void) => void;
+  deviceCode: (code: string) => Promise<void>;
+  cancelDevice: () => void;
   startPinReset: () => void;
   pinResetCode: (code: string) => Promise<void>;
 
@@ -149,6 +168,7 @@ type State = {
 
 const TRANSIENT = {
   stage: null, recipient: null, cents: 0, ack: false, lastRef: null, sent: null,
+  selfiePhone: false, selfieFail: null as State["selfieFail"],
   pinStage: "create" as PinStage, pinPurpose: "payout" as State["pinPurpose"], pinReason: "", pinDraft: null, pinError: "", otpError: "",
   account: EMPTY_ACCOUNT,
   payFrom: null as string | null, payCents: 0, quoteAt: 0, jitter: 1, quoteExpired: false,
@@ -156,6 +176,18 @@ const TRANSIENT = {
 
 /** approveWithPin: what runs once the PIN is accepted. */
 let onApproved: (() => void) | null = null;
+let selfieTimer: ReturnType<typeof setTimeout> | null = null;
+/** The next send is created held for review (the 3rd failed selfie check). */
+let holdForReview = false;
+const takeHold = () => { const h = holdForReview; holdForReview = false; return h; };
+/** The reference's VF_RETRY_REASONS_SELFIE. */
+export const SELFIE_RETRY_REASONS = [
+  "We couldn't see your face clearly. Try again in good light.",
+  "Your selfie was blurry. Hold your phone still.",
+  "Something was covering your face. Remove glasses or hats.",
+];
+/** requireDevice: what runs once the device is bound. */
+let onDeviceBound: (() => void) | null = null;
 /** approveWithPin during a send: the send's state, restored afterwards. */
 let resumeSnapshot: Partial<State> | null = null;
 
@@ -189,6 +221,7 @@ export const usePayout = create<State>((set, get) => {
       const w = await createPayout({
         currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r), conversion, kind: "bank",
         amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta, sourceKey: payFrom,
+        ...(takeHold() ? { heldForReview: true } : {}),
       });
       useWithdrawals.getState().refresh();
       set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status }, recipients: listPayoutRecipients() });
@@ -219,6 +252,25 @@ export const usePayout = create<State>((set, get) => {
     newQuote();
   };
   /** A send that converts: what leaves the source, what arrives, the rate and the conversion fee, for its one record. */
+  /**
+   * The selfie check's result (the demo bar's outcome). Passes: on to the PIN. Needs retry or declined: one of the 3
+   * ID check attempts (useNgn.attempts, shared with NGN ID matches); the 3rd holds the send for review (no PIN: it
+   * isn't approved) and blocks the account.
+   */
+  const selfieResult = () => {
+    const outcome = useSettings.getState().selfieOutcome;
+    if (outcome === "pass") return get().toPin();
+    const attempts = useNgn.getState().attempts + 1;
+    useNgn.getState().set({ attempts });
+    if (attempts >= NGN_MAX_ATTEMPTS) {
+      useSettings.getState().setDemo({ idBlocked: true });
+      holdForReview = true;
+      return execute();
+    }
+    const reason = outcome === "retry" ? SELFIE_RETRY_REASONS[(attempts - 1) % SELFIE_RETRY_REASONS.length] : "";
+    set({ stage: "selfieRetry", selfieFail: { kind: outcome, reason } });
+  };
+
   /** The PIN approved a setting: close the PIN screens, then run what it approved. */
   const approved = () => {
     const run = onApproved;
@@ -283,6 +335,7 @@ export const usePayout = create<State>((set, get) => {
         currency: s.kind === "poket" && src.k === "cash" ? src.cur as typeof r.currency : r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
         kind: s.kind, recipientName: r.name, ...(s.kind === "poket" ? { targetKey: s.targetKey } : {}), amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
         sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
+        ...(takeHold() ? { heldForReview: true } : {}),
       });
       if (w.status === "paid" && fromNgn) moveReserved(-s.sourceTotal, 0); // paid at once: nothing left on hold
       useWithdrawals.getState().refresh();
@@ -345,7 +398,7 @@ export const usePayout = create<State>((set, get) => {
         return;
       }
       const prev: Partial<Record<PayoutStage, PayoutStage>> = {
-        review: "amount", pin: "review", stepup: "review", payFrom: "amount", "ngn-bank": "ngn-account",
+        review: "amount", pin: "review", selfie: "review", payFrom: "amount", "ngn-bank": "ngn-account",
       };
       const to = stage ? prev[stage] : undefined;
       if (to) set({ stage: to, pinDraft: null, pinError: "" });
@@ -372,12 +425,18 @@ export const usePayout = create<State>((set, get) => {
 
     confirm: () => {
       if (!get().ack) return;
+      // A new device confirms itself first (WGT-10), then this confirm runs again
+      if (!useSettings.getState().deviceKnown) return get().requireDevice(() => get().confirm());
       // A send that converts can't go ahead on an expired quote (Refresh rate first).
       const { payFrom, recipient, quoteExpired } = get();
       if (payFrom && recipient && quoteExpired && !sameAsTarget(payFrom, asSendRecipient(recipient))) return;
       // Step-up: the USD value of what leaves the source balance (amount and fees), whatever the recipient gets
       const { cents, payCents, jitter } = get();
-      if (get().stage === "review" && payFrom && recipient && needsStepUp(sendSummary(recipient, payFrom, payCents, cents, jitter).usdOut)) return set({ stage: "stepup" });
+      // The selfie check before the PIN: over ₦[step-up] (judged on what leaves the source), or flagged as unusual
+      const flagged = useSettings.getState().flagUnusual;
+      if (get().stage === "review" && payFrom && recipient && (flagged || needsStepUp(sendSummary(recipient, payFrom, payCents, cents, jitter).usdOut))) {
+        return set({ stage: "selfie", selfiePhone: false, selfieFail: null });
+      }
       get().toPin();
     },
     toPin: () => {
@@ -411,6 +470,35 @@ export const usePayout = create<State>((set, get) => {
     },
 
     cancelApprove: () => { onApproved = null; resumeAfterPin(); },
+
+    selfieOpenPhone: () => set({ selfiePhone: true }),
+    selfieFinish: () => {
+      set({ stage: "selfieChecking" });
+      if (selfieTimer) clearTimeout(selfieTimer);
+      selfieTimer = setTimeout(() => { selfieTimer = null; if (get().stage === "selfieChecking") selfieResult(); }, 1400);
+    },
+    selfieTryAgain: () => set({ stage: "selfie", selfiePhone: false }),
+    selfieCancel: () => { if (selfieTimer) clearTimeout(selfieTimer); set({ stage: "review", selfiePhone: false, selfieFail: null }); },
+
+    requireDevice: (next) => {
+      if (useSettings.getState().deviceKnown) return next();
+      onDeviceBound = next;
+      const st = get();
+      resumeSnapshot = st.stage ? { ...st } : null;
+      set({ ...(resumeSnapshot ? {} : TRANSIENT), stage: "device" });
+    },
+    deviceCode: async (code) => {
+      // The mock's email code: 000000 is wrong (throws with the message to show). Too many wrong codes lock the
+      // account: the wallet shows "Account locked" over this step (WalletBody) and the merchant hears about it.
+      try { await verifyCode(code); }
+      catch (e) { if (handleCodeError(e, "wallet")) return; throw e; }
+      useSettings.getState().bindDevice();
+      const next = onDeviceBound;
+      onDeviceBound = null;
+      resumeAfterPin();
+      next?.();
+    },
+    cancelDevice: () => { onDeviceBound = null; resumeAfterPin(); },
 
     startPinReset: () => set({ stage: "pinResetOtp", otpError: "" }),
     pinResetCode: async (code) => {

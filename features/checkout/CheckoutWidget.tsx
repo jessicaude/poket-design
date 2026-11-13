@@ -8,6 +8,7 @@ import { PayScreen } from "./screens/PayScreen";
 import { AddMethodScreen } from "./screens/AddMethodScreen";
 import { AddCardScreen } from "./screens/AddCardScreen";
 import { BankTransferScreen } from "./screens/BankTransferScreen";
+import { LockedScreen } from "./screens/LockedScreen";
 import { DeclinedScreen, DoneScreen, ProcessingScreen } from "./screens/StatusScreens";
 import { BlockedScreen, DetailsScreen, IdDoneScreen, IdRetryScreen, IdReviewScreen, VendorScreen, VerifyingScreen } from "./screens/IdentityScreens";
 
@@ -24,6 +25,7 @@ const SCREENS: Record<Screen, { C: ComponentType; step: number | null }> = {
   "id-retry": { C: IdRetryScreen, step: 1 },
   "id-done": { C: IdDoneScreen, step: 1 },
   blocked: { C: BlockedScreen, step: null },
+  locked: { C: LockedScreen, step: null },
   pay: { C: PayScreen, step: 2 },
   "add-method": { C: AddMethodScreen, step: 2 },
   "add-card": { C: AddCardScreen, step: 2 },

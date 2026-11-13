@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { EDIT_ICON, ID_ICON, USER_ICON } from "@/lib/icons";
 import { findAccount, verifyCode } from "@/lib/mock-api";
+import { handleCodeError } from "@/store/lock";
 import { useCheckout } from "../useCheckout";
 
 const TERMS = "https://onepoket.com/terms-and-conditions";
@@ -40,7 +41,9 @@ export function SignupScreen() {
           <label className="lbl">Enter the 6-digit code we sent you</label>
           <Otp
             onComplete={async (code) => {
-              await verifyCode(code);
+              // Too many wrong codes (with the wallet's device codes) lock the account: "Account locked"
+              try { await verifyCode(code); }
+              catch (e) { if (handleCodeError(e, "checkout")) { useCheckout.getState().locked(); return; } throw e; }
               const existing = findAccount(email);
               if (loginFor && existing) loggedIn(structuredClone(existing));
               else signedUp({ email: email.trim(), first: first.trim(), last: last.trim(), tier: 0, methods: [], payments: [] });

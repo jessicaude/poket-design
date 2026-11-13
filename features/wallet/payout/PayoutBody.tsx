@@ -5,7 +5,8 @@ import { ReviewScreen } from "./screens/AmountReviewScreens";
 import { PinLockedScreen, PinResetOtpScreen, PinScreen, PinUpdatedScreen } from "./screens/PinScreens";
 import { DoneScreen, ProcessingScreen } from "./screens/ProcessingDoneScreens";
 import { NgnAccountScreen, NgnBankScreen } from "./screens/NgnAccountScreens";
-import { StepUpScreen } from "./screens/StepUpScreen";
+import { SelfieCheckingScreen, SelfieRetryScreen, SelfieScreen } from "./screens/SelfieScreens";
+import { DeviceScreen } from "./screens/DeviceScreen";
 import { AddressScreeningBlockedScreen, AddressScreeningScreen, PayFromScreen, SendAmountScreen } from "../send/SendAmountScreens";
 
 /** One component per stage, from the amount on (the recipient is chosen in Send). */
@@ -16,11 +17,14 @@ const SCREENS: Record<PayoutStage, ComponentType> = {
   pinLocked: PinLockedScreen,
   pinResetOtp: PinResetOtpScreen,
   moneyDone: PinUpdatedScreen,
+  device: DeviceScreen,
   processing: ProcessingScreen,
   done: DoneScreen,
   "ngn-account": NgnAccountScreen,
   "ngn-bank": NgnBankScreen,
-  stepup: StepUpScreen,
+  selfie: SelfieScreen,
+  selfieChecking: SelfieCheckingScreen,
+  selfieRetry: SelfieRetryScreen,
   payFrom: PayFromScreen,
   screening: AddressScreeningScreen,
   screeningBlocked: AddressScreeningBlockedScreen,

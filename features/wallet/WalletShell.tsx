@@ -7,6 +7,8 @@ import { WalletBody } from "./WalletBody";
 import { useWalletToast } from "./useWalletToast";
 import { useNotifications } from "./useNotifications";
 import { useWalletNav } from "./useWalletNav";
+import { useSettings } from "./settings/useSettings";
+import { SignedOutScreen } from "./AccountLockedScreen";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -37,6 +39,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
   const [root, setRoot] = useState<ShadowRoot | null>(null);
   const notifs = useNotifications((s) => s.list);
   const unread = notifs.some((n) => !n.read);
+  const signInPrompt = useSettings((s) => s.signInPrompt);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -52,7 +55,13 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
             <div className="app-root">
               <div className="stage">
                 <div className="panel-slot">
-                  <div className="panel">
+                  {/* Signed out by another device (single active device): the next tap anywhere asks to sign in again */}
+                  <div className="panel" onClickCapture={(e) => {
+                    const st = useSettings.getState();
+                    if (!st.signedOut || (e.target as Element).closest?.("#signedOut")) return;
+                    e.preventDefault(); e.stopPropagation();
+                    if (!st.signInPrompt) st.showSignInPrompt();
+                  }}>
                     <div className="panel-head">
                       <div className="panel-brand">
                         <Raw html={WALLET_LOCKUP} />
@@ -71,7 +80,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       </div>
                     </div>
                     <div className="panel-body" id="panelBody">
-                      {children ?? <WalletBody />}
+                      {signInPrompt ? <SignedOutScreen /> : children ?? <WalletBody />}
                     </div>
                     <div className="tabbar" id="tabbar">
                       {tab !== null &&

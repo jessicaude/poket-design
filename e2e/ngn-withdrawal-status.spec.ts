@@ -1,4 +1,5 @@
 import { press } from "./keypad";
+import { expectSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -147,7 +148,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
   await expect(chip(page)).toHaveText("Reversed"); // back to where the bell was opened
 });
 
-test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing reserved", async ({ page }) => {
+test("over ₦[step-up]: the selfie check before the PIN (Checkout's vendor screens); nothing reserved", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#actSend").click();
@@ -157,16 +158,19 @@ test("over ₦[step-up]: the reference's step-up screen before the PIN; nothing 
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
 
-  await expect(title(page)).toHaveText("Additional verification needed");
+  await expectSelfie(page);
   const body = page.locator("#panelBody");
-  await expect(body.locator(".alert.warn")).toHaveText("This is above what Tier 0: Registered allows (up to ₦[step-up] per transaction). A quick additional step is needed to continue.");
-  await expect(body.locator(".step-sub")).toHaveText("To reach Tier 1: Basic, you'll need to provide:");
-  await expect(body.locator(".info-row")).toHaveText(["Tier 1: Basica Veriff document scan and a quick liveness check"]);
+  await expect(body.locator(".vendor .vlogo img")).toHaveAttribute("alt", "Plaid");
+  await expect(body.locator(".vendor .prep")).toHaveText("Take a quick selfieWe'll match it to the details you entered.");
+  await expect(body).not.toContainText("Additional verification needed"); // the placeholder is gone for sends
   expect(await ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
-  await page.locator("#stepupCancel").click();
+  await page.locator("#selfieCancel").click();
   await expect(page.locator("#confirmPayout")).toBeVisible();
   await page.locator("#confirmPayout").click();
-  await page.locator("#stepupIntroContinue").click();
+  await page.locator("#demoSelfieOpen").click();
+  await expect(body.locator(".vendor .vt")).toHaveText("Continue on your phone");
+  await page.locator("#demoSelfieFinish").click();
+  await expect(title(page)).toHaveText("Checking your ID");
   await expect(title(page)).toHaveText("Enter your PIN");
 });
 
