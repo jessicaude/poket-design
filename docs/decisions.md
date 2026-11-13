@@ -27,6 +27,11 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 
 - **Report a problem** on a Paid send to a Nigerian bank. "I sent it to the wrong account" requests a recall, saying up front that bank transfers can't always be recovered. It's then submitted, in progress, and either recovered (back in the NGN balance, with a notification) or not recovered ("The receiving bank didn't return it.", with a "Recall closed" notification).
 
+## History and receipts (WGT-11)
+- Every transaction has its own record and receipt with a unique reference (copyable), including naira that comes in by itself (deposits, transfers to the account details, delayed transfers, naira from Poket users, recovered recalls). Bank transfers also show the bank's session ID (format not decided: "[session ID]").
+- Receipts use the same rows, in the same order, for every kind: Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed, Fee, Reference, Session ID (only those that apply).
+- History is grouped by day and filters by All, Money in and Money out. Conversions show under All only.
+
 ## Payout (Get paid)
 - No identity step up front. Sanctions screening and a payout account name match run on every payout, in the background.
 - **Lifetime payouts ≥ $2,000:** keyed-in ID check (ID number + date of birth; no document, no selfie).

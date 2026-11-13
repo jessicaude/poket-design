@@ -177,9 +177,11 @@ test("wallet: Ada's Checkout payments (dollar card, naira converted, naira bank 
   await rows.nth(1).click();
   await expect(page.locator("#paymentAmount")).toHaveText("₦36,270.00 NGN");
   await expect(detailRow(page, "Status")).toContainText("Completed");
-  await expect(detailRow(page, "Currency")).toContainText("NGN");
-  await expect(detailRow(page, "Merchant")).toContainText("Ilé Living");
-  await expect(detailRow(page, "Context")).toContainText("Checkout");
+  // WGT-11's rows: a naira bank transfer names no account to come from, and has the bank's session ID
+  await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "To", "Method", "Reference", "Session ID"]);
+  await expect(detailRow(page, "To")).toContainText("Ilé Living");
+  await expect(detailRow(page, "Method")).toContainText("Bank transfer");
+  await expect(detailRow(page, "Session ID")).toContainText("[session ID]");
   await expect(page.locator("#extRaiseDispute")).toBeVisible();
   await expect(page.locator("#disputeWindow")).toHaveText("You can raise a dispute for 60 more days.");
 });
@@ -369,7 +371,9 @@ test("wallet: Merchant refunds part, then the rest, of a naira card payment: Par
   await refunds.first().click();
   await expect(page.locator("#refundAmount")).toHaveText("₦32,550.00 NGN");
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Refund · Mama Tee’s Kitchen");
-  await expect(detailRow(page, "Refunded to")).toContainText("Verve ••• 6011");
+  await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Reference"]);
+  await expect(detailRow(page, "From")).toContainText("Mama Tee’s Kitchen");
+  await expect(detailRow(page, "To")).toContainText("Verve ••• 6011");
   await expect(page.locator("#refundNote")).toHaveText("Back to Verve ••• 6011 in [refund time]");
 });
 
@@ -387,7 +391,8 @@ test("wallet: a naira bank-transfer payment refunds to the NGN balance, with a n
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toContainText('"amount":3627000,"currency":"NGN","full":true,"refunded_to":"ngn_balance"');
   await page.locator("#backFromTxDetail").click();
   await page.locator("#panelBody [data-refund]").click();
-  await expect(detailRow(page, "Refunded to")).toContainText("NGN balance");
+  await expect(detailRow(page, "To")).toContainText("NGN balance");
+  await expect(detailRow(page, "Session ID")).toHaveCount(0); // into the NGN balance: not a bank transfer
   await expect(page.locator("#refundNote")).toHaveText("Added to your NGN balance.");
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif]").first()).toContainText("Refund received");
@@ -536,7 +541,8 @@ test("resolve: reversal. A naira bank transfer goes back to the bank account tha
   await expect(row.locator(".tx-title")).toHaveText("Reversal · Ilé Living");
   await expect(row.locator(".tx-sub")).toHaveText("Merchant reversal · Ilé Living");
   await row.click();
-  await expect(detailRow(page, "Reversed to")).toContainText("the bank account that paid");
+  await expect(detailRow(page, "To")).toContainText("the bank account that paid");
+  await expect(detailRow(page, "Session ID")).toContainText("[session ID]");
   await expect(page.locator("#refundNote")).toHaveText("Back to the bank account that paid in [refund time]");
   await page.locator("#openNotifHeader").click();
   await expect(notes(page).first()).toContainText("Dispute resolved: payment reversed");

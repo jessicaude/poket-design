@@ -3,6 +3,7 @@ import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { listWithdrawals, reportSendProblem, requestRecall as requestRecallApi, setRecallStatus, setWithdrawalStatus, type RecallStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
 import { formatNaira } from "@/lib/money";
 import { useNgn } from "../ngn/useNgn";
+import { creditNgn } from "../history/credits";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { useNotifications } from "../useNotifications";
 import { useWalletToast } from "../useWalletToast";
@@ -66,7 +67,8 @@ export const useWithdrawals = create<State>((set, get) => ({
   setRecall: async (id, to) => {
     const w = await setRecallStatus(id, to);
     if (to === "recovered") {
-      useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + w.amount }));
+      // WGT-11: the recovered naira is its own record (from the account it came back from)
+      creditNgn({ kind: "recall", amount: w.amount, from: w.recipientSub, withdrawalId: w.id });
       useNotifications.getState().add({ type: "payout", title: "Transfer recovered", desc: `${formatNaira(w.amount)} is back in your NGN balance.` });
     } else if (to === "not_recovered") {
       useNotifications.getState().add({ type: "payout", title: "Recall closed", desc: `We couldn’t recover your transfer to ${w.recipientName}.` });

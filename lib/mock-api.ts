@@ -151,7 +151,14 @@ export type DedicatedAccount = { status: "pending" | "ready" | "frozen" | "rejec
 export const NGN_TEMP_MINUTES = 30;
 
 const ngnServer: { temp: TemporaryAccount | null; verifiedId: { route: NgnIdRoute; last4: string } | null; dedicated: DedicatedAccount | null } = { temp: null, verifiedId: null, dedicated: null };
-const genRef = () => "TXN-" + Math.floor(100000 + Math.random() * 900000);
+/** A transaction's reference, "TXN-" and 6 digits: unique across every record the mock hands out (WGT-11). */
+const usedRefs = new Set<string>();
+export function genRef(): string {
+  let ref: string;
+  do ref = "TXN-" + Math.floor(100000 + Math.random() * 900000); while (usedRefs.has(ref));
+  usedRefs.add(ref);
+  return ref;
+}
 
 /** POST /v1/ngn/temporary-accounts. A 10-digit account for one exact amount, valid NGN_TEMP_MINUTES. */
 export async function createTemporaryAccount(amount: Kobo): Promise<TemporaryAccount> {
@@ -171,6 +178,34 @@ export async function simulateTransferArrives(): Promise<{ amount: Kobo; ref: st
   ngnServer.temp = null; // use it once
   return { amount: temp.amount, ref: temp.ref };
 }
+
+/**
+ * WGT-11: naira that arrives in the NGN balance by itself, each with its own record (a reference, and the bank's
+ * session ID for a bank transfer): a top-up to a temporary account, a transfer to the NGN account details, one that
+ * arrived while the naira partner was down (credited later), naira from a Poket user, and a recovered recall.
+ * Refunds into the NGN balance are the merchant's refund records (store/account.ts), not these.
+ */
+export type NgnCreditKind = "temp" | "account" | "delayed" | "poket" | "recall";
+export type NgnCredit = { id: string; ref: string; kind: NgnCreditKind; amount: Kobo; at: number;
+  /** Who sent it, as the bank or Poket reports it; for a recall, the account it came back from. */
+  from: string;
+  /** A recall: the send it recovered. */
+  withdrawalId?: string };
+const ngnCredits: NgnCredit[] = [];
+/** The demo's sender of transfers to the NGN account details (and of the delayed one). */
+export const DEMO_ACCOUNT_SENDER = "Chinedu Eze · Zenith Bank";
+/** The demo's Poket user who sends naira (demo "Receive from a Poket user"). */
+export const DEMO_POKET_SENDER = "Amara Okafor";
+/** Record a credit to the NGN balance (the caller adds it to the balance). A temporary account keeps its own reference. */
+export function recordNgnCredit(p: { kind: NgnCreditKind; amount: Kobo; from: string; ref?: string; withdrawalId?: string }): NgnCredit {
+  if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("amount must be positive integer kobo");
+  const c: NgnCredit = { id: "cr_" + Math.random().toString(36).slice(2, 10), ref: p.ref ?? genRef(), kind: p.kind, amount: p.amount, at: Date.now(), from: p.from,
+    ...(p.withdrawalId ? { withdrawalId: p.withdrawalId } : {}) };
+  ngnCredits.unshift(c);
+  return { ...c };
+}
+/** GET /v1/ngn/credits, newest first. */
+export const listNgnCredits = (): NgnCredit[] => ngnCredits.map((c) => ({ ...c }));
 
 /**
  * POST /v1/ngn/id-checks. Looks up the BVN, NIN or NRBVN and matches it to the verified name and date of birth.
@@ -399,7 +434,7 @@ export async function createPayout(p: {
   await wait(1500);
   rsv.status = "used";
   const w: Withdrawal = {
-    id: "wd_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+    id: "wd_" + Math.random().toString(36).slice(2, 10), ref: genRef(),
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
     kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
@@ -647,7 +682,7 @@ export async function createConversion(p: Omit<Conversion, "id" | "ref" | "creat
   if (fiat && p.to.startsWith("cash:NGN:")) throw new Error("fiat_only_to_ngn");
   if (p.from.startsWith("cash:NGN:") && p.to.startsWith("coin:") && !conversionServer.ngnToCoins) throw new Error("ngn_to_stablecoins_unavailable");
   await wait(1300);
-  const c: Conversion = { ...p, id: "cv_" + Math.random().toString(36).slice(2, 10), ref: "TXN-" + Math.floor(100000 + Math.random() * 900000), createdAt: Date.now() };
+  const c: Conversion = { ...p, id: "cv_" + Math.random().toString(36).slice(2, 10), ref: genRef(), createdAt: Date.now() };
   conversionServer.list.unshift(c);
   return { ...c };
 }

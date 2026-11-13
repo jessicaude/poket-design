@@ -380,6 +380,23 @@ WGT-10 is four parts, each with its rules below:
 - Demo bar on the send: "Recall: in progress / recovered / not recovered" (RECALL_TRANSITIONS in lib/mock-api.ts).
 - Other sends (US banks, cards, wallets, Poket users) don't offer it. Tests: e2e/send-problem.spec.ts.
 
+## History, receipts and statements (WGT-11)
+- History (features/wallet/history/History.tsx): Activity and the NGN balance's "Transaction history" list every
+  transaction as the reference's txRow, newest first, under a day heading (Today, Yesterday, "Nov 9, 2026"), with
+  the filter All, Money in, Money out (the exploration's FILTERS). A conversion shows under All only (kindOf). A row
+  shows its status chip (.va-status) unless it's completed. The NGN balance lists what moved it: sends from it,
+  conversions, credits, refunds into it (not card or bank-transfer payments to stores).
+- Detail (features/wallet/history/fields.tsx): every transaction's rows, those that apply, in one order with one set
+  of labels: Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed, Fee, Reference, Session ID.
+  The Reference is the copyable chip and unique (genRef in lib/mock-api.ts; payments and refunds keep the ID the
+  merchant gets). A bank transfer (naira deposits, sends to Nigerian banks, naira bank-transfer payments and their
+  reversals, recalls) shows the bank's session ID as "[session ID]" (not decided).
+- Naira coming into the NGN balance by itself is a record (NgnCredit, NEW copy): a temporary-account top-up ("Top-up ·
+  Bank transfer"), a transfer to the account details ("From {sender}"), one delayed while the partner was down
+  ("This transfer was delayed."), naira from a Poket user, and a recovered recall ("Recall · {name}"). Demo bar:
+  "Transfer to account details" (a ready account, partner up) and "Receive from a Poket user".
+- Tests: e2e/ngn-history.spec.ts.
+
 ## Refunds of naira payments (WGT-12)
 - Ada's seeded Checkout payments (lib/mock-api.ts DIRECTORY, as the reference seeds them): Mama Tee's Kitchen
   ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago, Adire Market $65.00 by

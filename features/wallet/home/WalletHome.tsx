@@ -1,27 +1,24 @@
 "use client";
-import { CheckoutPaymentRow, DisputeRow, RaiseDispute, RefundRow, useDemoDisputes } from "../disputes/DisputeScreens";
-import { allRefunds } from "@/lib/refunds";
+import { DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
+import { History, useActivity } from "../history/History";
 import { NairaPausedBanner } from "../NairaPausedBanner";
-import type { ReactNode } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { FILTER_ICON, WICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
 import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
-import { useWithdrawals } from "../payout/useWithdrawals";
 import { useConvert } from "../convert/useConvert";
 import { useSend } from "../send/useSend";
 import { fmtAsset } from "../convert/convertMath";
 import { useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { showNotPorted, useWalletToast } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
-import { ConversionRow } from "../withdrawals/ConversionRow";
-import { OnHoldLink, WithdrawalRow } from "../withdrawals/parts";
+import { OnHoldLink } from "../withdrawals/parts";
 import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
 import {
   ASSET_NAME, CURRENCY_ICON, CURRENCY_NAME, DEMO_TXNS, assetDelta, cashRows, stablecoinRows, totalBalanceUsd, useWalletHome,
-  type CashRow, type CoinRow, type DemoTx,
+  type CashRow, type CoinRow,
 } from "./homeData";
 
 /** The reference's fmt(): "$47.86 USD". */
@@ -118,39 +115,6 @@ function SettingsPanel({ id }: { id: string }) {
         <input type="checkbox" id={id} checked={hideZero} onChange={(e) => set({ hideZero: e.target.checked })} />
         Hide zero-balance {walletTab === "cash" ? "currencies" : "stablecoins"}
       </label>
-    </div>
-  );
-}
-
-/** An activity entry: the reference's demo records, withdrawals and conversions, newest first. */
-type Activity = { at: number; key: string; el: ReactNode };
-function useActivity(): Activity[] {
-  const withdrawals = useWithdrawals((s) => s.list);
-  const conversions = useConvert((s) => s.conversions);
-  // WGT-12: the demo user's Checkout payments (naira and dollar, card and bank transfer), kept on the account
-  const payments = useAccount((s) => s.account?.payments) ?? [];
-  return [
-    ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, el: <DemoTxRow key={t.id} t={t} /> })),
-    ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, el: <CheckoutPaymentRow key={p.id} p={p} /> })),
-    ...allRefunds(payments).map(({ p, r }) => ({ at: new Date(r.at).getTime(), key: r.id, el: <RefundRow key={r.id} p={p} r={r} /> })),
-    ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, el: <WithdrawalRow key={w.id} w={w} /> })),
-    ...conversions.map((c) => ({ at: c.createdAt, key: c.id, el: <ConversionRow key={c.id} c={c} /> })),
-  ].sort((a, b) => b.at - a.at);
-}
-
-/** txIcon(t) for the demo records: refund in, payment out (activity icon); deposit in (add icon). */
-function demoTxIcon(t: DemoTx) {
-  return { cls: t.type === "payment" ? "out" : "in", icon: t.type === "deposit" ? WICON.add : WICON.activity };
-}
-/** txRow(t) for a demo record. */
-function DemoTxRow({ t }: { t: DemoTx }) {
-  const push = useWalletNav((s) => s.push);
-  const ic = demoTxIcon(t);
-  return (
-    <div className="tx-row" data-txid={t.id} role="button" tabIndex={0} onClick={() => push({ name: "tx", id: t.id })}>
-      <div className={`tx-ic ${ic.cls}`} dangerouslySetInnerHTML={{ __html: ic.icon }} />
-      <div className="tx-main"><div className="tx-title">{t.title}</div><div className="tx-sub">{t.sub}</div></div>
-      <div className={`tx-amt ${t.positive ? "pos" : ""}`}><Grey>{(t.positive ? "+" : "-") + fmtUsd(t.amount)}</Grey></div>
     </div>
   );
 }
@@ -319,9 +283,8 @@ export function ActivityScreen() {
     <div className="screen-fade">
       <div className="step-title">Activity</div>
       <p className="step-sub">All wallet transactions in one place.</p>
-      {activity.length === 0
-        ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>No activity yet.</div>
-        : activity.map((a) => a.el)}
+      {/* WGT-11: grouped by day, with the filter */}
+      <History id="activityHistory" items={activity} empty="No activity yet." />
     </div>
   );
 }

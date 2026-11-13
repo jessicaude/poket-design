@@ -75,3 +75,7 @@
 .ud-more .c{margin-left:auto;display:flex;color:var(--txt3);transform:rotate(90deg);transition:transform .15s}
 .ud-more.open .c{transform:rotate(-90deg)}
 .ud-foot{border-top:1px solid var(--bdr2);margin-top:14px;padding-top:12px}
+
+/* WGT-11: the history's day headings, and its filter (the wallet's .chip-row) a little tighter */
+.history-day{font-size:12px;font-weight:600;color:var(--txt2);margin:14px 0 6px}
+.history-filter{margin-bottom:4px}

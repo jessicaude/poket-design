@@ -116,7 +116,7 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   // One activity record: "To {name} · {source} → {target}", no separate conversion row
   await page.locator("#viewPayoutTx").click();
   const info = page.locator("#panelBody .info-row");
-  await expect(info.locator("> span:first-child")).toHaveText(["Status", "Date", "To", "You send", "They get", "Rate", "Fee", "Reference"]);
+  await expect(info.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "You send", "They get", "Rate", "Fee", "Reference", "Session ID"]);
   await expect(info.filter({ hasText: "You send" }).locator("> span:last-child")).toHaveText("10.00 USDC");
   await expect(info.filter({ hasText: "Rate" }).locator("> span:last-child")).toHaveText("1 USDC ≈ 1,550.00 NGN");
   await expect(info.filter({ hasText: "Fee" }).locator("> span:last-child")).toHaveText("[fee] USDC + ₦[fee]");

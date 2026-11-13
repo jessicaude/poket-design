@@ -48,7 +48,7 @@ test("Amara can hold naira: she gets naira; no notice, no quote; her activity sh
   await expect(page.locator("#doneSent")).toHaveCount(0);
   await expect(page.locator("#doneTheyGet")).toHaveCount(0);
   await page.locator("#viewPayoutTx").click();
-  await expect(info(page).locator(":scope > span:first-child")).toHaveText(["Status", "Date", "To", "Fee", "Reference"]); // no conversion rows
+  await expect(info(page).locator(":scope > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Fee", "Reference"]); // no conversion rows, no session ID (not a bank)
   await expect(activity(page).locator('li[data-recipient="pu4"]')).toHaveText("Amara OkaforReceived ₦5,000.00 NGN from Ada Osun");
 });
 

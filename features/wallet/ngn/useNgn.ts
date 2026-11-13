@@ -7,6 +7,7 @@ import {
 } from "@/lib/mock-api";
 import type { Kobo } from "@/lib/money";
 import { useAccount } from "@/store/account";
+import { creditNgn } from "../history/credits";
 
 /**
  * NGN (naira) flow controller. The current `stage` is rendered by NgnBody inside WalletShell's #panelBody.
@@ -181,8 +182,10 @@ export const useNgn = create<State>((set, get) => {
 
     transferArrives: async () => {
       set({ stage: "tempArrived" });
-      const { amount } = await simulateTransferArrives();
-      set((s) => ({ ngnBalance: s.ngnBalance + amount, stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
+      const { amount, ref } = await simulateTransferArrives();
+      // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
+      creditNgn({ kind: "temp", amount, from: holderName(), ref });
+      set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 
     setIdNum: (text) => set({ idNum: text.replace(/\D/g, "").slice(0, 11) }),
