@@ -65,7 +65,7 @@ export function SettingsScreen() {
         <div className="info-row"><span>Email</span><span>{email || NOT_ADDED}</span></div>
       </div>
       <div className="settings-list">
-        <SettingsRow id="openCompliance" icon={WICON.tierIc} title="Compliance" sub={`${tierName(tier)} · limits, verification level`} onClick={() => push({ name: "compliance" })} />
+        <SettingsRow id="openCompliance" icon={WICON.tierIc} title="Compliance" sub={tierName(tier)} onClick={() => push({ name: "compliance" })} />
         {/* WGT-09 (NEW) */}
         <SettingsRow id="openInstantTransfers" icon={WICON.send} title="Instant transfers" sub={instantSummaryHtml(instantOn, instantLimit, tier)} onClick={() => push({ name: "instant-transfers" })} />
         <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren’t ported yet.")} />
@@ -154,7 +154,6 @@ export function ComplianceScreen() {
     <>
       <BackRow id="backFromAccountTier" label="Settings" onClick={back} />
       <div className="step-title">Compliance</div>
-      <p className="step-sub">Your verification level sets how much you can move with Poket.</p>
       <div className="info-card"><div className="info-row"><span>Current level</span><span id="currentLevel">{tierName(tier)}</span></div></div>
       {tier > 0 ? <TierLimitsCard tier={tier as 1 | 2 | 3} /> : <div className="info-card"><div className="info-row"><span>Status</span><span>Verify your identity to raise your limits.</span></div></div>}
       <div className="info-card">

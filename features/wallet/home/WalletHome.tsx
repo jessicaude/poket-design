@@ -40,9 +40,6 @@ function FiatTag({ info = true }: { info?: boolean }) {
       onClick={info ? (e) => { e.stopPropagation(); useWalletToast.getState().showNotice("FIAT-ONLY", FIAT_NOTE_TEXT, 5000); } : undefined}>FIAT-ONLY</span>
   );
 }
-function FiatNote() {
-  return <div className="fiat-note"><span className="fiat-tag" style={{ margin: 0 }}>FIAT-ONLY</span><span>{FIAT_NOTE_TEXT}</span></div>;
-}
 
 /** Open a cash balance: NGN keeps its own screen; everything else uses the reference's tHoldingDetail. */
 function openCash(r: { currency: CashCurrency; bucket: CashRow["bucket"] }) {
@@ -153,8 +150,8 @@ export function WalletHome() {
         <button className="action-btn" id="actConvert" onClick={() => useConvert.getState().start()}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
       <div className="seg">
-        <div className={`seg-opt ${isCash ? "" : "sel"}`} data-wallettab="assets" role="tab" aria-selected={!isCash} onClick={() => set({ walletTab: "assets" })}>Stablecoins</div>
         <div className={`seg-opt ${isCash ? "sel" : ""}`} data-wallettab="cash" role="tab" aria-selected={isCash} onClick={() => set({ walletTab: "cash" })}>Cash</div>
+        <div className={`seg-opt ${isCash ? "" : "sel"}`} data-wallettab="assets" role="tab" aria-selected={!isCash} onClick={() => set({ walletTab: "assets" })}>Stablecoins</div>
       </div>
       <div className="assets-header">
         <span>{isCash ? "Cash" : "Stablecoins"}</span>
@@ -168,7 +165,6 @@ export function WalletHome() {
         {isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}
         {!(isCash ? cash.length : coins.length) && <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "12px 4px" }}>Nothing here yet.</div>}
       </div>
-      {isCash && cash.some((r) => r.bucket === "fiat") && <FiatNote />}
       <div className="section-title" style={{ marginTop: "22px" }}>
         {activity.length > 0 && <>Recent activity <span className="btn-ghost" id="viewAllTx" role="button" tabIndex={0} style={{ textTransform: "none", letterSpacing: 0 }} onClick={() => set({ tab: "activity" })}>View all</span></>}
       </div>
@@ -194,11 +190,10 @@ export function AssetsAllScreen() {
       <div className="step-title">{isCash ? "Cash" : "Stablecoins"}
         <FilterButton id="assetSettingsGear2" style={{ float: "right" }} />
       </div>
-      <p className="step-sub">{isCash ? "All cash balances held in this wallet." : "All stablecoin balances held in this wallet."}</p>
       {settingsOpen && <SettingsPanel id="hideZeroToggle2" />}
       {rows === 0
         ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>Nothing to show.</div>
-        : <>{isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}{isCash && cash.some((r) => r.bucket === "fiat") && <FiatNote />}</>}
+        : <>{isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}</>}
     </>
   );
 }
@@ -282,7 +277,6 @@ export function ActivityScreen() {
   return (
     <div className="screen-fade">
       <div className="step-title">Activity</div>
-      <p className="step-sub">All wallet transactions in one place.</p>
       {/* WGT-11: grouped by day, with the filter */}
       <History id="activityHistory" items={activity} empty="No activity yet." />
     </div>

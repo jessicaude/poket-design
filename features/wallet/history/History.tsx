@@ -37,7 +37,7 @@ function DemoTxRow({ t }: { t: DemoTx }) {
   return (
     <div className="tx-row" data-txid={t.id} role="button" tabIndex={0} onClick={() => push({ name: "tx", id: t.id })}>
       <div className={`tx-ic ${t.type === "payment" ? "out" : "in"}`} dangerouslySetInnerHTML={{ __html: t.type === "deposit" ? WICON.add : WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{t.title}</div><div className="tx-sub">{t.sub}</div></div>
+      <div className="tx-main"><div className="tx-title">{t.title}</div>{t.sub && <div className="tx-sub">{t.sub}</div>}</div>
       <div className={`tx-amt ${t.positive ? "pos" : ""}`}><Grey>{(t.positive ? "+" : "-") + fmtCurrency(t.amount, "USD")}</Grey></div>
     </div>
   );

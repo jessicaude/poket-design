@@ -59,7 +59,6 @@ export function StatementScreen() {
     <>
       <BackRow id="backFromStatement" label="Nigerian Naira" onClick={back} />
       <div className="step-title">Statement</div>
-      <p className="step-sub">NGN balance</p>
       <label className="field-label">Period</label>
       <div role="radiogroup" aria-label="Period">
         {PERIODS.map((p) => {

@@ -239,6 +239,7 @@ test("a balance screen preselects its balance when it can pay the recipient", as
   await page.goto("/demo/wallet");
   await expect(page.locator("#actSend")).toBeVisible(); // the demo hooks are set
   await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 1000 }, USDT: { Polygon: 0, Base: 0 } } });
+  await page.locator('[data-wallettab="assets"]').click(); // Cash is the default tab
   await page.locator('[data-holdasset="USDC"][data-holdnet="Base"]').click();
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From USDC on Base");

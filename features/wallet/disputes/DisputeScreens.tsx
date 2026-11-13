@@ -10,7 +10,7 @@ import {
   addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
-import { allRefunds, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
+import { allRefunds, refundDest, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
@@ -46,7 +46,7 @@ export function CheckoutPaymentRow({ p }: { p: Payment }) {
   return (
     <div className="tx-row" data-txid={p.id} data-payment={p.id} role="button" tabIndex={0} onClick={() => push({ name: "payment", id: p.id })}>
       <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">Merchant payment · {p.merchant}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
+      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">{p.method}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
       <div className="tx-amt"><Grey>{"-" + amountText(p)}</Grey></div>
     </div>
   );
@@ -58,7 +58,7 @@ export function RefundRow({ p, r }: { p: Payment; r: Refund }) {
   return (
     <div className="tx-row" data-txid={r.id} data-refund={r.id} role="button" tabIndex={0} onClick={() => push({ name: "refund", id: r.id })}>
       <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">Merchant {r.kind === "reversal" ? "reversal" : "refund"} · {p.merchant}</div></div>
+      <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">To {refundDest(p, r)}</div></div>
       <div className="tx-amt pos"><Grey>{"+" + fmtCurrency(r.amount, p.currency)}</Grey></div>
     </div>
   );
@@ -308,7 +308,7 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     <div className="center-col" style={{ paddingTop: "50px" }}>
       <div className="sending-dots"><span /><span /><span /></div>
       <div className="step-title" style={{ marginTop: "18px" }}>Submitting dispute&hellip;</div>
-      <p className="step-sub">Sending your details for review.</p>
+      
     </div>
   );
   return (

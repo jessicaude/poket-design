@@ -58,7 +58,7 @@ export function NgnDemoBar() {
       <Link className="pbtn" id="demoToCheckout" href="/demo/ile-living">To Checkout</Link>
       <label className="opt-lbl"><span>Tier</span>
         <select aria-label="Tier" value={tier} onChange={(e) => set({ tier: Number(e.target.value) as Tier })}>
-          {[0, 1, 2, 3].map((t) => <option key={t} value={t}>Tier {t}</option>)}
+          {[0, 1, 2, 3].map((t) => <option key={t} value={t}>Tier: {t}</option>)}
         </select>
       </label>
       {(stage === "ngnChoice" || stage === "ngnRoute") && (
@@ -68,14 +68,14 @@ export function NgnDemoBar() {
             set({ eligibility: v });
             go(NGN_ROUTES[v].routes.length ? "ngnRoute" : "ngnUnavailable"); // tVaNgn redirects at render
           }}>
-            <option value="ng_in">Nigerian, lives in Nigeria</option><option value="ng_out">Nigerian, lives abroad</option>
-            <option value="for_in">Foreigner, lives in Nigeria</option><option value="for_out">Foreigner, lives abroad</option>
+            <option value="ng_in">Verified ID shows: Nigerian, lives in Nigeria</option><option value="ng_out">Verified ID shows: Nigerian, lives abroad</option>
+            <option value="for_in">Verified ID shows: Foreigner, lives in Nigeria</option><option value="for_out">Verified ID shows: Foreigner, lives abroad</option>
           </select>
         </label>
       )}
       <label className="opt-lbl"><span>PIN</span>
         <select aria-label="PIN" value={pinSet ? "set" : "none"} onChange={(e) => seedPin(e.target.value === "set" ? DEMO_PIN : null)}>
-          <option value="none">Not set</option><option value="set">Set ({DEMO_PIN})</option>
+          <option value="none">PIN: Not set</option><option value="set">PIN: Set ({DEMO_PIN})</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Recipient can hold naira</span>
@@ -88,7 +88,7 @@ export function NgnDemoBar() {
       <label className="opt-lbl"><span>Selfie check</span>
         {/* The selfie check before a send (over ₦[step-up], or flagged as unusual) */}
         <select aria-label="Selfie check" value={selfieOutcome} onChange={(e) => setDemo({ selfieOutcome: e.target.value as typeof selfieOutcome })}>
-          <option value="pass">Selfie check: passes</option><option value="retry">Selfie check: needs retry</option><option value="declined">Selfie check: declined</option>
+          <option value="pass">Selfie check: Passes</option><option value="retry">Selfie check: Needs retry</option><option value="declined">Selfie check: Declined</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Flag as unusual</span>
@@ -126,14 +126,15 @@ export function NgnDemoBar() {
           <option value="on">Instant transfers default: On</option><option value="off">Instant transfers default: Off</option>
         </select>
       </label>
-      <label className="opt-lbl"><span>Name enquiry</span>
-        <select aria-label="Name enquiry" value={enquiryDown ? "down" : "up"} onChange={(e) => setEnquiryDown(e.target.value === "down")}>
-          <option value="up">Available</option><option value="down">Unavailable</option>
+      <label className="opt-lbl"><span>Name check</span>
+        {/* docs/copy.md: "name check", not "name enquiry" */}
+        <select aria-label="Name check" value={enquiryDown ? "down" : "up"} onChange={(e) => setEnquiryDown(e.target.value === "down")}>
+          <option value="up">Name check: Available</option><option value="down">Name check: Unavailable</option>
         </select>
       </label>
       <label className="opt-lbl"><span>NGN to stablecoins</span>
         <select aria-label="NGN to stablecoins" value={ngnCoinsBlocked ? "blocked" : "allowed"} onChange={(e) => setNgnCoinsBlocked(e.target.value === "blocked")}>
-          <option value="allowed">Allowed</option><option value="blocked">Blocked</option>
+          <option value="allowed">NGN to stablecoins: Allowed</option><option value="blocked">NGN to stablecoins: Blocked</option>
         </select>
       </label>
       <span className="grow" />

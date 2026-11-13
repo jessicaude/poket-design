@@ -2,6 +2,9 @@
 - Plain, short, sentence case, second person. No em dashes. Curly apostrophes.
 - Buttons are verbs, with the amount when money moves ("Send ₦5,000.00", "Request recall").
 - No subtitles that repeat the title; no descriptions of obvious fields; no filler.
+- Secondary labels (screen subtitles, row subtitles, descriptions) only say what the title and the layout don't:
+  the method, the account, an amount, a time, a next step. A row titled "Mama Tee’s Kitchen" shows how it was paid
+  ("Verve ••• 6011"), not "Merchant payment · Mama Tee’s Kitchen"; if nothing adds anything, there's no subtitle.
 - Errors: what happened, then what to do. "That code isn’t right. Check it and try again."
 - Unavailable or paused: what isn't available, why (if useful), what to do instead.
   "Sending to banks is paused. Try again later."

@@ -26,7 +26,8 @@ type HomeState = {
   set: (p: Partial<Omit<HomeState, "set">>) => void;
 };
 export const useWalletHome = create<HomeState>((set) => ({
-  walletTab: "assets", masked: false, hideZero: false, settingsOpen: false, tab: "home",
+  // Cash first and selected by default (NEW: the reference opens on Stablecoins)
+  walletTab: "cash", masked: false, hideZero: false, settingsOpen: false, tab: "home",
   set: (p) => set(p),
 }));
 
@@ -78,13 +79,13 @@ export function totalBalanceUsd(): number {
  * The reference's demo wallet records (resetScenario 'autopull'): checkout activity that shows in the wallet.
  * Amounts are USD cents; `type` is the wallet's (refund, payment, deposit).
  */
-export type DemoTx = { id: string; type: "refund" | "payment" | "deposit"; title: string; sub: string; amount: number; positive: boolean; ts: number; ref: string; details: [string, string][] };
+export type DemoTx = { id: string; type: "refund" | "payment" | "deposit"; title: string; sub?: string; amount: number; positive: boolean; ts: number; ref: string; details: [string, string][] };
 const now = Date.now();
 export const DEMO_TXNS: DemoTx[] = [
-  { id: "t1", type: "refund", title: "Refund · Kola Books", sub: "Merchant refund · Kola Books", amount: 450, positive: true, ts: now - 1000 * 60 * 60 * 22, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t1", type: "refund", title: "Refund · Kola Books", amount: 450, positive: true, ts: now - 1000 * 60 * 60 * 22, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Merchant", "Kola Books"], ["Context", "Checkout"]] },
-  { id: "t2", type: "payment", title: "Sooyah Bistro", sub: "Merchant payment · Sooyah Bistro", amount: 720, positive: false, ts: now - 1000 * 60 * 60 * 24 * 3, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t2", type: "payment", title: "Sooyah Bistro", amount: 720, positive: false, ts: now - 1000 * 60 * 60 * 24 * 3, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Merchant", "Sooyah Bistro"], ["Context", "Checkout"]] },
-  { id: "t3", type: "deposit", title: "Top-up · Visa ····4242", sub: "Card top-up", amount: 5000, positive: true, ts: now - 1000 * 60 * 60 * 24 * 4, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t3", type: "deposit", title: "Top-up · Visa ····4242", amount: 5000, positive: true, ts: now - 1000 * 60 * 60 * 24 * 4, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Funding tag", "FIAT-ONLY"]] },
 ];

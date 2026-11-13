@@ -33,7 +33,7 @@ test("the header gear opens Settings: name and email, then the reference’s row
   await openSettings(page);
   await expect(body(page).locator(".info-card .info-row")).toHaveText(["NameAda Osun", "Emailada@osun.co"]);
   await expect(body(page).locator(".settings-row-title")).toHaveText(["Compliance", "Instant transfers", "Payment methods", "Subscriptions", "Security", "Log out"]);
-  await expect(sub(page, "openCompliance")).toHaveText("Tier 0: Registered · limits, verification level");
+  await expect(sub(page, "openCompliance")).toHaveText("Tier 0: Registered");
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
   await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 2 signed-in devices");
   await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a passcode");

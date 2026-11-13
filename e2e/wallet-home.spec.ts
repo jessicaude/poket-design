@@ -40,6 +40,7 @@ test("actions: Send and Convert open their flows; Deposit isn’t ported", async
 });
 
 test("Stablecoins tab: coins by network, sorted by balance, with the day’s drift on held coins", async ({ page }) => {
+  await page.locator('[data-wallettab="assets"]').click();
   await expect(page.locator('[data-wallettab="assets"]')).toHaveClass(/\bsel\b/);
   await expect(body(page).locator(".assets-header > span").first()).toHaveText("Stablecoins");
   const rows = body(page).locator('[data-holdtype="crypto"]');
@@ -56,7 +57,7 @@ test("Stablecoins tab: coins by network, sorted by balance, with the day’s dri
   await expect(page.locator("#totalBalance")).toHaveText("$122.86 USD");
 });
 
-test("Cash tab: currencies by value with flags; FIAT-ONLY tag and note; one NGN row", async ({ page }) => {
+test("Cash tab: currencies by value with flags; FIAT-ONLY tag, which explains itself; one NGN row", async ({ page }) => {
   await cashTab(page);
   const rows = body(page).locator('[data-holdtype="cash"]');
   // USD shows as two rows: its open part and its card-funded (FIAT-ONLY) part, each sorted by value
@@ -64,9 +65,11 @@ test("Cash tab: currencies by value with flags; FIAT-ONLY tag and note; one NGN 
   await expect(rows.locator(".tx-sub")).toHaveText(["50.00 USD", "₦50,000.00 NGN", "15.60 USDFIAT-ONLY", "0.00 EUR", "0.00 GBP", "0.00 GHS"]);
   await expect(rows.locator(".tx-amt")).toHaveText(["$50.00 USD", "₦50,000.00 NGN", "$15.60 USD", "€0.00 EUR", "£0.00 GBP", "GH₵0.00 GHS"]);
   await expect(rows.locator(".badge svg")).toHaveCount(6);
-  await expect(body(page).locator(".fiat-note")).toHaveText("FIAT-ONLYCash added by card. You can spend it or withdraw it, but it can’t be converted to stablecoin.");
+  // No note under the list: the tag explains itself when tapped
+  await expect(body(page).locator(".fiat-note")).toHaveCount(0);
   await body(page).locator("[data-fiatinfo]").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("FIAT-ONLY");
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("Cash added by card. You can spend it or withdraw it, but it can’t be converted to stablecoin.");
 
   // One naira balance: no merchant-held row or tag
   await expect(body(page).locator('[data-holdcur="NGN"]')).toHaveCount(1);
@@ -86,7 +89,8 @@ test("filter hides zero balances; View all lists every balance", async ({ page }
 
   await page.locator("#viewAllAssets").click();
   await expect(body(page).locator(".step-title")).toHaveText("Cash");
-  await expect(body(page).locator(".step-sub")).toHaveText("All cash balances held in this wallet.");
+  await expect(body(page).locator(".step-sub")).toHaveCount(0); // the title says it
+  await expect(body(page).locator(".fiat-note")).toHaveCount(0);
   await expect(page.locator("#hideZeroToggle2")).toBeChecked(); // the same filter
   await page.locator("#hideZeroToggle2").uncheck();
   await expect(body(page).locator('[data-holdtype="cash"]')).toHaveCount(6);
@@ -94,7 +98,7 @@ test("filter hides zero balances; View all lists every balance", async ({ page }
   await page.locator('[data-wallettab="assets"]').click();
   await page.locator("#viewAllAssets").click();
   await expect(body(page).locator(".step-title")).toHaveText("Stablecoins");
-  await expect(body(page).locator(".step-sub")).toHaveText("All stablecoin balances held in this wallet.");
+  await expect(body(page).locator(".step-sub")).toHaveCount(0);
 });
 
 test("rows open their balance screens: USD (with account details card and history), a coin, NGN", async ({ page }) => {

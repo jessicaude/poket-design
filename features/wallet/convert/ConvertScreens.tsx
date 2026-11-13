@@ -62,7 +62,6 @@ export function ConvertFormScreen() {
     <>
       <BackRow id="backHome" label="Wallet" onClick={close} />
       <div className="step-title">Convert</div>
-      <p className="step-sub">Move money between your currencies and stablecoins.</p>
       <div className="cv-box">
         <div className="cv-box-top"><span>From</span><span><Grey>{`Available ${cvFmt(q.avail, q.f)}`}</Grey> <button type="button" className="cv-max" id="cvMax" onClick={max}>Max</button></span></div>
         <div className="cv-box-row">
@@ -137,7 +136,6 @@ export function ConvertPickerScreen() {
     <>
       <BackRow id="cvPickBack" onClick={pickBack} />
       <div className="step-title">{isFrom ? "Convert from" : "Convert to"}</div>
-      <p className="step-sub">{isFrom ? "Choose the balance to convert." : "Choose what you want to receive."}</p>
       <div className="field-icon-wrap">
         <span className="field-icon"><Raw html={WICON.search} /></span>
         <input className="field-input" id="cvSearch" placeholder="Search currency or stablecoin" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -250,7 +248,6 @@ export function ConvertEmptyScreen() {
     <>
       <BackRow id="backHome" label="Wallet" onClick={close} />
       <div className="step-title">Convert</div>
-      <p className="step-sub">Move money between your currencies and stablecoins.</p>
       <div className="cv-box">
         <div className="cv-box-top"><span>To</span><span>{t.k === "coin" ? `Arrives ${NETWORK[t.net].eta}` : "Arrives instantly"}</span></div>
         <div className="cv-box-row">
