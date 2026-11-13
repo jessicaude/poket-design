@@ -1,12 +1,12 @@
 import { create } from "zustand";
+import { notificationFor, notify } from "../notificationCatalogue";
 import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { listWithdrawals, reportSendProblem, requestRecall as requestRecallApi, setRecallStatus, setWithdrawalStatus, type RecallStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
-import { formatNaira } from "@/lib/money";
+import { formatNairaShort, withoutCode } from "@/lib/money";
 import { useNgn } from "../ngn/useNgn";
 import { creditNgn } from "../history/credits";
 import { attribute } from "../history/ledger";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
-import { useNotifications } from "../useNotifications";
 import { useWalletToast } from "../useWalletToast";
 import { reservationEffect, sentText } from "./withdrawals";
 
@@ -26,6 +26,11 @@ type State = {
 
 /** How long "Sending" lasts after a first-payment hold is released, in the demo. */
 export const RELEASE_SEND_MS = 1500;
+
+/** A failed or reversed send's notification: what left, to whom, and the balance it returned to. */
+function cameBack(w: Withdrawal) {
+  return { amount: withoutCode(sentText(w)), recipient: w.recipientName, currency: (w.sourceKey ?? `cash:${w.currency}:open`).split(":")[1] };
+}
 
 /** Give money back to the balance a send was paid from (a cvKey). */
 function returnToSource(key: string, amount: number) {
@@ -61,10 +66,14 @@ export const useWithdrawals = create<State>((set, get) => ({
       }
     });
     get().refresh();
+    // docs/copy.md: a notification for money that came back (failed or reversed): the amount, who, where it went
+    if (to === "failed") {
+      notify("transferFailed", cameBack(after));
+    }
     if (to === "reversed") {
-      const desc = `${sentText(after)} to ${after.recipientName}. Funds returned to your balance.`; // what left (and returns to) your balance
-      useNotifications.getState().add({ type: "payout", title: "Transfer reversed", desc });
-      useWalletToast.getState().showNotice("Transfer reversed", desc, 3200);
+      notify("transferReversed", cameBack(after));
+      const n = notificationFor("transferReversed", cameBack(after));
+      useWalletToast.getState().showNotice(n.title, n.desc, 3200);
     }
   },
 
@@ -75,9 +84,9 @@ export const useWithdrawals = create<State>((set, get) => ({
     if (to === "recovered") {
       // WGT-11: the recovered naira is its own record (from the account it came back from)
       creditNgn({ kind: "recall", amount: w.amount, from: w.recipientSub, withdrawalId: w.id, description: `Recall · ${w.recipientName}` });
-      useNotifications.getState().add({ type: "payout", title: "Transfer recovered", desc: `${formatNaira(w.amount)} is back in your NGN balance.` });
+      notify("transferRecovered", { amount: formatNairaShort(w.amount), recipient: w.recipientName });
     } else if (to === "not_recovered") {
-      useNotifications.getState().add({ type: "payout", title: "Recall closed", desc: `We couldn’t recover your transfer to ${w.recipientName}.` });
+      notify("recallClosed", { amount: formatNairaShort(w.amount), recipient: w.recipientName });
     }
     get().refresh();
   },

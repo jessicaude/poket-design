@@ -31,6 +31,8 @@ export function formatMinor(minor: number, symbol: string, code: string): string
 export const DEMO_NGN_PER_USD = 1550;
 
 /** Naira in running text (titles, buttons, notes, the merchant's page): "₦36,270.00", no code. Amount rows and cards keep the grey code. */
+/** docs/copy.md: running text drops the code ("₦5,000.00 NGN" → "₦5,000.00"); stablecoins keep theirs ("10.00 USDC"). */
+export const withoutCode = (amount: string) => amount.replace(/ (NGN|USD|EUR|GBP|GHS)$/, "");
 export const formatNairaShort = (kobo: Kobo) => formatNaira(kobo).replace(/ NGN$/, "");
 
 /** An order amount in running text, in its own currency, without the code: "$23.40" or "₦36,270.00". */

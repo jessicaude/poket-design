@@ -21,7 +21,7 @@ export function StepUpIntro({ current, target, limit, reason, onCancel, onContin
       {/* The warning: why (a limit, or `reason`); none when the user asked to raise their tier (Compliance) */}
       {(reason || limit) && <div className="alert warn"><Raw html={WICON.alert} /><span>{reason ?? <>This is above what {tierName(current)} allows (up to <Grey>{limit ?? ""}</Grey> per transaction). A quick additional step is needed to continue.</>}</span></div>}
       <div className="step-title">Additional verification needed</div>
-      <p className="step-sub">To reach {TIERS[t].name}, you&apos;ll need to provide:</p>
+      <p className="step-sub">To reach {TIERS[t].name}, you&rsquo;ll need to provide:</p>
       <div className="info-card">{need.map((n) => <div className="info-row" key={n}><span>{TIERS[n].name}</span><span>{TIERS[n].need}</span></div>)}</div>
       <button className="btn-primary" id="stepupIntroContinue" onClick={onContinue}>Continue</button>
     </>

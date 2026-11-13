@@ -53,7 +53,7 @@ export function SettingsScreen() {
   const { back, push } = useWalletNav();
   const tier = useNgn((s) => s.tier);
   const { instantOn, instantLimit, devices } = useSettings();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const { name, email } = useProfile();
   const own = listPayoutRecipients().filter((r) => r.isSelf);
   const cards = own.filter((r) => r.methodType === "card").length, banks = own.filter((r) => r.methodType === "bank").length;
   return (
@@ -61,27 +61,41 @@ export function SettingsScreen() {
       <BackRow id="backFromSettings" label="Wallet" onClick={back} />
       <div className="step-title">Settings</div>
       <div className="info-card">
-        <div className="info-row"><span>Name</span><span>{holderName() || "—"}</span></div>
-        <div className="info-row"><span>Email</span><span>{email}</span></div>
+        <div className="info-row"><span>Name</span><span>{name || NOT_ADDED}</span></div>
+        <div className="info-row"><span>Email</span><span>{email || NOT_ADDED}</span></div>
       </div>
       <div className="settings-list">
         <SettingsRow id="openCompliance" icon={WICON.tierIc} title="Compliance" sub={`${tierName(tier)} · limits, verification level`} onClick={() => push({ name: "compliance" })} />
         {/* WGT-09 (NEW) */}
         <SettingsRow id="openInstantTransfers" icon={WICON.send} title="Instant transfers" sub={instantSummaryHtml(instantOn, instantLimit, tier)} onClick={() => push({ name: "instant-transfers" })} />
-        <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren't ported yet.")} />
-        <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren't ported yet.")} />
+        <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren’t ported yet.")} />
+        <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren’t ported yet.")} />
         <SettingsRow id="openSecurity" icon={WICON.shieldIc} title="Security" sub={`Passcode delivery · ${devices.length} signed-in device${devices.length === 1 ? "" : "s"}`} onClick={() => push({ name: "security" })} />
-        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={() => showNotPorted("Logging out isn't ported yet.")} />
+        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={() => showNotPorted("Logging out isn’t ported yet.")} />
       </div>
     </>
   );
+}
+
+/** A missing name or email (docs/copy.md: words, not a dash). NEW copy. */
+export const NOT_ADDED = "Not added";
+/**
+ * The signed-in account's name and email, as they are (empty when missing). Before the demo has signed Ada in, the
+ * reference's demo person.
+ */
+function useProfile() {
+  const signedIn = useAccount((s) => !!s.account);
+  const first = useAccount((s) => s.account?.first ?? ""), last = useAccount((s) => s.account?.last ?? "");
+  const email = useAccount((s) => s.account?.email ?? "");
+  if (!signedIn) return { name: holderName(), email: "ada@osun.co" };
+  return { name: [first, last].filter(Boolean).join(" ").trim(), email: email.trim() };
 }
 
 /** tSecurity: passcode delivery (email or text) and signed-in devices. */
 export function SecurityScreen() {
   const back = useWalletNav((s) => s.back);
   const { channel, setChannel, devices, signOutDevice } = useSettings();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const { email } = useProfile();
   const phone = ""; // no phone number in the demo: Text message needs one first
   const row = (val: "email" | "text", title: string, sub: string, disabled: boolean) => (
     <div className={`select-row ${channel === val ? "sel" : ""}`} data-channel={val} role="radio" aria-checked={channel === val} aria-disabled={disabled || undefined}
@@ -95,7 +109,7 @@ export function SecurityScreen() {
       <BackRow id="extBackSettings" label="Settings" onClick={back} />
       <div className="step-title">Security</div>
       <div className="section-title">Passcode delivery</div>
-      {row("email", "Email", email || "—", false)}
+      {row("email", "Email", email || NOT_ADDED, false)}
       {row("text", "Text message", phone || "Add a phone number first", !phone)}
       <div className="section-title" style={{ marginTop: "18px" }}>Signed-in devices</div>
       {devices.length ? (
@@ -142,21 +156,21 @@ export function ComplianceScreen() {
       <div className="step-title">Compliance</div>
       <p className="step-sub">Your verification level sets how much you can move with Poket.</p>
       <div className="info-card"><div className="info-row"><span>Current level</span><span id="currentLevel">{tierName(tier)}</span></div></div>
-      {tier > 0 ? <TierLimitsCard tier={tier as 1 | 2 | 3} /> : <div className="info-card"><div className="info-row"><span>Status</span><span>No monetary activity until Tier 1</span></div></div>}
+      {tier > 0 ? <TierLimitsCard tier={tier as 1 | 2 | 3} /> : <div className="info-card"><div className="info-row"><span>Status</span><span>Verify your identity to raise your limits.</span></div></div>}
       <div className="info-card">
         <div className="info-row"><span>Spent today</span><span className="mono">{fmtCurrency(Math.round(spentToday() * 100), "USD")}</span></div>
         <div className="info-row"><span>Spent this month</span><span className="mono">{fmtCurrency(Math.round(spentThisMonth() * 100), "USD")}</span></div>
       </div>
       {next
         ? <button className="btn-primary" id="startStepupFromAccount" onClick={() => push({ name: "compliance-stepup" })}>Increase my limits ({TIERS[next as 1 | 2 | 3].name})</button>
-        : <div className="alert success"><Raw html={WICON.check} /><span>You&apos;re at Poket&apos;s highest verification level.</span></div>}
+        : <div className="alert success"><Raw html={WICON.check} /><span>You&rsquo;re at Poket&rsquo;s highest verification level.</span></div>}
     </>
   );
 }
 
 /**
  * The step-up from Compliance (tStepupIntro, then back to Compliance). Demo stand-in: Continue raises the tier by
- * one in place of the verification steps, which aren't ported yet.
+ * one in place of the verification steps, which aren’t ported yet.
  */
 export function ComplianceStepUpScreen() {
   const back = useWalletNav((s) => s.back);
@@ -194,7 +208,7 @@ export function InstantTransfersScreen() {
       <div className="select-row" style={{ cursor: "default" }}>
         <div className="meta">
           <div className="t1">Instant transfers to banks</div>
-          <div className="t2" id="instantExplain">Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it&apos;s off, you can&apos;t send to banks.</div>
+          <div className="t2" id="instantExplain">Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it&rsquo;s off, you can&rsquo;t send to banks.</div>
         </div>
         <Switch id="instantSwitch" on={instantOn} label="Instant transfers to banks" onChange={toggle} />
       </div>
@@ -222,12 +236,12 @@ export function InstantTransfersScreen() {
       {next
         ? <span className="btn-ghost" id="instantRaiseTier" role="button" tabIndex={0} style={{ display: "inline-block", marginTop: "12px" }}
             onClick={() => push({ name: "compliance" })}>Raise your maximum: {TIERS[next as 1 | 2 | 3].name}</span>
-        : <p className="step-sub" style={{ marginTop: "12px" }}>You&apos;re at Poket&apos;s highest verification level.</p>}
+        : <p className="step-sub" style={{ marginTop: "12px" }}>You&rsquo;re at Poket&rsquo;s highest verification level.</p>}
       {confirmOff && (
         <div className="pk-sheet-scrim" id="instantOffSheet" onClick={(e) => { if (e.target === e.currentTarget) setConfirmOff(false); }}>
           <div className="pk-sheet" role="dialog" aria-modal="true" aria-labelledby="instantOffTitle">
             <div className="step-title" id="instantOffTitle">Turn off instant transfers?</div>
-            <p className="step-sub">Sends to Nigerian banks won&apos;t go until you turn them back on.</p>
+            <p className="step-sub">Sends to Nigerian banks won&rsquo;t go until you turn them back on.</p>
             <button className="btn-primary btn-danger" id="instantOffConfirm" onClick={() => { setInstantOn(false); setConfirmOff(false); }}>Turn off</button>
             <button className="btn-secondary" id="instantOffCancel" style={{ width: "100%", marginTop: "8px" }} onClick={() => setConfirmOff(false)}>Keep them on</button>
           </div>

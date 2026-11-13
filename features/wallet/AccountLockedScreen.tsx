@@ -39,7 +39,7 @@ export function AccountBlockedScreen() {
   return (
     <div className="center-col" style={{ paddingTop: "24px" }} id="accountBlocked">
       <div className="check-circle" style={{ background: "var(--err-50)", color: "var(--err-600)" }}><Raw html={WICON.closeIc} /></div>
-      <div className="step-title">We couldn&apos;t verify your identity</div>
+      <div className="step-title">We couldn&rsquo;t verify your identity</div>
       <p className="step-sub">If you think this is a mistake, contact Poket support.</p>
       <button className="btn-secondary" id="blockedClose" style={{ width: "100%", marginTop: "14px" }} onClick={close}>Close</button>
     </div>

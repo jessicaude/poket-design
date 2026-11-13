@@ -17,7 +17,7 @@ import { useNairaRecipients } from "./nairaRecipients";
 import { useSettings } from "../settings/useSettings";
 import { blockedByInstantOff, openDailyLimit, overDailyLimit, turnOnInstantTransfers } from "../settings/instant";
 import { useWithdrawals } from "../payout/useWithdrawals";
-import { formatNaira } from "@/lib/money";
+import { formatNairaShort } from "@/lib/money";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
@@ -63,7 +63,7 @@ export function SendAmountScreen() {
   const opened = useSend.getState().source;
   // Opened from a naira balance for a recipient naira can't pay (a bank outside Nigeria, a debit card): say why
   // another balance is paying.
-  const nairaBlocked = r.methodType === "card" ? "Naira can't pay a card."
+  const nairaBlocked = r.methodType === "card" ? "Naira can’t pay a card."
     : r.methodType === "bank" && r.currency !== "NGN" ? "Naira can only go to Nigerian banks."
     : null;
   const nairaRedirected = !!nairaBlocked && !!opened?.startsWith("cash:NGN:") && !payFrom.startsWith("cash:NGN:");
@@ -96,7 +96,7 @@ export function SendAmountScreen() {
       {nairaConvertsOnReceipt(asSendRecipient(r), payFrom) && (
         // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
-          <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&apos;t hold naira. They&apos;ll get USD.</span>
+          <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&rsquo;t hold naira. They&rsquo;ll get USD.</span>
         </div>
       )}
       {partnerPaused && (
@@ -105,14 +105,14 @@ export function SendAmountScreen() {
       {instantOff && (
         // NEW copy: "Turn on" asks for the PIN, then the send carries on
         <div className="alert warn" id="instantOffNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
-          <Raw html={WICON.alert} /><span>Instant transfers are off. <span className="btn-ghost" id="instantTurnOn" role="button" tabIndex={0}
+          <Raw html={WICON.alert} /><span>Instant transfers are off. Turn them on to send to banks. <span className="btn-ghost" id="instantTurnOn" role="button" tabIndex={0}
             style={{ display: "inline", padding: 0 }} onClick={turnOnInstantTransfers} onKeyDown={(e) => { if (e.key === "Enter") turnOnInstantTransfers(); }}>Turn on</span></span>
         </div>
       )}
       {overLimit && (
         // NEW link copy ("Change limit"): to Settings → Instant transfers → Daily limit
         <div className="alert warn" id="dailyLimitNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
-          <Raw html={WICON.alert} /><span>Over your daily limit of <Grey>{formatNaira(overLimit.limit)}</Grey>. You have <Grey>{formatNaira(overLimit.left)}</Grey> left today.{" "}
+          <Raw html={WICON.alert} /><span>That’s over your daily limit of <Grey>{formatNairaShort(overLimit.limit)}</Grey>. You have <Grey>{formatNairaShort(overLimit.left)}</Grey> left today.{" "}
             <span className="btn-ghost" id="dailyLimitChange" role="button" tabIndex={0} style={{ display: "inline", padding: 0 }}
               onClick={openDailyLimit} onKeyDown={(e) => { if (e.key === "Enter") openDailyLimit(); }}>Change limit</span></span>
         </div>
@@ -224,8 +224,8 @@ export function AddressScreeningBlockedScreen() {
   return (
     <div className="center-col" style={{ paddingTop: "24px" }}>
       <div className="check-circle" style={{ background: "var(--err-50)", color: "var(--err-600)" }}><Raw html={WICON.closeIc} /></div>
-      <div className="step-title">We can&apos;t send to this address</div>
-      <p className="step-sub">This destination didn&apos;t pass Poket&apos;s screening checks, so the transfer hasn&apos;t gone through. No funds were moved. Your account has been flagged for compliance review.</p>
+      <div className="step-title">We can&rsquo;t send to this address</div>
+      <p className="step-sub">This destination didn&rsquo;t pass Poket&rsquo;s screening checks, so the transfer hasn&rsquo;t gone through. No funds were moved. Your account has been flagged for compliance review.</p>
       <button className="btn-secondary" id="addressScreeningBlockedClose" style={{ width: "100%" }} onClick={close}>Back</button>
     </div>
   );

@@ -33,7 +33,7 @@ export function SelfieCheckingScreen() {
 
 /**
  * A failed selfie check with tries left (of the 3 ID check attempts). Needs retry: Checkout's retry screen (tVfRetry)
- * with the reference's selfie reasons. Declined: Checkout's "We couldn't verify your identity", here with tries left.
+ * with the reference's selfie reasons. Declined: Checkout's "We couldn’t verify your identity", here with tries left.
  */
 export function SelfieRetryScreen() {
   const { selfieFail, selfieTryAgain, selfieCancel } = usePayout();
@@ -47,7 +47,7 @@ export function SelfieRetryScreen() {
         <div className="check-circle" style={declined ? { background: "var(--err-50)", color: "var(--err-600)" } : { background: "var(--warn-50, #FFF7E6)", color: "var(--warn-600, #B45309)" }}>
           <Raw html={declined ? WICON.closeIc : WICON.alert} />
         </div>
-        <div className="step-title">{declined ? "We couldn't verify your identity" : "We couldn't read your ID"}</div>
+        <div className="step-title">{declined ? "We couldn’t verify your identity" : "We couldn’t read your ID"}</div>
         {!declined && <p className="step-sub" id="selfieReason">{selfieFail.reason}</p>}
         <p className="step-sub" id="selfieTriesLeft" style={{ fontSize: "12px", marginTop: "-4px" }}>{left} {left === 1 ? "try" : "tries"} left</p>
       </div>

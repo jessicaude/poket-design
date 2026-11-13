@@ -2,10 +2,10 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * WGT-13, partner downtime. Demo bar "Naira partner: Up / Down" (in both widgets' bars, one shared state). While down:
- * a banner tops the wallet home, the NGN balance and the affected naira screens; Deposit NGN's Bank transfer and
+ * a banner tops the wallet home, the NGN balance and the affected naira screens; Deposit NGN’s Bank transfer and
  * getting NGN account details are paused (no accounts created; Convert instead); existing account details stay, with
- * a Paused chip and "Transfers may arrive late."; sends to Nigerian banks can't be reviewed and the name enquiry is
- * unavailable; sends already Sending stay Sending; Checkout's naira bank transfer is Paused. Poket users, Convert,
+ * a Paused chip and "Transfers may arrive late."; sends to Nigerian banks can’t be reviewed and the name enquiry is
+ * unavailable; sends already Sending stay Sending; Checkout’s naira bank transfer is Paused. Poket users, Convert,
  * cards and balances are unaffected. Back up, everything is as before.
  */
 
@@ -51,7 +51,7 @@ test("up: no banner anywhere", async ({ page }) => {
   await expect(banner(page)).toHaveCount(0);
 });
 
-test("down: the banner tops the home and the NGN balance screen, in the wallet's warning style; back up, it goes", async ({ page }) => {
+test("down: the banner tops the home and the NGN balance screen, in the wallet’s warning style; back up, it goes", async ({ page }) => {
   await start(page);
   await partner(page, "down");
   await expect(banner(page)).toHaveText(COPY);
@@ -69,7 +69,7 @@ test("Deposit NGN > Bank transfer: paused, with Convert; no temporary account; b
   await expect(title(page)).toHaveText("Deposit NGN");
   await expect(banner(page)).toHaveText(COPY);
   await page.locator("#dmBank").click();
-  await expect(title(page)).toHaveText("Add naira"); // Tier 0: straight to a temporary account's amount, paused
+  await expect(title(page)).toHaveText("Add naira"); // Tier 0: straight to a temporary account’s amount, paused
   await expect(page.locator("#ngnPaused")).toHaveText("Bank transfers into naira are paused. Try again later, or convert from USD.");
   await expect(page.locator("#ngnAmt")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__ngn.getState().temp)).toBeNull();
@@ -84,7 +84,7 @@ test("Deposit NGN > Bank transfer: paused, with Convert; no temporary account; b
   expect(await page.evaluate(() => (window as any).__convert.getState().stage)).toBeTruthy();
 });
 
-test("Tier 1: Bank transfer's choice is paused too", async ({ page }) => {
+test("Tier 1: Bank transfer’s choice is paused too", async ({ page }) => {
   await start(page, "/demo/wallet?ngn=deposit-method");
   await page.getByLabel("Tier").selectOption("1");
   await partner(page, "down");
@@ -179,7 +179,7 @@ test("adding a Nigerian bank: the name enquiry shows its unavailable state", asy
   await page.locator("#ngnBankSearch").fill("zen");
   await page.locator("[data-ngnbank]", { hasText: "Zenith Bank" }).click();
   await page.locator("#ngnAcctInput").fill("0123456789");
-  await expect(page.locator("#panelBody .alert.warn[role=alert]")).toHaveText("We can't check account names right now. Try again");
+  await expect(page.locator("#panelBody .alert.warn[role=alert]")).toHaveText("We can’t check the name on the account right now. Try again");
   await expect(page.locator("#ngnAcctSave")).toBeDisabled();
   await partner(page, "up");
   await page.locator("#ngnEnquiryRetry").click();
@@ -199,7 +199,7 @@ test("a send already Sending stays Sending until the partner is back", async ({ 
   await expect(banner(page)).toHaveText(COPY);
   await expect(page.getByRole("button", { name: "Mark paid" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Fail" })).toBeDisabled();
-  await page.waitForTimeout(2500); // longer than the release's usual 1.5s
+  await page.waitForTimeout(2500); // longer than the release’s usual 1.5s
   await expect(chip).toHaveText("Sending");
   await partner(page, "up");
   await expect(chip).toHaveText("Paid");
@@ -223,7 +223,7 @@ test("unaffected: Poket users, other banks and Convert", async ({ page }) => {
   await expect(banner(page)).toHaveCount(0);
 });
 
-test("Checkout: naira bank transfer is marked Paused and can't be chosen; naira and dollar cards still work", async ({ page }) => {
+test("Checkout: naira bank transfer is marked Paused and can’t be chosen; naira and dollar cards still work", async ({ page }) => {
   await page.goto("/demo/ile-living");
   await page.getByLabel("Order currency").selectOption("NGN");
   await partner(page, "down");
@@ -245,12 +245,12 @@ test("Checkout: naira bank transfer is marked Paused and can't be chosen; naira 
   await expect(widget.getByRole("heading", { name: "Add a card" })).toBeVisible();
 });
 
-test("one partner state for both widgets: set Down in the wallet, Checkout's bar shows Down", async ({ page }) => {
+test("one partner state for both widgets: set Down in the wallet, Checkout’s bar shows Down", async ({ page }) => {
   await start(page);
   await partner(page, "down");
   await page.locator("#demoToCheckout").click();
   await expect(page).toHaveURL(/\/demo\/ile-living$/);
-  await expect(page.getByLabel("Naira partner")).toHaveCount(0); // a USD order: the control isn't shown
+  await expect(page.getByLabel("Naira partner")).toHaveCount(0); // a USD order: the control isn’t shown
   await page.getByLabel("Order currency").selectOption("NGN");
   await expect(page.getByLabel("Naira partner")).toHaveValue("down");
 });
@@ -282,8 +282,8 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await expect(chip).toHaveText("Paid");
   await expect.poll(balance).toBe(before + 2 * 2500000); // ₦25,000.00 each
   await page.locator("#openNotifHeader").click();
-  const notes = page.locator("#panelBody [data-notif] .settings-row-sub", { hasText: "This transfer was delayed." });
-  await expect(notes).toHaveText(["₦25,000.00 added to your NGN balance. This transfer was delayed.", "₦25,000.00 added to your NGN balance. This transfer was delayed."]);
+  const notes = page.locator("#panelBody [data-notif] .settings-row-sub", { hasText: "after a delay." });
+  await expect(notes).toHaveText(["₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay.", "₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay."]);
 
   // Down and up again with nothing queued: no new credit or notification
   await partner(page, "down");
@@ -293,7 +293,7 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await expect(notes).toHaveCount(2);
 });
 
-test("while down, a temporary account's 'Transfer arrives' gives way to 'Transfer arrived while down'", async ({ page }) => {
+test("while down, a temporary account’s 'Transfer arrives' gives way to 'Transfer arrived while down'", async ({ page }) => {
   await start(page, "/demo/wallet?ngn=deposit-method");
   await page.locator("#dmBank").click();
   await page.locator("#ngnAmt").fill("5000");

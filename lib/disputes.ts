@@ -18,21 +18,21 @@ export const DISPUTE_STRIKE_LIMIT = 2;
  * authorise, other. The full sentence is the chip's title; the short one its label.
  */
 export const DISPUTE_REASONS = [
-  "I never received the product or service", "The product or service wasn't as described", "I was charged twice",
+  "I never received the product or service", "The product or service wasn’t as described", "I was charged twice",
   "I didn’t authorise this payment", "Something else",
 ] as const;
 export const NOT_MINE_REASON = "I didn’t authorise this payment";
 export const REASON_SHORT: Record<string, string> = {
-  "I never received the product or service": "Not received", "The product or service wasn't as described": "Not as described",
+  "I never received the product or service": "Not received", "The product or service wasn’t as described": "Not as described",
   "I was charged twice": "Charged twice", "I didn’t authorise this payment": "Didn’t authorise", "Something else": "Other",
 };
 export const EVIDENCE_LABEL: Record<string, string> = {
-  "I never received the product or service": "not receiving this", "The product or service wasn't as described": "the issue with your order",
+  "I never received the product or service": "not receiving this", "The product or service wasn’t as described": "the issue with your order",
   "I was charged twice": "the duplicate charge", "I didn’t authorise this payment": "not authorising this payment", "Something else": "this issue",
 };
 /** payment.dispute_opened's reason. */
 export const DISPUTE_REASON_CODE: Record<string, string> = {
-  "I never received the product or service": "not_received", "The product or service wasn't as described": "not_as_described",
+  "I never received the product or service": "not_received", "The product or service wasn’t as described": "not_as_described",
   "I was charged twice": "duplicate", "I didn’t authorise this payment": "unauthorised", "Something else": "other",
 };
 /** The short description's length limit. */

@@ -1,4 +1,5 @@
 "use client";
+import { withoutCode } from "@/lib/money";
 import { useEffect, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW, CV_CHEV, CV_FLIP, CV_RATE_SWAP, WICON } from "@/lib/icons";
@@ -53,9 +54,9 @@ export function ConvertFormScreen() {
   const coinsBlocked = !q.noTarget && ngnCoinsBlocked && isNgnToStablecoin(q.f, q.to);
   const hint = q.noTarget ? ""
     : !q.type ? "Choose a different balance to convert to."
-    : over ? `Exceeds available ${cvFmt(q.avail, q.f)}`
-    : belowMin ? `Minimum is ${involvesNgn(q.f, q.to) ? MIN_PLACEHOLDER : q.f.k === "cash" ? fmtCurrency(Math.ceil(100 / cvUsdPer(q.f)), q.f.cur) : fmtAsset(100, q.f.asset)}`
-    : overLimit ? `Over your limit of ${LIMIT_PLACEHOLDER} per conversion`
+    : over ? `That’s more than your ${withoutCode(cvFmt(q.avail, q.f))}. Enter a smaller amount.`
+    : belowMin ? `The minimum is ${involvesNgn(q.f, q.to) ? MIN_PLACEHOLDER : q.f.k === "cash" ? fmtCurrency(Math.ceil(100 / cvUsdPer(q.f)), q.f.cur) : fmtAsset(100, q.f.asset)}. Enter a larger amount.`
+    : overLimit ? `That’s over your ${LIMIT_PLACEHOLDER} limit per conversion. Enter a smaller amount.`
     : "";
   return (
     <>
@@ -84,14 +85,15 @@ export function ConvertFormScreen() {
               : <><Raw html={cvBadgeHtml(q.to, 28)} /><span className="cv-pick-name">{cvShort(q.to)}</span></>}
             <Raw html={CV_CHEV} />
           </button>
-          <span className="cv-amt mono muted" id="cvToAmt">{q.type ? "≈ " + fmtPlain(q.receive) : "—"}</span>
+          {/* Grey 0.00 until there's an amount to convert (docs/copy.md: no dashes) */}
+          <span className="cv-amt mono muted" id="cvToAmt">{q.type && q.amt > 0 ? "≈ " + fmtPlain(q.receive) : "0.00"}</span>
         </div>
       </div>
       {q.type && <div className="cv-meta"><RateButton f={q.f} to={q.to} /><span><Grey>{`${cvFeeLabel(q)}: ${cvFeeText(q)}`}</Grey></span></div>}
       {coinsBlocked ? (
         // Demo bar "NGN to stablecoins: Blocked". NEW copy from the brief.
         <div className="alert warn" id="cvCoinsBlocked" style={{ flexDirection: "column", alignItems: "stretch", gap: "10px", marginTop: "8px" }}>
-          <span>Converting naira to stablecoins isn&apos;t available yet. You can convert to USD.</span>
+          <span>Converting naira to stablecoins isn&rsquo;t available yet. You can convert to USD.</span>
           <button type="button" className="btn-secondary" id="cvUseUsd" onClick={useUsd}>Convert to USD</button>
         </div>
       ) : <div className={`cv-hint ${hint ? "err" : ""}`} id="cvHint"><Grey>{hint}</Grey></div>}
@@ -175,7 +177,7 @@ export function ConvertReviewScreen() {
       <BackRow id="cvBackToForm" onClick={backToForm} />
       <div className="convert-visual"><Raw html={cvBadgeHtml(q.f)} /><span className="convert-arrow"><Raw html={WICON.convert} /></span><Raw html={cvBadgeHtml(q.to)} /></div>
       <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{cvFmt(q.receive, q.to)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "2px" }}>You&apos;ll receive in {cvName(q.to)}</p>
+      <p className="step-sub" style={{ textAlign: "center", marginBottom: "2px" }}>You&rsquo;ll receive in {cvName(q.to)}</p>
       {/* The quote card (FND-06): rate, fee (₦[fee] for naira), what you get, then the 30-second countdown. */}
       <div className="receipt-card" id="cvQuoteCard" style={{ marginTop: "14px" }}>
         {row(WICON.convert, "You convert", <Grey>{cvFmt(q.amt, q.f)}</Grey>)}
@@ -184,7 +186,7 @@ export function ConvertReviewScreen() {
         {q.to.k === "coin" && (
           <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Network</span><span className="r-value">{q.to.net} · {NETWORK[q.to.net].eta}</span></div>
         )}
-        {row(WICON.coins, involvesNgn(q.f, q.to) ? "You get" : "You'll receive", <Grey>{cvFmt(q.receive, q.to)}</Grey>, "total")}
+        {row(WICON.coins, involvesNgn(q.f, q.to) ? "You get" : "You’ll receive", <Grey>{cvFmt(q.receive, q.to)}</Grey>, "total")}
       </div>
       {q.f.k === "cash" && q.f.bucket === "fiat" && <p className="step-sub" style={{ fontSize: "11.5px", marginTop: "10px" }}>These funds stay card-funded (FIAT-ONLY) after conversion.</p>}
       <div className={`cv-timer ${expired ? "expired" : ""}`} id="cvTimer">
@@ -192,7 +194,7 @@ export function ConvertReviewScreen() {
       </div>
       {expired
         ? <SpinButton id="cvRefresh" delay={400} onClick={refresh}>Refresh rate</SpinButton>
-        : <SpinButton id="cvConfirm" delay={400} onClick={confirm}>Convert</SpinButton>}
+        : <SpinButton id="cvConfirm" delay={400} onClick={confirm}>{`Convert ${withoutCode(cvFmt(q.amt, q.f))}`}</SpinButton>}
     </>
   );
 }
@@ -258,8 +260,8 @@ export function ConvertEmptyScreen() {
       <div className="center-col" style={{ paddingTop: "18px" }}>
         <p className="step-sub" id="cvEmpty" style={{ textAlign: "center" }}>You have no USD or USDC to convert yet</p>
       </div>
-      {/* USD and USDC deposits (tDepositSelect) aren't ported: the wallet's "not in the prototype" notice. */}
-      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => showNotPorted("USD and USDC deposits aren't ported yet.")}>Deposit</button>
+      {/* USD and USDC deposits (tDepositSelect) aren’t ported: the wallet's "not in the prototype" notice. */}
+      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => showNotPorted("USD and USDC deposits aren’t ported yet.")}>Deposit</button>
     </>
   );
 }
@@ -281,7 +283,7 @@ export function ConvertLimitBlockedScreen() {
   return (
     <div className="center-col" style={{ paddingTop: "24px" }}>
       <div className="check-circle" style={{ background: "var(--warn-50)", color: "var(--warn-600)" }}><Raw html={WICON.alert} /></div>
-      <div className="step-title">This exceeds Poket&apos;s limits</div>
+      <div className="step-title">This exceeds Poket&rsquo;s limits</div>
       <p className="step-sub"><Grey>{`${fmtCurrency(gate?.usd ?? 0, "USD")} is more than Poket allows ${label}, even at ${TIERS[3].name}. Try a smaller amount${gate?.reason !== "transaction" ? " or wait until the limit resets" : ""}.`}</Grey></p>
       <button className="btn-secondary" id="limitBlockedClose" style={{ width: "100%" }} onClick={close}>Back</button>
     </div>

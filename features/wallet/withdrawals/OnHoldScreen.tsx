@@ -16,7 +16,7 @@ export function OnHoldScreen() {
     <>
       <BackRow id="backFromOnHold" onClick={back} />
       <div className="step-title"><Grey>{`${fmtCurrency(reserved, "NGN")} on hold`}</Grey></div>
-      <p className="step-sub">This money isn&apos;t in your available balance.</p>
+      <p className="step-sub">This money isn&rsquo;t in your available balance.</p>
       {held.length === 0
         ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>Nothing on hold.</div>
         : <><div className="section-title">Sends on hold</div><div className="section-card">{held.map((w) => <WithdrawalRow key={w.id} w={w} />)}</div></>}

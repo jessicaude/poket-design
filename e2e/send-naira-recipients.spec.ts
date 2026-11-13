@@ -3,9 +3,9 @@ import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * WGT-07, naira to Poket users: a recipient who can hold naira gets naira; one who can't gets USD, converted on
- * receipt, with the quote card before sending. Amara Okafor (pu4) can hold naira; Daniel Cho (pu5) can't; every other
- * Poket user follows the demo bar's "Recipient can hold naira". Demo balances: ₦50,000.00 NGN, $50.00 + $15.60
+ * WGT-07, naira to Poket users: a recipient who can hold naira gets naira; one who can’t gets USD, converted on
+ * receipt, with the quote card before sending. Amara Okafor (pu4) can hold naira; Daniel Cho (pu5) can’t; every other
+ * Poket user follows the demo bar’s "Recipient can hold naira". Demo balances: ₦50,000.00 NGN, $50.00 + $15.60
  * FIAT-ONLY USD. Each test pins the quote at ₦1,550 per $1 (jitter 1) before typing, so amounts are exact.
  */
 
@@ -52,10 +52,10 @@ test("Amara can hold naira: she gets naira; no notice, no quote; her activity sh
   await expect(activity(page).locator('li[data-recipient="pu4"]')).toHaveText("Amara OkaforReceived ₦5,000.00 NGN from Ada Osun");
 });
 
-test("Daniel can't hold naira: the notice, They get in USD and the quote; the receipt and his activity in USD", async ({ page }) => {
+test("Daniel can’t hold naira: the notice, They get in USD and the quote; the receipt and his activity in USD", async ({ page }) => {
   await start(page);
   await sendTo(page, "pu5", "500000");
-  await expect(page.locator("#nairaRecipientNotice")).toHaveText("Daniel can't hold naira. They'll get USD.");
+  await expect(page.locator("#nairaRecipientNotice")).toHaveText("Daniel can’t hold naira. They’ll get USD.");
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
   await expect(page.locator("#theyGet")).toHaveText("≈ 3.23");
   // The quote card: rate, fee, They get, 30-second hold
@@ -87,15 +87,15 @@ test("Daniel can't hold naira: the notice, They get in USD and the quote; the re
   expect(receipt).toMatchObject({ "You send": "₦5,000.00 NGN", "They get": "$3.23 USD", Rate: "1 USD ≈ 1,550.00 NGN", Fee: "₦[fee] + Free" });
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveText("Daniel ChoReceived $3.23 USD from Ada Osun");
 
-  // Your activity (the NGN balance's history): "To Daniel Cho · ₦5,000.00 NGN → $3.23 USD", and the naira that left
+  // Your activity (the NGN balance’s history): "To Daniel Cho · ₦5,000.00 NGN → $3.23 USD", and the naira that left
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const row = page.locator('#panelBody .tx-row[data-txid]:not([data-txid*="seed"])'); // not Ada's seeded history
+  const row = page.locator('#panelBody .tx-row[data-txid]:not([data-txid*="seed"])'); // not Ada’s seeded history
   await expect(row.locator(".tx-title")).toHaveText(["To Daniel Cho"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦5,000.00 NGN → $3.23 USD"]); // paid: no status chip
   await expect(row.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);
-  // Only the recipient's record is in USD: yours is in naira
+  // Only the recipient’s record is in USD: yours is in naira
   const mine = await page.evaluate(() => (window as any).__withdrawals.getState().list[0]); // eslint-disable-line @typescript-eslint/no-explicit-any
   expect(mine).toMatchObject({ currency: "NGN", sourceKey: "cash:NGN:open", targetKey: "cash:USD:open" });
 });
@@ -121,7 +121,7 @@ test("Daniel, held for a quick check ($500 or more, first payment): on hold in n
   await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Daniel Cho"]);
   await expect(page.locator("#panelBody .tx-row .tx-sub")).toHaveText(["₦775,000.00 NGN → $500.00 USD · Held for a quick check"]);
   await expect(page.locator("#panelBody .tx-row .tx-amt")).toHaveText(["-₦775,000.00 NGN"]);
-  await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveCount(0); // not credited until it's paid
+  await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveCount(0); // not credited until it’s paid
 });
 
 test("Daniel: the rate expires after 30 seconds; Refresh rate gives a new one and Review works again", async ({ page }) => {
@@ -139,7 +139,7 @@ test("Daniel: the rate expires after 30 seconds; Refresh rate gives a new one an
   await expect(page.locator("#payoutReview")).toBeEnabled();
 });
 
-test("the NGN-to-stablecoins block doesn't change it: Daniel still gets USD, never a stablecoin", async ({ page }) => {
+test("the NGN-to-stablecoins block doesn’t change it: Daniel still gets USD, never a stablecoin", async ({ page }) => {
   await start(page);
   await page.getByLabel("NGN to stablecoins").selectOption("blocked");
   await sendTo(page, "pu5", "310000");
@@ -154,7 +154,7 @@ test("any other Poket user follows the demo bar: No converts on receipt, Yes get
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
   await expect(page.locator("#theyGet")).toHaveText("3,100.00");
   await page.getByLabel("Recipient can hold naira").selectOption("no");
-  await expect(page.locator("#nairaRecipientNotice")).toHaveText("Tobi can't hold naira. They'll get USD.");
+  await expect(page.locator("#nairaRecipientNotice")).toHaveText("Tobi can’t hold naira. They’ll get USD.");
   await expect(page.locator("#theyGet")).toHaveText(/^≈ 2\.\d\d$/);
   await expect(page.locator("#cvTimer")).toHaveText(/^Rate held for 0:(30|29)$/);
   await page.getByLabel("Recipient can hold naira").selectOption("yes");
@@ -167,7 +167,7 @@ test("any other Poket user follows the demo bar: No converts on receipt, Yes get
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);
 });
 
-test("mock: naira is refused for a recipient who can't hold it; USD is credited instead", async () => {
+test("mock: naira is refused for a recipient who can’t hold it; USD is credited instead", async () => {
   const { reservePayout, createPayout, getPoketUserBalances, resetPayoutServer } = await import("@/lib/mock-api");
   resetPayoutServer();
   const r1 = await reservePayout({ currency: "NGN", amount: 310000 });

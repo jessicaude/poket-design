@@ -1,12 +1,12 @@
 import type { Conversion, NgnCredit, Withdrawal } from "@/lib/mock-api";
-import { formatNaira } from "@/lib/money";
+import { formatNaira, withoutCode } from "@/lib/money";
 import { refundDest, refundLeft, refundTitle } from "@/lib/refunds";
 import type { Payment, Refund } from "@/store/account";
 import { conversionTitle } from "../convert/useConvert";
 import { brandInfo, POWERED_BY, type WalletBrand } from "../brand";
 import { CREDIT_METHOD, SESSION_ID_PLACEHOLDER, conversionFields, creditFields, creditTitle, paymentFields, paymentStatusChip, refundFields, withdrawalFields, type Tone } from "../history/fields";
 import { FEE_PLACEHOLDER, HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
-import { sentText } from "../payout/withdrawals";
+import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { formatTxDate } from "../withdrawals/TxDetail";
 
 /**
@@ -36,9 +36,9 @@ const rowsOf = (at: number, dir: "To" | "From", who: string, account: string | u
 /** What a send's receipt says while it isn't paid (NEW copy). */
 function sendNotice(w: Withdrawal): Receipt["notice"] {
   switch (w.status) {
-    case "scheduled": return { tone: "warn", text: `Pending: not sent yet. It sends after ${HOLD_PLACEHOLDER}.` };
+    case "scheduled": return { tone: "warn", text: `Pending. Sends after ${HOLD_PLACEHOLDER}.` };
     case "sending": return { tone: "warn", text: "Pending: on its way. It hasn’t arrived yet." };
-    case "review": return { tone: "warn", text: `${w.quickCheck ? "Held for a quick check" : "Held for review"}: not sent yet. We’re checking this payment.` };
+    case "review": return { tone: "warn", text: w.quickCheck ? `${QUICK_CHECK.chip}. ${QUICK_CHECK.message}` : `Held for review. ${STATUS_META.review.message}` };
     case "failed": return { tone: "err", text: "Failed: this payment wasn’t sent. The money was returned to your balance." };
     case "reversed": return { tone: "err", text: "Reversed: the bank returned this payment. The money was returned to your balance." };
     default: return null;
@@ -64,7 +64,7 @@ export function paymentReceipt(p: Payment): Receipt | null {
   if (p.currency !== "NGN") return null;
   const amount = fmtCurrency(p.amount, p.currency);
   return { title: p.merchant, amount, status: paymentStatusChip(p),
-    notice: p.status === "disputed" ? { tone: "warn", text: `Dispute open: ${fmtCurrency(refundLeft(p), p.currency)} held while we review.` } : null,
+    notice: p.status === "disputed" ? { tone: "warn", text: `Dispute open: ${withoutCode(fmtCurrency(refundLeft(p), p.currency))} held while we review.` } : null,
     rows: rowsOf(new Date(p.at).getTime(), "To", p.merchant, p.method, undefined, p.id, paymentFields(p).bankTransfer), reference: p.id };
 }
 

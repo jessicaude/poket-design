@@ -77,7 +77,7 @@ export function BankTransferScreen() {
       {/* The pool doesn't expire; a matched one-time account no longer counts down */}
       {va.expiresAt === null || matched
         ? <p className="sub">From any Nigerian bank app.</p>
-        : <p className="sub">From any Nigerian bank app. This account expires in <b className="mono" id="transferCount">{fmtCountdown(Math.min(va.expiresAt - now, NGN_TEMP_MINUTES * 60000))}</b> [time].</p>}
+        : <p className="sub">From any Nigerian bank app. This account expires in <b className="mono" id="transferCount">{fmtCountdown(Math.min(va.expiresAt - now, NGN_TEMP_MINUTES * 60000))}</b>.</p>}
       <div className="va-details" id="transferDetails">
         {fields.map(([k, val, text], i) => (
           <div className="va-field" key={k}>

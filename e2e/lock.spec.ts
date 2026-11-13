@@ -3,8 +3,8 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * Too many wrong verification codes lock the account for 2 hours: after [n] wrong codes in a row (demo value 5,
  * never shown), "Account locked" / "Too many incorrect codes. Try again in 2 hours." with a live countdown. While
- * locked, no money moves in the wallet. The merchant gets account.locked with the reason. The wallet's device codes
- * and Checkout's sign-up and log-in codes count together. Demo: "Skip lock time" on the locked screen.
+ * locked, no money moves in the wallet. The merchant gets account.locked with the reason. The wallet’s device codes
+ * and Checkout’s sign-up and log-in codes count together. Demo: "Skip lock time" on the locked screen.
  */
 
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
@@ -164,7 +164,7 @@ test("across both widgets: 3 wrong device codes in the wallet, then 2 at Checkou
     await deviceCode(page, "000000");
     await expect(page.locator("#deviceStatus")).toHaveText("That code isn’t right. Check it and try again.");
   }
-  // To Checkout by the demo bar's link (no reload), so the one mock (and its count) carries over, as one account would
+  // To Checkout by the demo bar’s link (no reload), so the one mock (and its count) carries over, as one account would
   await page.locator("#demoToCheckout").click();
   await expect(page).toHaveURL(/\/demo\/ile-living$/);
   await page.locator("#payWithPoket").click();

@@ -63,7 +63,7 @@ export function DetailsScreen() {
         </>
       )}
       {country === "United States" && (
-        <p className="hint"><button className="link" id="dNoSsn" onClick={() => setIdv({ noSsn: !idv.noSsn })}>{idv.noSsn ? "Use my SSN instead" : "I don't have an SSN"}</button></p>
+        <p className="hint"><button className="link" id="dNoSsn" onClick={() => setIdv({ noSsn: !idv.noSsn })}>{idv.noSsn ? "Use my SSN instead" : "I don’t have an SSN"}</button></p>
       )}
       <button className="btn" id="dGo" disabled={!ok} onClick={() => submitDetails({ first: first.trim(), last: last.trim(), country, age: age ?? 0 })}>
         {us ? "Continue to selfie check" : "Continue to ID check"}
@@ -104,9 +104,9 @@ export function VendorHandoff({ plaid, phone }: { plaid: boolean; phone: boolean
     );
   }
   return (
-    <div className="vendor">{brand}<h2 className="vt">{plaid ? "Let's confirm it's you" : "Let's get you verified"}</h2>
-      <div className="prep"><b>{plaid ? "Take a quick selfie" : "Prepare a valid document"}</b>{plaid ? "We'll match it to the details you entered." : "Make sure it's not expired or damaged."}</div>
-      <div className="opt"><b>Scan the QR code</b>Use your phone&apos;s camera app.<Raw html={QR} /></div>
+    <div className="vendor">{brand}<h2 className="vt">{plaid ? "Let’s confirm it’s you" : "Let’s get you verified"}</h2>
+      <div className="prep"><b>{plaid ? "Take a quick selfie" : "Prepare a valid document"}</b>{plaid ? "We’ll match it to the details you entered." : "Make sure it’s not expired or damaged."}</div>
+      <div className="opt"><b>Scan the QR code</b>Use your phone&rsquo;s camera app.<Raw html={QR} /></div>
     </div>
   );
 }
@@ -121,7 +121,7 @@ export function IdDoneScreen() {
   const verifiedContinue = useCheckout((s) => s.verifiedContinue);
   return (
     <>
-      <div className="center"><div className="badge ok"><Raw html={CHECK_DRAW} /></div><h2 className="title">You&apos;re verified</h2></div>
+      <div className="center"><div className="badge ok"><Raw html={CHECK_DRAW} /></div><h2 className="title">You&rsquo;re verified</h2></div>
       <button className="btn" id="idGo" onClick={verifiedContinue}>Continue</button>
     </>
   );
@@ -137,7 +137,7 @@ export function IdReviewScreen() {
       <div className="center">
         <div className="badge info"><Raw html={IDCARD_ICON} /></div>
         <h2 className="title">Your ID needs a closer look</h2>
-        <p className="sub">A specialist is reviewing it. This usually takes up to 24 hours. We&apos;ll email <b>{maskEmail(account.email)}</b> as soon as it&apos;s done.</p>
+        <p className="sub">A specialist is reviewing it. This usually takes up to 24 hours. We&rsquo;ll email <b>{maskEmail(account.email)}</b> as soon as it&rsquo;s done.</p>
       </div>
       <button className="btn" id="idReviewLater" onClick={() => finishLater("id_review")}>Finish later</button>
       <p className="sub" id="idReviewCart" style={{ textAlign: "center", fontSize: "12px", marginTop: "10px" }}>Your {order.merchant} cart is saved. The email links back to it.</p>
@@ -154,7 +154,7 @@ export function IdRetryScreen() {
     <>
       <div className="center">
         <div className="badge" style={{ background: "var(--warn-50)", color: "var(--warn)" }}><Raw html={WICON.alert} /></div>
-        <h2 className="title">We couldn&apos;t read your ID</h2>
+        <h2 className="title">We couldn&rsquo;t read your ID</h2>
         <p className="sub" id="idRetryReason">{idv.retryReason ?? ID_RETRY_REASONS[0]}</p>
         <p className="sub" id="idRetryLeft" style={{ fontSize: "12px", marginTop: "-4px" }}>{left} {left === 1 ? "try" : "tries"} left</p>
       </div>
@@ -168,7 +168,7 @@ export function IdRetryScreen() {
 const BLOCK_COPY = {
   age: ["You must be 18 or older", "Poket accounts are for people aged 18 and over."],
   id_declined: ["We couldn’t verify your identity", "If you think this is a mistake, contact Poket support."],
-  sanctions: ["We couldn't verify this account", "Poket wasn't able to complete verification for this account. Please contact support for more information."],
+  sanctions: ["We couldn’t verify this account", "Contact Poket support."],
 } as const;
 export function BlockedScreen() {
   const { order, blockReason, close } = useCheckout();

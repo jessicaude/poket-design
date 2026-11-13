@@ -14,7 +14,7 @@ export function NgnRouteScreen() {
     <>
       <VaBack />
       <div className="step-title">Get your own NGN account</div>
-      <p className="step-sub">Choose the ID you&apos;ll use. It must match the name and date of birth on your verified ID.</p>
+      <p className="step-sub">Choose the ID you&rsquo;ll use. It must match the name and date of birth on your verified ID.</p>
       {NGN_ROUTES[eligibility].routes.map((r) => (
         <SelectRow key={r} data-ngnroute={r} icon={WICON.user} t1={NGN_ID[r].name} t2={NGN_ID[r].long} onClick={() => chooseRoute(r)} />
       ))}

@@ -42,13 +42,13 @@ test("Tier 1: choose, enter an ID, three mismatches lock the step", async ({ pag
     await page.getByRole("button", { name: "Fill a mismatching number" }).click();
     await go.click();
     await expect(title(page)).toHaveText("Checking your BVN");
-    await expect(body.getByRole("alert")).toHaveText(`The name or date of birth on this BVN doesn't match your verified ID. ${left}`);
+    await expect(body.getByRole("alert")).toHaveText(`The name or date of birth on this BVN doesn’t match your verified ID. Check the number and try again. ${left}`);
     await expect(page.locator("#ngnIdNum")).toHaveValue("");
   }
   await page.getByRole("button", { name: "Fill a mismatching number" }).click();
   await go.click();
-  await expect(title(page)).toHaveText("We couldn't confirm your ID");
-  await expect(body.locator(".step-sub")).toHaveText("You've used all 3 attempts. Contact support to continue. You can still add naira with a temporary account.");
+  await expect(title(page)).toHaveText("We couldn’t confirm your ID");
+  await expect(body.locator(".step-sub")).toHaveText("You’ve used all 3 attempts. Contact support to continue. You can still add naira with a temporary account.");
   await expect(body.locator("a.vf-support")).toHaveAttribute("href", "https://poketwallet.com/support");
   await page.locator("#ngnUseTemp").click();
   await expect(title(page)).toHaveText("Add naira");
@@ -63,8 +63,8 @@ test("a match leads to the account terms, then the NGN account details", async (
   // intro: account terms
   await expect(title(page)).toHaveText("Get NGN account details");
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "NIP bank transfer", "Usually within seconds", "Free to receive"]);
-  await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket's partner bank, [Partner bank]");
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "Free to receive"]);
+  await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket’s partner bank, [Partner bank]");
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
   await page.locator("#vaCreate").click();
@@ -72,7 +72,7 @@ test("a match leads to the account terms, then the NGN account details", async (
 
   // details
   await expect(title(page)).toHaveText("NGN account details");
-  await expect(body.locator(".step-sub")).toHaveText("Send NGN by NIP bank transfer. Usually within seconds.");
+  await expect(body.locator(".step-sub")).toHaveText("Send NGN by bank transfer. Usually within seconds.");
   await expect(body.locator(".va-k")).toHaveText(["Account name", "Account number", "Bank"]);
   await expect(body.locator(".va-v").nth(1)).toHaveText(/^\d{10}$/);
   await expect(body.locator(".va-v").nth(2)).toHaveText("[Partner bank]");
@@ -145,11 +145,11 @@ test("ID options follow what the verified ID shows", async ({ page }) => {
   await expect(routes).toHaveText(["NIN", "BVN", "Passport and residence permit"]);
   await page.locator('[data-ngnroute="permit"]').click();
   await expect(title(page)).toHaveText("Passport and residence permit");
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("Accepted only if Poket's partner allows it. [to confirm]");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("We’ll tell you if your passport and residence permit can be used.");
   await page.locator("#vaBack").click();
 
   await shows.selectOption("for_out");
-  await expect(title(page)).toHaveText("Your own NGN account isn't available");
+  await expect(title(page)).toHaveText("Your own NGN account isn’t available");
   await expect(page.locator("#ngnUseConvert")).toHaveText("Convert from USD or USDC");
   await page.locator("#ngnUseTemp").click();
   await expect(title(page)).toHaveText("Add naira");
@@ -168,8 +168,8 @@ test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and te
   await ngnBalance(page);
   const card = page.locator("#vaOpen");
   await expect(card).toHaveClass(/\bva-empty\b/);
-  await expect(card).toHaveText("Get NGN account detailsReceive NGN by NIP bank transfer. Free to receive.›");
-  // It sits between the actions and the history, as in the reference's tHoldingDetail
+  await expect(card).toHaveText("Get NGN account detailsReceive NGN by bank transfer. Free to receive.›");
+  // It sits between the actions and the history, as in the reference’s tHoldingDetail
   const order = await page.locator("#panelBody").evaluate((b) => [...b.querySelectorAll(".action-row, #vaOpen, .section-title")].map((e) => e.id || e.className));
   expect(order).toEqual(["action-row", "vaOpen", "section-title"]);
 
@@ -194,7 +194,7 @@ test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and te
   await expect(title(page)).toHaveText("NGN account details");
 });
 
-test("NGN balance: the card follows the account's status (Setting up, Frozen); a rejected one offers to get details again", async ({ page }) => {
+test("NGN balance: the card follows the account’s status (Setting up, Frozen); a rejected one offers to get details again", async ({ page }) => {
   await ngnBalance(page);
   const card = page.locator("#vaOpen");
   const setAccount = (d: object | null) => page.evaluate((x) => (window as any).__ngn.getState().set({ dedicated: x }), d); // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -213,9 +213,9 @@ test("NGN balance: a rejected account shows Not approved, and Try again restarts
   const card = page.locator("#vaOpen");
   await expect(card.locator(".t1")).toHaveText("NGN account details Not approved");
   await expect(card.locator(".va-status")).toHaveClass(/\berr\b/);
-  await expect(card.locator(".t2")).toHaveText("We couldn't open your account. Try again or contact support.");
+  await expect(card.locator(".t2")).toHaveText("We couldn’t open your account. Try again or contact support.");
   await expect(page.locator("#vaRetry")).toHaveText("Try again");
-  await card.locator(".t2").click(); // the card itself doesn't open anything
+  await card.locator(".t2").click(); // the card itself doesn’t open anything
   await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
   await page.locator("#vaRetry").click();
   await expect(title(page)).toHaveText("Bank transfer"); // the choice, then BVN or NIN and terms again

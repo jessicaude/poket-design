@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Convert (tConvert in reference/poket-unified.html) with the NGN rules, in the wallet demo. Balances, as in the
- * reference's demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins. The wallet demo
+ * reference’s demo: ₦50,000.00 NGN (open), $15.60 USD (all card-funded, FIAT-ONLY), no stablecoins. The wallet demo
  * also holds $50.00 of open USD, so these tests take it out first (referenceBalances).
  * NGN fees are ₦[fee] and left out of the maths, so ₦10,000.00 → 6.45 USDC (10,000 / 1,550).
  */
@@ -15,7 +15,7 @@ const state = (page: Page) => page.evaluate(() => {
   return { ngn: n.ngnBalance as number, usd: h.cash.USD as number, eur: h.cash.EUR as number, fiat: h.fiatOnly, usdcBase: h.coins.USDC.Base as number };
 });
 const setHoldings = (page: Page, patch: object) => page.evaluate((p) => (window as any).__holdings.getState().set(p), patch); // eslint-disable-line @typescript-eslint/no-explicit-any
-/** The reference's demo balances: all USD card-funded ($15.60 FIAT-ONLY), none open. */
+/** The reference’s demo balances: all USD card-funded ($15.60 FIAT-ONLY), none open. */
 async function referenceBalances(page: Page) {
   await page.waitForFunction(() => "__holdings" in window);
   await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
@@ -42,6 +42,9 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(body.locator(".cv-box-top").nth(1)).toHaveText("ToArrives ~15 sec");
   await expect(body.locator(".cv-meta")).toHaveText("1 USDC ≈ 1,550.00 NGNFee: ₦[fee]");
   await expect(page.locator("#cvReview")).toBeDisabled();
+  // Nothing typed yet: a grey 0.00 (docs/copy.md: no dash)
+  await expect(page.locator("#cvToAmt")).toHaveText("0.00");
+  await expect(page.locator("#cvToAmt")).toHaveClass(/\bmuted\b/);
 
   await keys(page, "1000000");
   await expect(page.locator("#cvFromAmt")).toHaveText("10,000.00");
@@ -49,20 +52,20 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(page.locator("#cvReview")).toBeEnabled();
 
   await page.locator('[data-cvkey="back"]').click();
-  await expect(page.locator("#cvHint")).toHaveText("Minimum is ₦[minimum]"); // the demo minimum (₦1,550.00) never shows
+  await expect(page.locator("#cvHint")).toHaveText("The minimum is ₦[minimum]. Enter a larger amount."); // the demo minimum (₦1,550.00) never shows
   await expect(page.locator("#cvReview")).toBeDisabled();
 
   // ₦[limit] per conversion (demo value ₦40,000.00, never shown)
   await page.locator("#cvMax").click();
   await expect(page.locator("#cvFromAmt")).toHaveText("50,000.00");
-  await expect(page.locator("#cvHint")).toHaveText("Over your limit of ₦[limit] per conversion");
+  await expect(page.locator("#cvHint")).toHaveText("That’s over your ₦[limit] limit per conversion. Enter a smaller amount.");
   await expect(page.locator("#cvHint")).toHaveClass(/\berr\b/);
   await expect(page.locator("#cvReview")).toBeDisabled();
   for (let i = 0; i < 7; i++) await page.locator('[data-cvkey="back"]').click();
   await keys(page, "4000000");
   await expect(page.locator("#cvHint")).toHaveText(""); // exactly at the limit
   await keys(page, "0");
-  await expect(page.locator("#cvHint")).toHaveText("Exceeds available ₦50,000.00 NGN");
+  await expect(page.locator("#cvHint")).toHaveText("That’s more than your ₦50,000.00. Enter a smaller amount.");
 });
 
 test("the rate flips direction when tapped; Swap exchanges From and To; stablecoin rows show arrival times", async ({ page }) => {
@@ -88,7 +91,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
   await page.locator('[data-cvopt="cash:USD:fiat"]').click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("Choose a currency");
   await expect(page.locator("#cvPickTo .badge")).toHaveCount(0);
-  await expect(page.locator("#cvToAmt")).toHaveText("—");
+  await expect(page.locator("#cvToAmt")).toHaveText("0.00");
   await expect(page.locator(".cv-meta")).toHaveCount(0);
   await expect(page.locator("#cvHint")).toHaveText("");
   await page.locator("#cvMax").click();
@@ -98,18 +101,18 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
   await page.locator("#cvPickTo").click();
   await expect(page.locator("#panelBody .select-row.sel")).toHaveCount(0);
   const ngn = page.locator('[data-cvopt="cash:NGN:open"]');
-  await expect(ngn.locator(".t2")).toHaveText("Card-funded money can't be converted to naira");
+  await expect(ngn.locator(".t2")).toHaveText("Card-funded money can’t be converted to naira");
   await expect(ngn).toHaveClass(/\bcv-disabled\b/);
   await ngn.click();
-  await expect(page.locator("#toastEl .notice-title")).toHaveText("Card-funded money can't be converted to naira");
+  await expect(page.locator("#toastEl .notice-title")).toHaveText("Card-funded money can’t be converted to naira");
   await expect(page.locator("#toastEl .notice-body")).toHaveText("Choose another currency.");
   await expect(title(page)).toHaveText("Convert to");
-  await expect(page.locator('[data-cvopt="coin:USDC:Base"] .t2')).toHaveText("Card-funded cash can't convert to stablecoins");
+  await expect(page.locator('[data-cvopt="coin:USDC:Base"] .t2')).toHaveText("Card-funded cash can’t convert to stablecoins");
   await expect(page.locator('[data-cvopt="cash:GBP:open"] .t2')).toHaveText("Balance £0.00 GBP");
   await page.locator('[data-cvopt="cash:EUR:open"]').click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("EUR");
   await expect(page.locator("#cvFlip")).toBeEnabled();
-  await expect(page.locator(".cv-meta")).toHaveText("1 EUR ≈ 1.08 USDExchange fee (1%): $0.16 USD"); // not naira: the reference's fee
+  await expect(page.locator(".cv-meta")).toHaveText("1 EUR ≈ 1.08 USDExchange fee (1%): $0.16 USD"); // not naira: the reference’s fee
   await reviewAndConvert(page);
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your Euro balance");
   const s = await state(page);
@@ -127,7 +130,7 @@ test("opening with NGN as the target and nothing to convert from: NGN stays, wit
   await expect(page.locator("#cvEmptyDeposit")).toHaveText("Deposit");
   await page.locator("#cvEmptyDeposit").click();
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("USD and USDC deposits aren't ported yet.");
+  await expect(page.locator("#toastEl .notice-body")).toHaveText("USD and USDC deposits aren’t ported yet.");
   await expect(page.locator("#cvEmpty")).toBeVisible(); // still on the empty state
   await expect(page.locator("#cvPickFrom")).toHaveCount(0);
   await page.locator("#backHome").click();
@@ -181,7 +184,7 @@ test("NGN to stablecoins blocked (demo): USD by default; choosing USDC or USDT e
   await page.getByLabel("NGN to stablecoins").selectOption("blocked");
   await page.locator("#actConvert").click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USD");
-  const msg = "Converting naira to stablecoins isn't available yet. You can convert to USD.";
+  const msg = "Converting naira to stablecoins isn’t available yet. You can convert to USD.";
   for (const coin of ["coin:USDC:Base", "coin:USDT:Polygon"]) {
     await page.locator("#cvPickTo").click();
     await page.locator(`[data-cvopt="${coin}"]`).click();
@@ -207,7 +210,7 @@ test("limit and tier check: Tier 0 steps up before converting; Cancel returns to
   await reviewAndConvert(page);
   await expect(title(page)).toHaveText("Additional verification needed");
   await expect(page.locator("#panelBody .alert.warn")).toHaveText("This is above what Tier 0: Registered allows (up to ₦[limit] per transaction). A quick additional step is needed to continue.");
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 1: Basic, you'll need to provide:");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 1: Basic, you’ll need to provide:");
   expect(await state(page)).toMatchObject({ ngn: 5000000, usdcBase: 0 });
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#cvQuoteCard")).toBeVisible();
@@ -225,12 +228,12 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
   await reviewAndConvert(page);
   await expect(page.locator("#panelBody .alert.warn")).toHaveText("This is above what Tier 1: Basic allows (up to $2,000.00 USD per transaction). A quick additional step is needed to continue.");
   await expect(page.locator("#panelBody .alert.warn .cur-code")).toHaveText("USD"); // the code is grey
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 2: Standard, you'll need to provide:");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 2: Standard, you’ll need to provide:");
   await page.locator("#stepupCancel").click();
   await page.locator("#cvBackToForm").click();
   await page.locator("#cvMax").click(); // $60,000.00
   await reviewAndConvert(page);
-  await expect(title(page)).toHaveText("This exceeds Poket's limits");
+  await expect(title(page)).toHaveText("This exceeds Poket’s limits");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("$60,000.00 USD is more than Poket allows per transaction, even at Tier 3: Enhanced. Try a smaller amount.");
   await page.locator("#limitBlockedClose").click();
   await expect(page.locator("#actConvert")).toBeVisible();
@@ -245,7 +248,7 @@ test("conversions in the NGN balance history; View transaction opens the receipt
   const body = page.locator("#panelBody");
   await expect(title(page)).toHaveText("6.45 USDC");
   await expect(body.locator(".step-sub")).toHaveText("Converted NGN to USDC");
-  // The reference's transaction detail: an icon before each label, monospace right-aligned values
+  // The reference’s transaction detail: an icon before each label, monospace right-aligned values
   const rows = body.locator("#cvReceipt .info-row");
   await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Rate", "Fee", "Reference"]);
   await expect(rows.locator(".detail-ic")).toHaveCount(7);
@@ -266,7 +269,7 @@ test("conversions in the NGN balance history; View transaction opens the receipt
 
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const row = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada's seeded history
+  const row = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada’s seeded history
   await expect(row.locator(".tx-title")).toHaveText(["Converted NGN to USDC"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦10,000.00 NGN → 6.45 USDC"]);
   await expect(row.locator(".tx-amt")).toHaveText(["+6.45 USDC"]);

@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { notify } from "../notificationCatalogue";
+import { formatNairaShort } from "@/lib/money";
 import { useNairaPartner } from "@/store/partner";
 import {
   DEMO_NGN_START, checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
@@ -38,11 +40,17 @@ export const NGN_ROUTES: Record<Eligibility, { label: string; routes: NgnIdRoute
 export const NGN_ID: Record<NgnIdRoute, { name: string; long: string; len: number }> = {
   bvn: { name: "BVN", long: "Bank Verification Number", len: 11 },
   nin: { name: "NIN", long: "National Identification Number", len: 11 },
-  nrbvn: { name: "NRBVN", long: "Non-Resident BVN", len: 11 },
+  nrbvn: { name: "NRBVN", long: "BVN for Nigerians living abroad", len: 11 },
   permit: { name: "Passport and residence permit", long: "Passport and residence permit", len: 0 },
 };
 /** The demo's starting NGN balance, ₦50,000.00 (the seeded statement history ends at it: history/ledgerSeed.ts). */
 export const NGN_START: Kobo = DEMO_NGN_START;
+/** "What’s this?" next to the ID field: what each ID is (docs/copy.md, Terms). */
+export const NGN_ID_HELP: Record<"bvn" | "nin" | "nrbvn", { title: string; body: string }> = {
+  bvn: { title: "What’s a BVN?", body: "Bank Verification Number. The 11-digit number your bank gave you to confirm who you are. Dial *565*0# from the phone number linked to your bank to see it." },
+  nin: { title: "What’s a NIN?", body: "National Identification Number. The 11-digit number on your NIN slip or national ID card." },
+  nrbvn: { title: "What’s an NRBVN?", body: "BVN for Nigerians living abroad." },
+};
 /** Failed ID matches share Veriff's limit (VF_MAX_TRIES). */
 export const NGN_MAX_ATTEMPTS = 3;
 /** Smallest temporary-account top-up: ₦100.00 (the reference enables "Create temporary account" from 10000 kobo). */
@@ -187,6 +195,7 @@ export const useNgn = create<State>((set, get) => {
       const { amount, ref } = await simulateTransferArrives();
       // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
       creditNgn({ kind: "temp", amount, from: holderName(), ref });
+      notify("topUpReceived", { amount: formatNairaShort(amount) });
       set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 
@@ -254,7 +263,8 @@ export function parseNairaInput(text: string): Kobo {
  */
 export const NGN_VA = {
   supported: true,
-  rails: "NIP bank transfer",
+  // docs/copy.md: say "bank transfer", never "NIP"
+  rails: "bank transfer",
   arrives: "Usually within seconds",
   bank: "[Partner bank]",
   fields: (num: string): [string, string][] => [["Account number", num.slice(0, 10)], ["Bank", "[Partner bank]"]],

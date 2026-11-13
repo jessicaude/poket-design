@@ -2,9 +2,9 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 /**
- * Share receipt on every naira transaction's detail: a sheet with the receipt (amount, status, date and time, to or
- * from, account, fee as ₦[fee], reference; the wallet's look and brand, "Payments by Poket"), and Share (native
- * share where available, else the text copied), Download PDF and Download image. A transaction that isn't done says
+ * Share receipt on every naira transaction’s detail: a sheet with the receipt (amount, status, date and time, to or
+ * from, account, fee as ₦[fee], reference; the wallet’s look and brand, "Payments by Poket"), and Share (native
+ * share where available, else the text copied), Download PDF and Download image. A transaction that isn’t done says
  * so on the receipt.
  */
 
@@ -42,7 +42,7 @@ async function reopen(page: Page) {
   await openSheet(page);
 }
 
-test("a paid send's receipt: amount, status, date and time, to, account, fee ₦[fee], reference; Payments by Poket", async ({ page }) => {
+test("a paid send’s receipt: amount, status, date and time, to, account, fee ₦[fee], reference; Payments by Poket", async ({ page }) => {
   test.setTimeout(60000);
   await sent(page);
   await page.getByRole("button", { name: "Mark paid" }).click();
@@ -55,7 +55,7 @@ test("a paid send's receipt: amount, status, date and time, to, account, fee ₦
   await expect(page.locator("#receiptTitle")).toHaveText("To Naira account");
   await expect(page.locator("#receiptStatus")).toHaveText("Paid");
   await expect(page.locator("#receiptNotice")).toHaveCount(0);
-  // A send to a Nigerian bank: the bank's Session ID after the Reference
+  // A send to a Nigerian bank: the bank’s Session ID after the Reference
   await expect(page.locator("#receiptCard .rc-row > span:first-child")).toHaveText(["Date and time", "To", "Account", "Fee", "Reference", "Session ID"]);
   await expect(rcRow(page, "Session ID")).toHaveText("[session ID]");
   await expect(rcRow(page, "Date and time")).toHaveText(/^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/);
@@ -80,13 +80,13 @@ test("pending, held and failed sends say so on the receipt", async ({ page }) =>
   await page.getByRole("button", { name: "Hold for review" }).click();
   await reopen(page);
   await expect(page.locator("#receiptStatus")).toHaveText("Held for review");
-  await expect(page.locator("#receiptNotice")).toHaveText("Held for review: not sent yet. We’re checking this payment.");
+  await expect(page.locator("#receiptNotice")).toHaveText("Held for review. We’re checking this payment. We’ll let you know.");
   await page.getByRole("button", { name: "Fail" }).click();
   await reopen(page);
   await expect(page.locator("#receiptStatus")).toHaveText("Failed");
   await expect(page.locator("#receiptNotice")).toHaveText("Failed: this payment wasn’t sent. The money was returned to your balance.");
   await expect(page.locator("#receiptNotice")).toHaveClass(/\berr\b/);
-  // The notice is in what's shared too (no native share here: copied)
+  // The notice is in what’s shared too (no native share here: copied)
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
   await page.locator("#receiptShare").click();
@@ -148,7 +148,7 @@ test("Download PDF and Download image: the receipt as a file", async ({ page }) 
   expect(s.slice(startxref, startxref + 4)).toBe("xref");
   const offsets = s.slice(startxref).split("\n").slice(3, 9).map((l) => Number(l.slice(0, 10)));
   offsets.forEach((o, i) => expect(s.slice(o, o + 7)).toBe(`${i + 1} 0 obj`));
-  // The receipt's text, as the Subject (UTF-16)
+  // The receipt’s text, as the Subject (UTF-16)
   const hex = /\/Subject <FEFF([0-9A-F]+)>/.exec(s)![1];
   const subject = String.fromCharCode(...hex.match(/.{4}/g)!.map((h) => parseInt(h, 16)));
   expect(subject).toContain("₦65,100.00 NGN");
@@ -165,7 +165,7 @@ test("Download PDF and Download image: the receipt as a file", async ({ page }) 
   expect(img.readUInt32BE(20)).toBeGreaterThan(600);
 });
 
-test("white-label: the merchant's name and colours, still Payments by Poket", async ({ page, context }) => {
+test("white-label: the merchant’s name and colours, still Payments by Poket", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await wallet(page);
   await page.getByLabel("Brand").selectOption("merchant");
@@ -187,10 +187,10 @@ test("white-label: the merchant's name and colours, still Payments by Poket", as
   expect(lines[lines.indexOf("Reference: pay_ilv10077") + 1]).toBe("Session ID: [session ID]");
 });
 
-test("every naira transaction has Share receipt; dollar ones don't; a dispute's hold is on the receipt", async ({ page }) => {
+test("every naira transaction has Share receipt; dollar ones don’t; a dispute’s hold is on the receipt", async ({ page }) => {
   await wallet(page);
   await page.locator("#tabActivity").click();
-  // A dollar payment and the reference's dollar records: no
+  // A dollar payment and the reference’s dollar records: no
   await page.locator('[data-payment="pay_a9d2c7ke"]').click();
   await expect(page.locator("#extRaiseDispute, #disputeClosed").first()).toBeVisible();
   await expect(page.locator("#shareReceipt")).toHaveCount(0);
@@ -223,10 +223,10 @@ test("every naira transaction has Share receipt; dollar ones don't; a dispute's 
   await page.locator('[data-payment="pay_mtk2291"]').click();
   await openSheet(page);
   await expect(page.locator("#receiptStatus")).toHaveText("Dispute open");
-  await expect(page.locator("#receiptNotice")).toHaveText("Dispute open: ₦65,100.00 NGN held while we review.");
+  await expect(page.locator("#receiptNotice")).toHaveText("Dispute open: ₦65,100.00 held while we review.");
 });
 
-test("a deposit's receipt has the Session ID after the Reference: in the text, the PDF and the image", async ({ page, context }) => {
+test("a deposit’s receipt has the Session ID after the Reference: in the text, the PDF and the image", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await wallet(page);
   await page.evaluate(() => (window as any).__ngn.getState().set({ dedicated: { status: "ready", num: "0123456789" } }));
@@ -234,7 +234,7 @@ test("a deposit's receipt has the Session ID after the Reference: in the text, t
   await page.locator("#demoPoketTransfer").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  /** A credit's receipt: its text (copied), its PDF's Subject and its image's height. */
+  /** A credit’s receipt: its text (copied), its PDF’s Subject and its image’s height. */
   async function files(kind: "account" | "poket") {
     await page.locator(`#ngnHistory [data-credit="${kind}"]:not([data-txid*="seed"])`).click();
     const ref = (await page.locator("#copyRefBtn").textContent())!.trim();

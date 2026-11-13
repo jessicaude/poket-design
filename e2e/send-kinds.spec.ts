@@ -74,7 +74,7 @@ test("a saved stablecoin wallet: Tier 2 first; then the address is screened befo
   await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 350, ngn: 5000000, reserved: 0 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
-  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("About 1 minute"); // the wallet's own arrival
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("About 1 minute"); // the wallet’s own arrival
   await expect(page.locator("#panelBody .step-title")).toHaveText("5.00 USDC");
 });
 
@@ -89,7 +89,7 @@ test("a flagged address: screening blocks the send before review", async ({ page
   await page.locator("#walletContinue").click();
   await keys(page, "100");
   await page.locator("#payoutReview").click();
-  await expect(page.locator("#panelBody .step-title")).toHaveText("We can't send to this address");
+  await expect(page.locator("#panelBody .step-title")).toHaveText("We can’t send to this address");
   await page.locator("#addressScreeningBlockedClose").click();
   await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 1000 }); // nothing sent
 });
@@ -104,7 +104,7 @@ test("a USDC wallet paid from NGN: step-up on the naira leaving; the total inclu
   await keys(page, "2500000"); // ₦25,000.00
   await page.locator("#payoutReview").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Checking this address");
-  // 1.50 USDC = ₦2,325.00 at 1,550: in the total, with the conversion's undecided ₦[fee]
+  // 1.50 USDC = ₦2,325.00 at 1,550: in the total, with the conversion’s undecided ₦[fee]
   await expect(rows(page).filter({ hasText: "Total charged" }).locator(".r-value")).toHaveText("₦27,325.00 NGN + ₦[fee]");
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -116,7 +116,7 @@ test("a USDC wallet paid from NGN: step-up on the naira leaving; the total inclu
   await expect.poll(() => balances(page)).toMatchObject({ ngn: 2267500, reserved: 2732500 }); // what the total said
 });
 
-test("a Poket user over the limit in USDC isn't judged in naira: 100.00 USDC steps up, 10.00 doesn't", async ({ page }) => {
+test("a Poket user over the limit in USDC isn’t judged in naira: 100.00 USDC steps up, 10.00 doesn’t", async ({ page }) => {
   await start(page);
   await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 20000 }, USDT: { Polygon: 0, Base: 0 } } });
   await page.locator("#actSend").click();
@@ -144,7 +144,7 @@ test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", 
   await page.locator("#payFromChip").click();
   await page.locator('[data-payfrom="cash:USD:fiat"]').click();
   await keys(page, "500");
-  await expect(page.locator("#theyGet")).toHaveText("5.00"); // no conversion: the source's currency
+  await expect(page.locator("#theyGet")).toHaveText("5.00"); // no conversion: the source’s currency
   await expect(page.locator("#theyGetTag")).toHaveText("FIAT-ONLY");
   await page.locator("#payoutReview").click();
   await expect(page.locator("#reviewTheyGet")).toHaveText("$5.00 USDFIAT-ONLY");
@@ -154,7 +154,7 @@ test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", 
   await expect(page.locator("#withdrawalTag")).toHaveText("FIAT-ONLY");
 });
 
-test("a first payment of $500 or more to a new Poket user is held for a quick check; the next one isn't", async ({ page }) => {
+test("a first payment of $500 or more to a new Poket user is held for a quick check; the next one isn’t", async ({ page }) => {
   await start(page);
   await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 200000 }, USDT: { Polygon: 0, Base: 0 } } }); // 2,000.00 USDC
   await page.locator("#actSend").click();
@@ -179,7 +179,7 @@ test("a first payment of $500 or more to a new Poket user is held for a quick ch
   await page.getByRole("button", { name: "Mark paid" }).click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
 
-  // Tobi has been paid now: the next $500 isn't held
+  // Tobi has been paid now: the next $500 isn’t held
   await page.locator("#backFromTxDetail").click();
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="poket:pu1"]').click();

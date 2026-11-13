@@ -1,7 +1,7 @@
 "use client";
 import { useNairaPartner } from "@/store/partner";
 import { useEffect, useState } from "react";
-import { formatNaira } from "@/lib/money";
+import { formatNaira, formatNairaShort } from "@/lib/money";
 import { useWalletToast } from "../../useWalletToast";
 import { Naira } from "../Naira";
 import { fmtCountdown, holderName, useNgn } from "../useNgn";
@@ -46,7 +46,7 @@ export function TempScreen() {
     setCopied(i);
   };
   const share = () => {
-    const text = `Send exactly ${formatNaira(temp.amount)}\nAccount number: ${temp.num}\nBank: [Partner bank]\nAccount name: Poket / ${name}`;
+    const text = `Send exactly ${formatNairaShort(temp.amount)}\nAccount number: ${temp.num}\nBank: [Partner bank]\nAccount name: Poket / ${name}`;
     if (navigator.share) { navigator.share({ title: "Temporary account details", text }).catch(() => {}); return; }
     try { navigator.clipboard?.writeText(text).catch(() => {}); } catch {}
     showNotice("Details copied", "Paste them into your bank app.", 2400);

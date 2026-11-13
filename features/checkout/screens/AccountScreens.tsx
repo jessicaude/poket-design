@@ -212,7 +212,7 @@ export function AccountDisputeScreen() {
     if (disputeStrikes() >= DISPUTE_STRIKE_LIMIT) return (
       <>
         {back(() => go("pay-detail"))}
-        <h2 className="title">You can&apos;t raise a dispute right now</h2>
+        <h2 className="title">You can&rsquo;t raise a dispute right now</h2>
         <p className="sub">Your account has been restricted from raising further disputes after repeated dispute activity that violated our terms of use.</p>
         <WarnBox title="Account restricted" body="Contact support if you think this is a mistake." tone="err" />
       </>

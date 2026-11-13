@@ -46,7 +46,7 @@ export function NgnAccountScreen() {
       </div>
 
       <div id="ngnAcctStatus" aria-live="polite">
-        {!bank && number.length === 10 && <div className="field-hint">Choose the bank to check the account name.</div>}
+        {!bank && number.length === 10 && <div className="field-hint">Choose the bank. We check the name on the account.</div>}
         {(enquiry.status === "matched" || enquiry.status === "other") && (
           <p style={{ margin: "-6px 0 14px", fontSize: "12.5px", color: enquiry.status === "matched" ? "var(--ok-600)" : "var(--txt2)", display: "flex", alignItems: "center", gap: "8px" }}>
             <span className="badge" style={{ width: "24px", height: "24px", background: enquiry.status === "matched" ? "var(--ok-50)" : "var(--n-100)" }}>
@@ -58,19 +58,19 @@ export function NgnAccountScreen() {
         {enquiry.status === "other" && (
           <>
             {/* NEW copy */}
-            <div className="alert warn"><Raw html={WICON.alert} /><span>This account isn&apos;t in your name. Only continue if you mean to pay {enquiry.name}.</span></div>
+            <div className="alert warn"><Raw html={WICON.alert} /><span>This account isn&rsquo;t in your name. Only continue if you mean to pay {enquiry.name}.</span></div>
             <div className="consent-row">
               <input type="checkbox" id="ngnThirdPartyOk" checked={thirdPartyOk} onChange={(e) => setThirdPartyOk(e.target.checked)} />
-              <label htmlFor="ngnThirdPartyOk">I&apos;m paying {enquiry.name}, not my own account</label>
+              <label htmlFor="ngnThirdPartyOk">I&rsquo;m paying {enquiry.name}, not my own account</label>
             </div>
           </>
         )}
-        {enquiry.status === "not_found" && <div className="field-err" role="alert">Check the bank and account number</div>}
+        {enquiry.status === "not_found" && <div className="field-err" role="alert">We couldn&rsquo;t find this account. Check the bank and account number.</div>}
         {enquiry.status === "unavailable" && (
           <div className="alert warn" role="alert" style={{ alignItems: "flex-start" }}>
             <Raw html={WICON.alert} />
             {/* NEW copy */}
-            <span>We can&apos;t check account names right now.{" "}
+            <span>We can&rsquo;t check the name on the account right now.{" "}
               <span className="btn-ghost" id="ngnEnquiryRetry" role="button" tabIndex={0} onClick={() => void lookUpName()}>Try again</span>
             </span>
           </div>

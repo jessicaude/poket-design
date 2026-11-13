@@ -1,8 +1,8 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
 /**
- * NGN checkout on the Ilé Living demo: the demo bar's order currency and merchant settings, the naira rails on
- * add-method, the naira card form, bank transfer into a one-time account ("Dynamic") or the merchant's pool,
+ * NGN checkout on the Ilé Living demo: the demo bar’s order currency and merchant settings, the naira rails on
+ * add-method, the naira card form, bank transfer into a one-time account ("Dynamic") or the merchant’s pool,
  * paying in USD converted (quote card), and the $500 ID rule on the USD value of the naira total.
  */
 
@@ -50,7 +50,7 @@ test("demo bar: the widget reads what the merchant accepts and its bank transfer
   expect(await settings()).toEqual({ accepts: { ngnCard: true, ngnBank: true, conversion: false }, bankTransferAccount: "dynamic" });
 });
 
-test("the $500 ID check uses an NGN order's USD value", async () => {
+test("the $500 ID check uses an NGN order’s USD value", async () => {
   const { orderUsdCents, formatOrder } = await import("@/lib/money");
   expect(orderUsdCents(50000 * 1550, "NGN")).toBe(50000);
   expect(orderUsdCents(49999 * 1550, "NGN")).toBe(49999);
@@ -75,7 +75,7 @@ async function ngnAddMethod(page: Page, setBar?: () => Promise<void>) {
 }
 const rows = (widget: Locator) => widget.locator(".methods .method").allInnerTexts().then((a) => a.map((t) => t.replace(/\s+/g, " ").replace(" ›", "").trim()));
 
-test("NGN order: the naira rails first, then the merchant's other rails marked as converted", async ({ page }) => {
+test("NGN order: the naira rails first, then the merchant’s other rails marked as converted", async ({ page }) => {
   const widget = await ngnAddMethod(page);
   await expect.poll(() => rows(widget)).toEqual([
     "Card Nigerian debit or credit card",
@@ -106,7 +106,7 @@ test("NGN order: the naira rails first, then the merchant's other rails marked a
   const methods = await page.evaluate(() => (window as any).__account.getState().account.methods); // eslint-disable-line @typescript-eslint/no-explicit-any
   expect(methods.map((m: { currency?: string }) => m.currency)).toEqual(["NGN"]);
 
-  // Paying with it: no quote; the merchant's event names the rail
+  // Paying with it: no quote; the merchant’s event names the rail
   await expect(widget.locator("#quoteCard")).toHaveCount(0);
   await widget.locator("#payGo").click();
   await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 to Ilé Living" })).toBeVisible();
@@ -176,7 +176,7 @@ test("bank transfer (Dynamic): a one-time account for the exact amount; the tran
     "Account name Ilé Living via Poket Copy",
   ]);
   await expect(widget.locator("#transferCount")).toHaveText(/^(30:00|29:5\d)$/);
-  await expect(widget.locator(".sub")).toContainText("[time]");
+  await expect(widget.locator(".sub")).toHaveText(/^From any Nigerian bank app\. This account expires in (30:00|29:5\d)\.$/); // the countdown says when
   await expect(widget.locator("#transferWaiting")).toHaveText("We’ll confirm as soon as it arrives");
   await expect(widget.locator("#transferOnce")).toHaveText("Use it once. A transfer for a different amount, or after it expires, is [handling].");
 
@@ -232,7 +232,7 @@ async function poolTransfer(page: Page) {
 const fieldTexts = (widget: Locator) =>
   widget.locator(".va-field").allInnerTexts().then((a) => a.map((t) => t.replace(/\s+/g, " ").trim()));
 
-test("bank transfer (Merchant pool): the merchant's account and the exact amount, no countdown; the exact amount pays", async ({ page }) => {
+test("bank transfer (Merchant pool): the merchant’s account and the exact amount, no countdown; the exact amount pays", async ({ page }) => {
   const widget = await poolTransfer(page);
   expect(await fieldTexts(widget)).toEqual([
     "Amount to send exactly ₦36,270.00 NGN Copy",
@@ -242,9 +242,9 @@ test("bank transfer (Merchant pool): the merchant's account and the exact amount
   ]);
   await expect(widget.locator(".sub")).toHaveText("From any Nigerian bank app.");
   await expect(widget.locator("#transferCount")).toHaveCount(0);
-  await expect(widget.locator("#transferOnce")).toHaveCount(0); // the pool isn't used once
+  await expect(widget.locator("#transferOnce")).toHaveCount(0); // the pool isn’t used once
   await expect(widget.locator("#transferWaiting")).toHaveText("We’ll confirm as soon as it arrives");
-  // The one-time account's actions don't apply to the pool
+  // The one-time account’s actions don’t apply to the pool
   await expect(page.locator("#demoTransferExpire")).toHaveCount(0);
   await expect(page.locator("#demoTransferArrives")).toHaveCount(0);
 
@@ -350,7 +350,7 @@ test("converted: a USD card on an NGN order sees the quote before Pay; done show
   await expect(widget.locator(".sumbox")).toContainText("1 USD ≈ 1,550.00 NGN");
   const p = await page.evaluate(() => (window as any).__account.getState().account.payments[0]); // eslint-disable-line @typescript-eslint/no-explicit-any
   expect(p).toMatchObject({ amount: 3627000, currency: "NGN", charged: { amount: 2340, currency: "USD" } });
-  // The merchant's event: the naira order plus what was charged and the rate
+  // The merchant’s event: the naira order plus what was charged and the rate
   const ev = page.getByTestId("events").locator("li", { hasText: "payment.succeeded" });
   await expect(ev).toContainText('"amount":3627000,"currency":"NGN"');
   await expect(ev).toContainText('"charged_amount":2340,"charged_currency":"USD","fx_rate":1550');
@@ -385,7 +385,7 @@ test("converted: after 30 seconds the rate expires and Refresh rate replaces Pay
   await expect(widget.locator("#payGo")).toHaveText(/^Pay \$23\.\d\d$/);
 });
 
-test("Conversion off: dollar methods are disabled with why and can't be selected; a naira card still pays", async ({ page }) => {
+test("Conversion off: dollar methods are disabled with why and can’t be selected; a naira card still pays", async ({ page }) => {
   const widget = await ngnReturning(page, () => page.getByRole("group", { name: "Merchant accepts" }).getByLabel("Conversion").uncheck());
   for (const id of ["pm_visa", "pm_bank"]) {
     const row = widget.locator(`[data-pm="${id}"]`);
@@ -448,7 +448,7 @@ test("bank transfer (Dynamic): getting the account, then the transfer arriving (
   await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 to Ilé Living" })).toBeVisible();
 });
 
-test("bank transfer (Merchant pool): getting the account, then the pool's actions disabled while a transfer arrives", async ({ page }) => {
+test("bank transfer (Merchant pool): getting the account, then the pool’s actions disabled while a transfer arrives", async ({ page }) => {
   await page.clock.install();
   const widget = await ngnAddMethod(page, () => page.getByLabel("Bank transfer account").selectOption("pool").then(() => {}));
   await widget.locator('[data-addpm="ngn-bank"]').click();
@@ -509,7 +509,7 @@ test("bank transfer (Dynamic): less than the order shows what arrived and [handl
   await expect(ev).toContainText('"order_reference":"ILV-10482"');
   await expect(ev).toContainText('"expected_amount":3627000,"received_amount":3264300,"rail":"ngn_bank_transfer","account_type":"dynamic"');
   await expect(page.getByTestId("events")).not.toContainText("payment.succeeded");
-  // Matched: the countdown is gone (it doesn't later turn into "expired")
+  // Matched: the countdown is gone (it doesn’t later turn into "expired")
   await expect(widget.locator("#transferCount")).toHaveCount(0);
   await expect(widget.locator(".sub")).toHaveText("From any Nigerian bank app.");
   await widget.locator("#transferClose").click();
@@ -526,7 +526,7 @@ test("bank transfer (Dynamic): more than the order shows what arrived and [handl
   await page.clock.runFor(1200);
   await expect(widget.locator("#transferResult")).toHaveText("We received ₦39,897.00. [handling]");
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.amount_mismatch" })).toContainText('"received_amount":3989700,"rail":"ngn_bank_transfer","account_type":"dynamic"');
-  await page.clock.runFor(31 * 60 * 1000); // past the account's expiry: the result stays
+  await page.clock.runFor(31 * 60 * 1000); // past the account’s expiry: the result stays
   await expect(widget.locator("#transferResult")).toBeVisible();
   await expect(widget.getByRole("heading", { name: "This account expired" })).toHaveCount(0);
 });

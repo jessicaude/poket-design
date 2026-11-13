@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Checkout identity verification (Tier 1), ported from SCREENS['details'], ['vendor'], ['verifying'], ['id-done'] and
- * ['blocked'] in reference/poket-widgets.html, with the demo bar's ID check outcomes. Orders of $500 or more only.
+ * ['blocked'] in reference/poket-widgets.html, with the demo bar’s ID check outcomes. Orders of $500 or more only.
  */
 
 async function enterCode(page: Page, code = "123456") {
@@ -65,9 +65,9 @@ test("$500 or more: Account, Identity, Payment; details, Veriff handoff, verifie
 
   // Vendor: Veriff, then the phone handoff
   await expect(widget.locator(".vendor .vlogo img")).toHaveAttribute("alt", "Veriff");
-  await expect(widget.locator(".vendor .vt")).toHaveText("Let's get you verified");
-  await expect(widget.locator(".vendor .prep")).toHaveText("Prepare a valid documentMake sure it's not expired or damaged.");
-  await expect(widget.locator(".vendor .opt")).toContainText("Scan the QR codeUse your phone's camera app.");
+  await expect(widget.locator(".vendor .vt")).toHaveText("Let’s get you verified");
+  await expect(widget.locator(".vendor .prep")).toHaveText("Prepare a valid documentMake sure it’s not expired or damaged.");
+  await expect(widget.locator(".vendor .opt")).toContainText("Scan the QR codeUse your phone’s camera app.");
   await expect(widget.locator(".vendor svg.qr")).toBeVisible();
   await expect(page.locator("#demo")).toHaveClass(/\bon\b/);
   await page.locator("#demoBtn").click();
@@ -78,7 +78,7 @@ test("$500 or more: Account, Identity, Payment; details, Veriff handoff, verifie
   await expect(page.locator("#demo")).not.toHaveClass(/\bon\b/);
 
   // Verified: Tier 1, then back to paying (no saved methods yet: add one)
-  await expect(widget.getByRole("heading", { name: "You're verified" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "You’re verified" })).toBeVisible();
   await expect(events(page).locator("li", { hasText: "user.verified" })).toContainText('"tier":1');
   await widget.locator("#idGo").click();
   await expect(widget.getByRole("heading", { name: "Add a payment method" })).toBeVisible();
@@ -115,7 +115,7 @@ test("a verified (Tier 1) customer pays $500 or more without the ID check", asyn
   await expect(page.getByTestId("checkout-widget").locator("#payGo")).toHaveText("Pay $621.40");
 });
 
-test("United States: SSN (masked, Show / Hide, checked), then Plaid's selfie; without an SSN, Veriff", async ({ page }) => {
+test("United States: SSN (masked, Show / Hide, checked), then Plaid’s selfie; without an SSN, Veriff", async ({ page }) => {
   const widget = await toDetails(page);
   await widget.locator("#dCountry").selectOption("United States");
   await expect(widget.locator("#dGo")).toHaveText("Continue to selfie check");
@@ -124,7 +124,7 @@ test("United States: SSN (masked, Show / Hide, checked), then Plaid's selfie; wi
   await expect(ssn).toHaveAttribute("type", "password");
   await ssn.fill("000123456");
   await expect(ssn).toHaveValue("000-12-3456");
-  await expect(widget.locator("#dGo")).toBeDisabled(); // 000 isn't a valid SSN
+  await expect(widget.locator("#dGo")).toBeDisabled(); // 000 isn’t a valid SSN
   await ssn.fill("123456789");
   await expect(ssn).toHaveValue("123-45-6789");
   await expect(widget.locator("#dGo")).toBeEnabled();
@@ -137,12 +137,12 @@ test("United States: SSN (masked, Show / Hide, checked), then Plaid's selfie; wi
   await expect(widget.locator("#dSsn")).toHaveCount(0);
   await expect(widget.locator("#dGo")).toHaveText("Continue to ID check");
   await widget.locator("#dNoSsn").click();
-  await expect(widget.locator("#dNoSsn")).toHaveText("I don't have an SSN");
+  await expect(widget.locator("#dNoSsn")).toHaveText("I don’t have an SSN");
 
   await widget.locator("#dGo").click();
   await expect(widget.locator(".vendor .vlogo")).toHaveClass(/\bplaid\b/);
-  await expect(widget.locator(".vendor .vt")).toHaveText("Let's confirm it's you");
-  await expect(widget.locator(".vendor .prep")).toHaveText("Take a quick selfieWe'll match it to the details you entered.");
+  await expect(widget.locator(".vendor .vt")).toHaveText("Let’s confirm it’s you");
+  await expect(widget.locator(".vendor .prep")).toHaveText("Take a quick selfieWe’ll match it to the details you entered.");
   await page.locator("#demoBtn").click();
   await expect(widget.locator(".vendor .wait")).toHaveText("Take a short selfie video on your phone. Keep this window open.");
 });
@@ -180,8 +180,8 @@ test("ID check: declined", async ({ page }) => {
 test("sanctions match: blocked with the sanctions copy", async ({ page }) => {
   const widget = await toDetails(page, "sanctions");
   await verify(page);
-  await expect(widget.getByRole("heading", { name: "We couldn't verify this account" })).toBeVisible();
-  await expect(widget.locator(".sub")).toHaveText("Poket wasn't able to complete verification for this account. Please contact support for more information. You haven’t been charged.");
+  await expect(widget.getByRole("heading", { name: "We couldn’t verify this account" })).toBeVisible();
+  await expect(widget.locator(".sub")).toHaveText("Contact Poket support. You haven’t been charged.");
   await expect(events(page).locator("li", { hasText: "user.blocked" })).toContainText('"reason":"sanctions"');
 });
 
@@ -189,11 +189,11 @@ test("manual review: wait or finish later; approving the review verifies", async
   const widget = await toDetails(page, "review");
   await verify(page);
   await expect(widget.getByRole("heading", { name: "Your ID needs a closer look" })).toBeVisible();
-  await expect(widget.locator(".center .sub")).toHaveText("A specialist is reviewing it. This usually takes up to 24 hours. We'll email k••••i@gmail.com as soon as it's done.");
+  await expect(widget.locator(".center .sub")).toHaveText("A specialist is reviewing it. This usually takes up to 24 hours. We’ll email k••••i@gmail.com as soon as it’s done.");
   await expect(widget.locator("#idReviewCart")).toHaveText("Your Ilé Living cart is saved. The email links back to it.");
   await expect(page.locator("#demoBtn")).toHaveText("Approve review");
   await page.locator("#demoBtn").click();
-  await expect(widget.getByRole("heading", { name: "You're verified" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "You’re verified" })).toBeVisible();
   await expect(events(page).locator("li", { hasText: "user.verified" })).toContainText('"tier":1');
 });
 
@@ -208,11 +208,11 @@ test("manual review: Finish later closes the widget", async ({ page }) => {
 test("needs retry: a reason and tries left each time; the third failure is a decline", async ({ page }) => {
   const widget = await toDetails(page, "retry");
   await verify(page);
-  await expect(widget.getByRole("heading", { name: "We couldn't read your ID" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "We couldn’t read your ID" })).toBeVisible();
   await expect(widget.locator("#idRetryReason")).toHaveText("The photo is blurry. Retake it in good light.");
   await expect(widget.locator("#idRetryLeft")).toHaveText("2 tries left");
   await widget.locator("#idTryAgain").click();
-  await expect(widget.locator(".vendor .vt")).toHaveText("Let's get you verified");
+  await expect(widget.locator(".vendor .vt")).toHaveText("Let’s get you verified");
   await page.locator("#demoBtn").click();
   await page.locator("#demoBtn").click();
   await expect(widget.locator("#idRetryReason")).toHaveText("There was glare on your ID. Avoid direct light.");
@@ -231,7 +231,7 @@ test("needs retry, then the next attempt passes", async ({ page }) => {
   await widget.locator("#idTryAgain").click();
   await page.locator("#demoBtn").click();
   await page.locator("#demoBtn").click();
-  await expect(widget.getByRole("heading", { name: "You're verified" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "You’re verified" })).toBeVisible();
 });
 
 test("Finish later on the details screen closes the widget", async ({ page }) => {
@@ -278,7 +278,7 @@ test("verified once, never asked again: a later $500+ checkout goes straight to 
   await expect(events(page).locator("li", { hasText: "user.verified" })).toHaveCount(1);
 });
 
-test("Veriff's 3-attempt limit is shared across checkouts; after 3, blocked, and blocked in later checkouts", async ({ page }) => {
+test("Veriff’s 3-attempt limit is shared across checkouts; after 3, blocked, and blocked in later checkouts", async ({ page }) => {
   // 1st failed check
   let widget = await toDetails(page, "retry");
   await verify(page);
@@ -321,11 +321,11 @@ async function getBlocked(page: Page, kind: "declined" | "sanctions" | "under18"
 
 for (const [kind, title] of [
   ["declined", "We couldn’t verify your identity"],
-  ["sanctions", "We couldn't verify this account"],
+  ["sanctions", "We couldn’t verify this account"],
   ["under18", "You must be 18 or older"],
   ["attempts", "We couldn’t verify your identity"],
 ] as const) {
-  test(`blocked (${kind}): can't pay at any amount; the blocked screen straight after sign-in, before Pay`, async ({ page }) => {
+  test(`blocked (${kind}): can’t pay at any amount; the blocked screen straight after sign-in, before Pay`, async ({ page }) => {
     let widget = await getBlocked(page, kind);
     await expect(widget.getByRole("heading", { name: title })).toBeVisible();
     await widget.locator("#blkBack").click();
@@ -354,9 +354,9 @@ test("blocked: a naira order under $500 is blocked too, and the store refuses to
   await page.getByLabel("Order", { exact: true }).selectOption("small");
   await page.getByLabel("Order currency").selectOption("NGN");
   widget = await checkoutAgain(page);
-  await expect(widget.getByRole("heading", { name: "We couldn't verify this account" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "We couldn’t verify this account" })).toBeVisible();
   await page.evaluate(async () => { const c = (window as any).__checkout.getState(); await c.startTransfer(); await c.pay(); }); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await expect(widget.getByRole("heading", { name: "We couldn't verify this account" })).toBeVisible();
+  await expect(widget.getByRole("heading", { name: "We couldn’t verify this account" })).toBeVisible();
   await expect(widget.locator("#transferDetails")).toHaveCount(0);
   await expect(events(page)).not.toContainText("payment.succeeded");
 });
