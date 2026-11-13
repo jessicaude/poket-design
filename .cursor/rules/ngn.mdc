@@ -330,19 +330,35 @@ WGT-10 is four parts, each with its rules below:
   reloading, so the one mock keeps its count, as one account would).
 
 ## Partner downtime (WGT-13)
-- Demo bar "Naira partner: Up / Down" (useSettings.nairaPartnerDown; Up by default).
-- While down, a banner in the wallet's .alert warn style (features/wallet/NairaPausedBanner.tsx, #nairaPaused) tops:
-  the wallet home, the NGN balance screen, naira deposits by bank transfer (NgnBody stages in NGN_PAUSED_STAGES:
-  Deposit NGN, bank transfer, the temporary account, NGN account details and creating them; not the ID checks or the
-  results), adding a Nigerian bank (ngn-account, ngn-bank), and the amount and review of a send to a Nigerian bank.
-  Copy: "Naira bank transfers are paused. Your balance is safe, and sending to Poket users, converting and card
-  payments still work."
-- Screens that still work (a Poket user, other banks, cards, Convert) don't show it. When the partner is back, the
-  banner disappears at once, from any screen it's on.
-- The banner only informs: nothing is blocked while down (a send to a Nigerian bank can still be reviewed and sent).
+- Demo bar "Naira partner: Up / Down", in both widgets' bars, one state (store/partner.ts, useNairaPartner; Up by
+  default). Checkout's bar shows it only on an NGN order. The mock follows it (setNairaPartnerAvailable).
+- Banner (features/wallet/NairaPausedBanner.tsx, #nairaPaused, the wallet's .alert warn): "Naira bank transfers are
+  paused. Your balance is safe, and sending to Poket users, converting and card payments still work." It tops the
+  wallet home, the NGN balance screen, Deposit NGN, existing account details (temporary and dedicated), adding a
+  Nigerian bank, and a send to one that's Sending.
+- Deposit NGN > Bank transfer, and getting NGN account details: the step (ngnChoice, tempAmount, ngnRoute, intro;
+  NGN_PAUSED_SCREENS) keeps its title and shows "Bank transfers into naira are paused. Try again later, or convert
+  from USD." with Convert (into NGN), in place of the banner. No temporary account or account details are created
+  (createTemp and createDedicated do nothing while down).
+- Existing temporary or dedicated account details stay visible, with a "Paused" chip (.va-status warn) after the
+  title and "Transfers may arrive late." as the subtitle (the temporary one keeps its countdown). The NGN balance's
+  account card shows Paused in place of Ready.
+- Send to a Nigerian bank: the amount screen shows "Sending to banks is paused. Try again later." (SendPausedNotice;
+  the instant transfers and daily limit notices don't show) and Review is disabled; a review already open shows the
+  same notice above the first-payment notice and has Send disabled. Neither shows the banner, as the paused deposit
+  screens don't.
+  Adding a Nigerian bank: the name enquiry shows its existing unavailable state ("We can't check account names right
+  now. Try again").
+- Sends to Nigerian banks already Sending stay Sending (the demo bar's Mark paid and Fail are disabled; a released
+  first payment waits) until the partner is back.
+- Checkout: naira bank transfer is marked "Paused" (.method.off, its .chip) on add-method and can't be chosen;
+  naira and dollar cards still work.
+- Poket users, other banks, cards, Convert and the balance are unaffected. Back up, every screen is as before at once.
+- Copy: "Bank transfers into naira are paused...", "Paused", "Transfers may arrive late." and "Sending to banks is
+  paused. Try again later." are WGT-13's; the paused screens' titles are the steps' own.
 - Tests: e2e/partner-downtime.spec.ts.
 
-
+## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
   methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:
   /demo/ile-living. Checkout uses the prototype's classes (styles/prototype.css); the account card's va-* classes are

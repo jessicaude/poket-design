@@ -1,4 +1,5 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
@@ -66,6 +67,7 @@ function NgnAccountCard() {
   const dedicated = useNgn((s) => s.dedicated);
   const tier = useNgn((s) => s.tier);
   const open = useNgn((s) => s.openAccountDetails);
+  const partnerDown = useNairaPartner((s) => s.down);
   const keys = { role: "button" as const, tabIndex: 0, onClick: open, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } } };
   if (dedicated?.status === "rejected") {
     // NEW copy: the reference's "Card deposits are still available" doesn't apply to naira
@@ -92,7 +94,9 @@ function NgnAccountCard() {
       </div>
     );
   }
-  const status = ({ ready: ["", "Ready"], pending: ["warn", "Setting up"], frozen: ["muted", "Frozen"] } as const)[dedicated.status];
+  // WGT-13: a ready account shows Paused while the naira partner is down
+  const status = dedicated.status === "ready" && partnerDown ? (["warn", "Paused"] as const)
+    : ({ ready: ["", "Ready"], pending: ["warn", "Setting up"], frozen: ["muted", "Frozen"] } as const)[dedicated.status];
   const first = dedicated.status === "ready" || dedicated.status === "frozen" ? NGN_VA.fields(dedicated.num)[0] : null;
   return (
     <div className="va-card" id="vaOpen" data-vacur="NGN" {...keys}>

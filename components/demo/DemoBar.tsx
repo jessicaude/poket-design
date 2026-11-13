@@ -1,4 +1,5 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useCheckout } from "@/features/checkout/useCheckout";
@@ -22,6 +23,7 @@ const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [
 export function DemoBar({ checkout = false }: { checkout?: boolean }) {
   const { customer, cardOutcome, theme, shareDetails, orderCurrency, merchantAccepts, bankTransferAccount, idOutcome, orderSize, set } = useDemo();
   const { open, screen, transfer, transferArrives, expireTransfer, idv, openOnPhone, finishOnPhone, approveReview } = useCheckout();
+  const { down: partnerDown, setDown: setPartnerDown } = useNairaPartner();
   // Screen demo actions (the prototype's SCREENS[...].demo): the ID handoff and manual review
   const action = !open ? null
     : screen === "vendor" ? (idv.vstage === "phone" ? { label: "Finish on phone", run: finishOnPhone } : { label: "Open on phone", run: openOnPhone })
@@ -47,6 +49,13 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
       {/* Demo only: to the wallet's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
       <Link className="pbtn" id="demoToWallet" href="/demo/wallet">To wallet</Link>
+      {/* WGT-13, shared with the wallet's demo bar: while down, naira bank transfer is Paused. Only on a naira order,
+          the only one it affects (and the bar keeps to one row on wide screens). */}
+      {orderCurrency === "NGN" && <label className="opt-lbl"><span>Naira partner</span>
+        <select aria-label="Naira partner" value={partnerDown ? "down" : "up"} onChange={(e) => setPartnerDown(e.target.value === "down")}>
+          <option value="up">Naira partner: Up</option><option value="down">Naira partner: Down</option>
+        </select>
+      </label>}
       <label className="opt-lbl"><span>Customer</span>
         <select aria-label="Customer" value={customer} onChange={(e) => set({ customer: e.target.value as Customer })}>
           <option value="new">New to Poket</option><option value="returning">Ada (remembered)</option>

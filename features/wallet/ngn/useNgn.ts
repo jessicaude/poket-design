@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useNairaPartner } from "@/store/partner";
 import {
   checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
   simulateTransferArrives,
@@ -170,6 +171,7 @@ export const useNgn = create<State>((set, get) => {
 
     setTempCents: (tempCents) => set({ tempCents }),
     createTemp: async (amount) => {
+      if (useNairaPartner.getState().down) return; // WGT-13: no temporary accounts while the naira partner is down
       set({ stage: "tempCreating" });
       const temp = await createTemporaryAccount(amount);
       if (get().stage === "tempCreating") set({ temp, stage: "temp" });
@@ -199,6 +201,7 @@ export const useNgn = create<State>((set, get) => {
     },
 
     createDedicated: async () => {
+      if (useNairaPartner.getState().down) return; // WGT-13: nor account details
       set({ stage: "creating" });
       const dedicated = await createDedicatedAccount();
       set((s) => ({ dedicated, stage: s.stage === "creating" ? "details" : s.stage }));

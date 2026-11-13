@@ -1,4 +1,5 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
 import { useEffect, useState } from "react";
 import { WICON, sizedIcon } from "@/lib/icons";
 import { useWalletToast } from "../../useWalletToast";
@@ -11,6 +12,7 @@ import { VaBack } from "./VaBack";
  */
 export function AccountDetailsScreen() {
   const { dedicated, confirmClose, toggleFreeze, askClose, closeDedicated } = useNgn();
+  const partnerDown = useNairaPartner((s) => s.down);
   const showNotice = useWalletToast((s) => s.showNotice);
   const [copied, setCopied] = useState<number | null>(null);
 
@@ -24,6 +26,7 @@ export function AccountDetailsScreen() {
   const name = holderName();
   const fields: [string, string][] = [["Account name", name], ...NGN_VA.fields(dedicated.num)];
   const frozen = dedicated.status === "frozen";
+  const paused = partnerDown; // WGT-13: the details stay; transfers to them may arrive late
 
   if (confirmClose) return (
     <>
@@ -61,8 +64,8 @@ export function AccountDetailsScreen() {
   return (
     <>
       <VaBack />
-      <div className="step-title">NGN account details {frozen && <span className="va-status muted">Frozen</span>}</div>
-      <p className="step-sub">{frozen ? "Transfers to these details are returned while the account is frozen." : `Send NGN by ${NGN_VA.rails}. ${NGN_VA.arrives}.`}</p>
+      <div className="step-title">NGN account details {frozen && <span className="va-status muted">Frozen</span>}{paused && <> <span className="va-status warn" id="vaPaused">Paused</span></>}</div>
+      <p className="step-sub">{frozen ? "Transfers to these details are returned while the account is frozen." : paused ? <span id="pausedLate">Transfers may arrive late.</span> : `Send NGN by ${NGN_VA.rails}. ${NGN_VA.arrives}.`}</p>
       <div className={`va-details ${frozen ? "is-frozen" : ""}`}>
         {fields.map(([k, val], i) => (
           <div className="va-field" key={k}>

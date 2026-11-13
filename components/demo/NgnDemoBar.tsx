@@ -10,6 +10,7 @@ import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 
 /**
@@ -21,7 +22,8 @@ export function NgnDemoBar() {
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
-  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, nairaPartnerDown, setDemo } = useSettings();
+  const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
+  const { down: partnerDown, setDown: setPartnerDown } = useNairaPartner();
   const selfiePhone = usePayout((s) => s.selfiePhone);
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
@@ -40,7 +42,9 @@ export function NgnDemoBar() {
   const { list, move, releaseHold } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
-  const can = (to: WithdrawalStatus) => !!w && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
+  // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
+  const held = !!w && partnerDown && w.status === "sending" && toNigerianBank(w);
+  const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
       {/* Demo only: to Checkout's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
@@ -93,7 +97,7 @@ export function NgnDemoBar() {
       </label>
       <label className="opt-lbl"><span>Naira partner</span>
         {/* WGT-13: partner downtime pauses naira bank transfers (a banner on the affected screens) */}
-        <select aria-label="Naira partner" value={nairaPartnerDown ? "down" : "up"} onChange={(e) => setDemo({ nairaPartnerDown: e.target.value === "down" })}>
+        <select aria-label="Naira partner" value={partnerDown ? "down" : "up"} onChange={(e) => setPartnerDown(e.target.value === "down")}>
           <option value="up">Naira partner: Up</option><option value="down">Naira partner: Down</option>
         </select>
       </label>

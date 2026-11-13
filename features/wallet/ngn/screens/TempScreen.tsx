@@ -1,4 +1,5 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
 import { useEffect, useState } from "react";
 import { formatNaira } from "@/lib/money";
 import { useWalletToast } from "../../useWalletToast";
@@ -12,6 +13,7 @@ import { VaBack } from "./VaBack";
  */
 export function TempScreen() {
   const { temp, expireTemp } = useNgn();
+  const paused = useNairaPartner((s) => s.down); // WGT-13: the details stay; transfers may arrive late
   const showNotice = useWalletToast((s) => s.showNotice);
   const [now, setNow] = useState(() => Date.now());
   const [copied, setCopied] = useState<number | null>(null);
@@ -53,8 +55,8 @@ export function TempScreen() {
   return (
     <>
       <VaBack />
-      <div className="step-title">Send exactly <Naira kobo={temp.amount} /></div>
-      <p className="step-sub">From any Nigerian bank app. This account expires in <b className="mono" id="ngnCount">{fmtCountdown(temp.expiresAt - now)}</b>.</p>
+      <div className="step-title">Send exactly <Naira kobo={temp.amount} />{paused && <> <span className="va-status warn" id="vaPaused">Paused</span></>}</div>
+      <p className="step-sub">{paused ? <span id="pausedLate">Transfers may arrive late.</span> : "From any Nigerian bank app."} This account expires in <b className="mono" id="ngnCount">{fmtCountdown(temp.expiresAt - now)}</b>.</p>
       <div className="va-details">
         {fields.map(([k, val], i) => (
           <div className="va-field" key={k}>

@@ -1,4 +1,6 @@
 "use client";
+import { useNairaPartner } from "@/store/partner";
+import { SendPausedNotice } from "../../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useQuoteTimer } from "../../send/useQuoteTimer";
@@ -36,6 +38,8 @@ export function CurrencyBadge() {
 export function ReviewScreen() {
   const { recipient: r, cents, ack, setAck, confirm, back, payFrom, payCents, jitter, quoteAt, quoteExpired, expireQuote, refreshQuote } = usePayout();
   const secs = useQuoteTimer(quoteAt, quoteExpired, expireQuote);
+  // WGT-13: the partner went down after the amount: a send to a Nigerian bank can't go
+  const partnerPaused = useNairaPartner((st) => st.down) && !!r && r.methodType === "bank" && r.currency === "NGN";
   if (!r || !payFrom) return <BackRow id="backToPayoutAmount" onClick={back} />;
   const s = sendSummary(r, payFrom, payCents, cents, jitter);
   const isSelf = r.isSelf;
@@ -67,6 +71,8 @@ export function ReviewScreen() {
         {row(WICON.calendar, isSelf ? "Arrives" : "Delivery", s.arrival)}
         {row(WICON.check, isSelf ? "Debited from balance" : "Total charged", s.totalText, "total")}
       </div>
+      {/* WGT-13: the partner went down after the amount: why Send is disabled (no banner here, as on the amount) */}
+      {partnerPaused && <SendPausedNotice style={{ marginBottom: "10px" }} />}
       {s.firstPayment && <FirstPaymentNotice />}
       {s.converting && (
         <>
@@ -80,7 +86,7 @@ export function ReviewScreen() {
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
         <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&apos;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
       </label>
-      <SpinButton id="confirmPayout" disabled={!ack || (s.converting && quoteExpired)} delay={500} onClick={confirm}>{`Send ${cvFmt(payCents, src)}`}</SpinButton>
+      <SpinButton id="confirmPayout" disabled={!ack || (s.converting && quoteExpired) || partnerPaused} delay={500} onClick={confirm}>{`Send ${cvFmt(payCents, src)}`}</SpinButton>
     </>
   );
 }
