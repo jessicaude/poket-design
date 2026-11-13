@@ -1,6 +1,7 @@
 import { formatNaira } from "@/lib/money";
+import { DEMO_ACCOUNT_SENDER } from "@/lib/mock-api";
+import { creditNgn } from "./history/credits";
 import { toNigerianBank, useNairaPartner } from "@/store/partner";
-import { useNgn } from "./ngn/useNgn";
 import { useWithdrawals } from "./payout/useWithdrawals";
 import { useNotifications } from "./useNotifications";
 
@@ -12,7 +13,8 @@ import { useNotifications } from "./useNotifications";
  */
 export async function recoverFromDowntime() {
   for (const amount of useNairaPartner.getState().takeQueued()) {
-    useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + amount }));
+    // WGT-11: each is its own record, marked delayed
+    creditNgn({ kind: "delayed", amount, from: DEMO_ACCOUNT_SENDER });
     useNotifications.getState().add({ type: "info", title: "Transfer received", desc: `${formatNaira(amount).replace(/ NGN$/, "")} added to your NGN balance. This transfer was delayed.` });
   }
   const { list, move } = useWithdrawals.getState();

@@ -2,7 +2,8 @@ import { useAccount } from "@/store/account";
 import { useNgn } from "./ngn/useNgn";
 import { useNotifications } from "./useNotifications";
 import { formatNaira } from "@/lib/money";
-import { refundDest } from "@/lib/refunds";
+import { refundDest, refundTitle } from "@/lib/refunds";
+import { attribute } from "./history/ledger";
 import { fmtCurrency } from "./payout/payoutMath";
 
 /**
@@ -17,9 +18,9 @@ const resolved = new Set<string>();
 function creditNew() {
   for (const p of useAccount.getState().account?.payments ?? []) {
     for (const r of p.refunds ?? []) {
-      if (r.to !== "ngn" || credited.has(r.id)) continue;
+      if (r.to !== "ngn" || r.inBalance || credited.has(r.id)) continue;
       credited.add(r.id);
-      useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + r.amount }));
+      attribute({ description: refundTitle(p, r), reference: r.id }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + r.amount })));
       // A dispute's refund: the resolution's notification says so
       if (!r.fromDispute) useNotifications.getState().add({ type: "payout", title: "Refund received", desc: `${formatNaira(r.amount)} from ${p.merchant} added to your NGN balance.` });
     }

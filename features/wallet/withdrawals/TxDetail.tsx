@@ -15,6 +15,8 @@ const LABEL_ICON: Record<string, keyof typeof WICON> = {
   Fee: "percent", "Processing fee": "percent", "Network fee": "percent",
   To: "user", Recipient: "user", Handle: "user", From: "user",
   Bank: "bank", Account: "hash", Merchant: "store", "Cash App": "hash",
+  // WGT-11's rows (not in the reference's map)
+  Method: "bank", "Session ID": "hash",
 };
 /** detailIconInfo's "real" icons: a Currency row shows the currency's flag before its value, and a globe as its label icon. */
 const CURRENCY_FLAG: Record<string, keyof typeof WICON> = { USD: "usFlag", NGN: "ngFlag", EUR: "eurFlag", GBP: "gbFlag", GHS: "ghFlag" };
@@ -51,6 +53,21 @@ export function DetailRow({ label, value }: { label: string; value: string }) {
           : flag ? <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", justifyContent: "flex-end" }}><span className="icon-16" dangerouslySetInnerHTML={{ __html: WICON[CURRENCY_FLAG[flag]] }} />{value}</span>
           : <Grey>{value}</Grey>}
       </span>
+    </div>
+  );
+}
+
+/**
+ * The Status row, the same on every transaction: detailRowHtml's look (green bold when it's done), with the other
+ * statuses in their chip's colour (WGT-11).
+ */
+const TONE_COLOR: Record<string, string> = { "": "var(--ok-600)", warn: "#92400E", err: "var(--err-600)" };
+export function StatusRow({ label, tone }: { label: string; tone: "" | "muted" | "warn" | "err" }) {
+  const color = TONE_COLOR[tone];
+  return (
+    <div className="info-row" data-label="Status" data-tone={tone || "ok"}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}><span className="detail-ic" dangerouslySetInnerHTML={{ __html: WICON.check }} />Status</span>
+      <span className="mono" style={{ maxWidth: "190px", wordBreak: "break-word", textAlign: "right", ...(color ? { color, fontWeight: 600 } : {}) }}>{label}</span>
     </div>
   );
 }

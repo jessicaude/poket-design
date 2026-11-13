@@ -114,6 +114,21 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await expect(page.locator("#recallMsg")).toHaveText("₦5,000.00 NGN is back in your NGN balance.");
   await expect.poll(() => ngn(page)).toBe(before + 500000);
   for (const id of ["#demoRecallProgress", "#demoRecallRecovered", "#demoRecallNot"]) await expect(page.locator(id)).toBeDisabled();
+  // WGT-11: the send is a bank transfer (the bank's session ID); the recovered naira is its own record
+  await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Fee", "Reference", "Session ID"]);
+  await expect(page.locator('#txDetail [data-label="Session ID"]')).toContainText("[session ID]");
+  const sendRef = (await page.locator("#copyRefBtn").textContent())!.trim();
+  await page.locator("#backFromTxDetail").click();
+  await page.locator('[data-wallettab="cash"]').click();
+  await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
+  const credit = page.locator('#ngnHistory [data-credit="recall"]');
+  await expect(credit.locator(".tx-title")).toHaveText("Recall · Naira account");
+  await expect(credit.locator(".tx-amt")).toHaveText("+₦5,000.00 NGN");
+  await credit.click();
+  await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Reference", "Session ID"]);
+  await expect(page.locator('#txDetail [data-label="To"]')).toContainText("NGN balance");
+  await expect(page.locator('#txDetail [data-label="Method"]')).toContainText("Bank transfer · Recall");
+  expect((await page.locator("#copyRefBtn").textContent())!.trim()).not.toBe(sendRef);
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif]").first()).toContainText("Transfer recovered");
   await expect(page.locator("#panelBody [data-notif]").first()).toContainText("₦5,000.00 NGN is back in your NGN balance.");

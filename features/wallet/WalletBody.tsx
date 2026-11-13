@@ -1,5 +1,9 @@
 "use client";
 import { ReportProblemScreen } from "./withdrawals/ReportProblemScreen";
+import { CreditDetailScreen } from "./history/History";
+import { StatementScreen } from "./history/StatementScreen";
+// Statements: the NGN balance's ledger records every change from load
+import "./history/ledger";
 import { ConvertBody } from "./convert/ConvertBody";
 import { SendBody } from "./send/SendScreens";
 import { useSend } from "./send/useSend";
@@ -61,6 +65,8 @@ export function WalletBody() {
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
       {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
       {screen.name === "refund" && <RefundDetailScreen id={screen.id} />}
+      {screen.name === "credit" && <CreditDetailScreen id={screen.id} />}
+      {screen.name === "statement" && <StatementScreen />}
       {screen.name === "report" && <ReportProblemScreen id={screen.id} />}
       {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}

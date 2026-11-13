@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { attribute, dropEntries, relabel } from "../history/ledger";
 import {
   createPayout, hasPin, screenAddress, listPayoutRecipients, nameEnquiry, releaseReservation, reservePayout, resetPayoutServer, resetPinAttempts, savePayoutRecipient, seedPayoutServer,
   setNameEnquiryAvailable, setPin, verifyPin, verifyPinResetCode,
@@ -213,9 +214,10 @@ export const usePayout = create<State>((set, get) => {
     const total = cents + s.feeTarget; // NGN fees aren't decided: 0 in the maths (ngn.mdc)
     set({ stage: "processing" });
     const conversion = conversionDetails();
-    convertPayFrom();
+    // The NGN balance's ledger: the naira bought for the send, and the send itself, get its reference once it exists
+    const cvIds = attribute({ description: `Converted to NGN · To ${r.name}`, reference: "" }, convertPayFrom);
     const rsv = await reservePayout({ currency, amount: total });
-    moveReserved(total, total);
+    const sendIds = attribute({ description: `To ${r.name}`, reference: "" }, () => moveReserved(total, total));
     try {
       // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
       const w = await createPayout({
@@ -223,11 +225,13 @@ export const usePayout = create<State>((set, get) => {
         amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta, sourceKey: payFrom,
         ...(takeHold() ? { heldForReview: true } : {}),
       });
+      relabel([...cvIds, ...sendIds], { reference: w.ref, withdrawalId: w.id });
       useWithdrawals.getState().refresh();
       set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status }, recipients: listPayoutRecipients() });
     } catch {
       await releaseReservation(rsv.id);
-      moveReserved(-total, -total);
+      // Never created: the reservation and its release cancel out
+      dropEntries([...sendIds, ...attribute({ description: "", reference: "" }, () => moveReserved(-total, -total))]);
       set({ stage: "review" });
     }
   };
@@ -326,7 +330,7 @@ export const usePayout = create<State>((set, get) => {
     set({ stage: "processing" });
     const conversion = conversionDetails();
     const rsv = await reservePayout({ currency: r.currency, amount: s.sourceTotal });
-    if (fromNgn) moveReserved(s.sourceTotal, s.sourceTotal); else adjustBalance(payFrom, -s.sourceTotal);
+    const sendIds = attribute({ description: `To ${r.name}`, reference: "" }, () => { if (fromNgn) moveReserved(s.sourceTotal, s.sourceTotal); else adjustBalance(payFrom, -s.sourceTotal); });
     try {
       // A Poket user: your record is in your paying balance's currency; what they receive (USD when naira converts on
       // receipt, WGT-07) is its targetKey, and only their side is credited in it
@@ -337,12 +341,13 @@ export const usePayout = create<State>((set, get) => {
         sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
         ...(takeHold() ? { heldForReview: true } : {}),
       });
+      relabel(sendIds, { reference: w.ref, withdrawalId: w.id });
       if (w.status === "paid" && fromNgn) moveReserved(-s.sourceTotal, 0); // paid at once: nothing left on hold
       useWithdrawals.getState().refresh();
       set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status, quickCheck: w.quickCheck }, recipients: listPayoutRecipients() });
     } catch {
       await releaseReservation(rsv.id);
-      if (fromNgn) moveReserved(-s.sourceTotal, -s.sourceTotal); else adjustBalance(payFrom, s.sourceTotal);
+      dropEntries([...sendIds, ...attribute({ description: "", reference: "" }, () => { if (fromNgn) moveReserved(-s.sourceTotal, -s.sourceTotal); else adjustBalance(payFrom, s.sourceTotal); })]);
       set({ stage: "review" });
     }
   };

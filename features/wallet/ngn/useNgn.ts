@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { useNairaPartner } from "@/store/partner";
 import {
-  checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
+  DEMO_NGN_START, checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
   simulateTransferArrives,
   type DedicatedAccount, type NgnIdRoute, type TemporaryAccount,
 } from "@/lib/mock-api";
 import type { Kobo } from "@/lib/money";
 import { useAccount } from "@/store/account";
+import { creditNgn } from "../history/credits";
 
 /**
  * NGN (naira) flow controller. The current `stage` is rendered by NgnBody inside WalletShell's #panelBody.
@@ -40,6 +41,8 @@ export const NGN_ID: Record<NgnIdRoute, { name: string; long: string; len: numbe
   nrbvn: { name: "NRBVN", long: "Non-Resident BVN", len: 11 },
   permit: { name: "Passport and residence permit", long: "Passport and residence permit", len: 0 },
 };
+/** The demo's starting NGN balance, ₦50,000.00 (the seeded statement history ends at it: history/ledgerSeed.ts). */
+export const NGN_START: Kobo = DEMO_NGN_START;
 /** Failed ID matches share Veriff's limit (VF_MAX_TRIES). */
 export const NGN_MAX_ATTEMPTS = 3;
 /** Smallest temporary-account top-up: ₦100.00 (the reference enables "Create temporary account" from 10000 kobo). */
@@ -108,7 +111,7 @@ type State = {
 };
 
 const INITIAL = {
-  tier: 0 as Tier, ngnBalance: 5000000, ngnReserved: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
+  tier: 0 as Tier, ngnBalance: NGN_START, ngnReserved: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
   stage: null, entry: null, temp: null, tempCents: 0, route: null, mismatch: false, idNum: "", confirmClose: false,
 };
 
@@ -181,8 +184,10 @@ export const useNgn = create<State>((set, get) => {
 
     transferArrives: async () => {
       set({ stage: "tempArrived" });
-      const { amount } = await simulateTransferArrives();
-      set((s) => ({ ngnBalance: s.ngnBalance + amount, stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
+      const { amount, ref } = await simulateTransferArrives();
+      // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
+      creditNgn({ kind: "temp", amount, from: holderName(), ref });
+      set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 
     setIdNum: (text) => set({ idNum: text.replace(/\D/g, "").slice(0, 11) }),

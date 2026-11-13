@@ -380,6 +380,58 @@ WGT-10 is four parts, each with its rules below:
 - Demo bar on the send: "Recall: in progress / recovered / not recovered" (RECALL_TRANSITIONS in lib/mock-api.ts).
 - Other sends (US banks, cards, wallets, Poket users) don't offer it. Tests: e2e/send-problem.spec.ts.
 
+## History, receipts and statements (WGT-11)
+- History (features/wallet/history/History.tsx): Activity and the NGN balance's "Transaction history" list every
+  transaction as the reference's txRow, newest first, under a day heading (Today, Yesterday, "Nov 9, 2026"), with
+  the filter All, Money in, Money out (the exploration's FILTERS). A conversion shows under All only (kindOf). A row
+  shows its status chip (.va-status) unless it's completed. The NGN balance lists what moved it: sends from it,
+  conversions, credits, refunds into it (not card or bank-transfer payments to stores).
+- Detail (features/wallet/history/fields.tsx): every transaction's rows, those that apply, in one order with one set
+  of labels: Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed, Fee, Reference, Session ID.
+  The Reference is the copyable chip and unique (genRef in lib/mock-api.ts; payments and refunds keep the ID the
+  merchant gets). A bank transfer (naira deposits, sends to Nigerian banks, naira bank-transfer payments and their
+  reversals, recalls) shows the bank's session ID as "[session ID]" (not decided).
+- Naira coming into the NGN balance by itself is a record (NgnCredit, NEW copy): a temporary-account top-up ("Top-up ·
+  Bank transfer"), a transfer to the account details ("From {sender}"), one delayed while the partner was down
+  ("This transfer was delayed."), naira from a Poket user, and a recovered recall ("Recall · {name}"). Demo bar:
+  "Transfer to account details" (a ready account, partner up) and "Receive from a Poket user".
+- Tests: e2e/ngn-history.spec.ts.
+- Share receipt (NEW; the exploration's #shareRcpt) on every naira transaction's detail (sends from or to naira,
+  naira conversions, naira payments and their refunds, NGN credits; not dollar ones): a sheet with the receipt
+  (features/wallet/receipt/) and Share (navigator.share with the text; else copied, "Receipt copied"), Download PDF
+  and Download image (the receipt drawn on a canvas; the PDF is that image, with the text as its Subject). The
+  receipt: the brand (Poket, or white-label: the merchant's logo or initials and colour; demo control "Brand"), the
+  amount, the title, the status chip, Date and time, To or From, Account, Fee (₦[fee] where none is decided; Free
+  for money in), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
+  to Nigerian banks, deposits, recalls, checkout bank transfers and their reversals), "Payments by Poket". Not done, it says so first: Pending (scheduled, sending), Held for
+  review / a quick check, Failed, Reversed, Dispute open (held). Tests: e2e/receipts.spec.ts.
+- Statement (NEW) on the NGN balance ("Statement" by Transaction history): a period (This month and Last 3 months
+  run to today; Last month; a custom range up to 12 months, not in the future) and PDF or CSV, then Download
+  statement (lib/statement.ts). Built from the NGN balance's ledger (features/wallet/history/ledger.ts), which
+  records every change to the balance with the balance after it, labelled by its transaction (attribute()); a change
+  nothing labels is a "Balance adjustment". So opening + money in - money out = closing, always. A send counts when
+  it leaves the available balance (at the PIN); a failed or reversed one comes back as "Returned" / "Reversed · To
+  {name}" with the same reference.
+- Ada's seeded history (buildAdaHistory in lib/mock-api.ts): about three months before the demo, from nothing to
+  the starting balance (DEMO_NGN_START, ₦50,000.00), so every period has transactions. They're real records, in
+  Activity and the NGN balance's history, each opening its receipt, with the same time and reference as its
+  statement line (history/ledgerSeed.ts reads the lines): two top-ups and a transfer to the account details
+  (credits), sends to Ada's Naira account and to Amara Okafor (paid) and to Tobi Bello (a Poket user; failed and
+  returned: one record, two statement lines), a conversion to USD, and a refund of last month's naira bank
+  transfer to Mama Tee's Kitchen (that payment is seeded on Ada's account too, so Checkout's Poket account lists it;
+  the refund is marked inBalance so it isn't credited again). Seeded ids contain "seed". Recipients' "paid before"
+  flags aren't changed (Ngozi Eze stays a first payment).
+- Status on each line: Completed, Pending (a send scheduled or sending), Held (held for review), Returned (a send
+  that failed: it and its money back) or Reversed (a send the bank returned: both lines). A send's lines keep its id,
+  so they show its status at download.
+- Amounts on statements are written "NGN 5,000.00", not "₦5,000.00": the PDF uses the standard PDF fonts
+  (Helvetica), which can't draw the naira sign. (Receipts are drawn as images, so they keep ₦.)
+- PDF: brand, account holder, NGN account details (an account that's ready or frozen), period, the four totals, the
+  table (Date, Description, Reference, Status, Amount (NGN), Balance (NGN)), "Payments by Poket" and page numbers.
+  CSV: the same columns, with amounts as plain numbers ("-5000.00") and a Currency column (Date, Description,
+  Reference, Status, Amount, Currency, Balance), opened and closed by the balances. An empty period says "No
+  transactions in this period". Tests: e2e/statements.spec.ts.
+
 ## Refunds of naira payments (WGT-12)
 - Ada's seeded Checkout payments (lib/mock-api.ts DIRECTORY, as the reference seeds them): Mama Tee's Kitchen
   ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago, Adire Market $65.00 by

@@ -9,12 +9,14 @@ import {
   addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
-import { allRefunds, paymentStatus, refundDest, refundLeft, refundNote, refundTitle, refundedTotal, reversedTotal } from "@/lib/refunds";
+import { allRefunds, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
 import { useWalletNav } from "../useWalletNav";
-import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
+import { TxFields, paymentFields, paymentStatusChip, refundFields } from "../history/fields";
+import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { paymentReceipt, refundReceipt } from "../receipt/receipt";
 
 /**
  * WGT-12 in the wallet: the demo user's Checkout payments in Activity (txRow, tTxDetail) and disputes (tDispute and
@@ -38,10 +40,12 @@ const amountText = (p: Payment) => fmtCurrency(p.amount, p.currency);
 /** txRow(t) for a Checkout payment: the payment icon, the merchant, "Merchant payment · {merchant}" and the amount out. */
 export function CheckoutPaymentRow({ p }: { p: Payment }) {
   const push = useWalletNav((s) => s.push);
+  // WGT-11: a status chip unless it's completed (Dispute open, Refunded, Partly refunded, Reversed, Dispute closed)
+  const chip = paymentStatusChip(p);
   return (
     <div className="tx-row" data-txid={p.id} data-payment={p.id} role="button" tabIndex={0} onClick={() => push({ name: "payment", id: p.id })}>
       <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">Merchant payment · {p.merchant}</div></div>
+      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">Merchant payment · {p.merchant}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
       <div className="tx-amt"><Grey>{"-" + amountText(p)}</Grey></div>
     </div>
   );
@@ -76,14 +80,9 @@ export function RefundDetailScreen({ id }: { id: string }) {
       <div className="step-title mono" id="refundAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{fmtCurrency(r.amount, p.currency)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{refundTitle(p, r)}</p>
       <div className="info-card" id="txDetail">
-        <DetailRow label="Status" value="Completed" />
-        <DetailRow label="Date" value={formatTxDate(new Date(r.at).getTime())} />
-        <DetailRow label="Currency" value={p.currency} />
-        <DetailRow label="Merchant" value={p.merchant} />
-        <DetailRow label={r.kind === "reversal" ? "Reversed to" : "Refunded to"} value={refundDest(p, r)} />
-        <DetailRow label="Context" value="Checkout" />
-        <ReferenceRow refText={r.id} />
+        <TxFields f={refundFields(p, r)} />
       </div>
+      <ShareReceiptButton receipt={refundReceipt(p, r)} />
       <div className="alert info" id="refundNote" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{refundNote(p, r)}</span></div>
     </>
   );
@@ -134,16 +133,9 @@ export function PaymentDetailScreen({ id }: { id: string }) {
       <div className="step-title mono" id="paymentAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--n-900)" }}><Grey>{amountText(p)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{p.merchant}</p>
       <div className="info-card" id="txDetail">
-        <DetailRow label="Status" value={paymentStatus(p).label} />
-        <DetailRow label="Date" value={formatTxDate(at)} />
-        <DetailRow label="Currency" value={p.currency} />
-        {refundedTotal(p) > 0 && <DetailRow label="Refunded" value={fmtCurrency(refundedTotal(p), p.currency)} />}
-        {reversedTotal(p) > 0 && <DetailRow label="Reversed" value={fmtCurrency(reversedTotal(p), p.currency)} />}
-        <DetailRow label="Merchant" value={p.merchant} />
-        <DetailRow label="Context" value="Checkout" />
-        <ReferenceRow refText={p.id} />
-        {p.status === "disputed" && <DisputeRow />}
+        <TxFields f={paymentFields(p)}>{p.status === "disputed" && <DisputeRow />}</TxFields>
       </div>
+      <ShareReceiptButton receipt={paymentReceipt(p)} />
       {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
       {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{fmtCurrency(refundLeft(p), p.currency)} held while we review.</span></div>}
       {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}

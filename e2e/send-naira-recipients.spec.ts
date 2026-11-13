@@ -48,7 +48,7 @@ test("Amara can hold naira: she gets naira; no notice, no quote; her activity sh
   await expect(page.locator("#doneSent")).toHaveCount(0);
   await expect(page.locator("#doneTheyGet")).toHaveCount(0);
   await page.locator("#viewPayoutTx").click();
-  await expect(info(page).locator(":scope > span:first-child")).toHaveText(["Status", "Date", "To", "Fee", "Reference"]); // no conversion rows
+  await expect(info(page).locator(":scope > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Fee", "Reference"]); // no conversion rows, no session ID (not a bank)
   await expect(activity(page).locator('li[data-recipient="pu4"]')).toHaveText("Amara OkaforReceived ₦5,000.00 NGN from Ada Osun");
 });
 
@@ -91,7 +91,7 @@ test("Daniel can't hold naira: the notice, They get in USD and the quote; the re
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const row = page.locator("#panelBody .tx-row[data-txid]");
+  const row = page.locator('#panelBody .tx-row[data-txid]:not([data-txid*="seed"])'); // not Ada's seeded history
   await expect(row.locator(".tx-title")).toHaveText(["To Daniel Cho"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦5,000.00 NGN → $3.23 USD"]); // paid: no status chip
   await expect(row.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);

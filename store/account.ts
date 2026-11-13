@@ -37,7 +37,9 @@ export type Refund = { id: string; amount: number; at: string; to: "method" | "n
   /** "reversal": a dispute resolved by reversing the payment, back the way it was paid (never the NGN balance). */
   kind?: "refund" | "reversal";
   /** Made by resolving a dispute (the resolution's notification covers it). */
-  fromDispute?: boolean };
+  fromDispute?: boolean;
+  /** Already in the NGN balance (Ada's seeded history): not credited again. */
+  inBalance?: true };
 /** How an open dispute was resolved (demo "Resolve: …"). */
 export type DisputeOutcome = "refund" | "release" | "reversal";
 export type Account = {

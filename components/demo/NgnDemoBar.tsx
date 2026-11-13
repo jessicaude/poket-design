@@ -15,19 +15,22 @@ import { useAccount } from "@/store/account";
 import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
+import { DEMO_WHITE_LABEL, POKET_BRAND, useWalletBrand } from "@/features/wallet/brand";
+import { DEMO_ACCOUNT_TRANSFER_KOBO, DEMO_POKET_TRANSFER_KOBO, receiveNaira } from "@/features/wallet/history/credits";
 
 /**
  * Prototype controls for the NGN wallet demo (styles: .pbar in styles/prototype.css). Dev-only, not part of the product.
  * Stage actions follow protoActions() in reference/poket-unified.html.
  */
 export function NgnDemoBar() {
-  const { stage, tier, eligibility, set, transferArrives, expireTemp, go, setIdNum } = useNgn();
+  const { stage, tier, eligibility, set, transferArrives, expireTemp, go, setIdNum, dedicated } = useNgn();
   const { pinSet, seedPin, enquiryDown, setEnquiryDown } = usePayout();
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
   const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
   const { down: partnerDown, setDown: setPartnerDown, queued, queueArrival } = useNairaPartner();
   const selfiePhone = usePayout((s) => s.selfiePhone);
+  const { brand, setBrand } = useWalletBrand();
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
   // The bar wraps onto more rows when it doesn't fit: keep --bar (the page's offset) equal to its height, as DemoBar does
@@ -99,6 +102,12 @@ export function NgnDemoBar() {
           <option value="known">This device: Known</option><option value="new">This device: New</option>
         </select>
       </label>
+      <label className="opt-lbl"><span>Brand</span>
+        {/* Branding (docs/decisions.md): Poket, or white-label with the hosting merchant's name and colours; receipts keep "Payments by Poket" */}
+        <select aria-label="Brand" value={brand.kind} onChange={(e) => setBrand(e.target.value === "merchant" ? DEMO_WHITE_LABEL : POKET_BRAND)}>
+          <option value="poket">Brand: Poket</option><option value="merchant">Brand: White-label (Ilé Living)</option>
+        </select>
+      </label>
       <label className="opt-lbl"><span>Naira partner</span>
         {/* WGT-13: partner downtime pauses naira bank transfers (a banner on the affected screens) */}
         <select aria-label="Naira partner" value={partnerDown ? "down" : "up"} onChange={(e) => setPartnerDown(e.target.value === "down")}>
@@ -152,6 +161,9 @@ export function NgnDemoBar() {
           <button className="pbtn" id="demoRefundPart" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "part")}>Merchant refunds: part</button>
         </>
       )}
+      {/* WGT-11: naira coming in, each with its own record. A transfer to the account details needs a ready account and the partner up (while down, "Transfer arrived while down") */}
+      {!flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
+      {!flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a Poket user</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}

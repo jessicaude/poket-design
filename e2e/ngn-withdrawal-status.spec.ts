@@ -61,7 +61,7 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
   await row.locator(".tx-title").click(); // the row's centre is the "on hold" link
   await expect(page.locator("#ngnBalanceAmount")).toHaveText("₦45,000.00 NGN");
   await expect(page.locator("#ngnOnHold")).toHaveText("₦5,000.00 NGN on hold ›");
-  const activity = page.locator("#panelBody .section-card .tx-row");
+  const activity = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada's seeded history
   await expect(activity.locator(".tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(activity.locator(".tx-sub .va-status")).toHaveText(["Scheduled"]);
   await expect(activity.locator(".tx-sub")).toHaveText(["GTBank · •••• 6789 · Scheduled"]); // the account, then the chip while unfinished

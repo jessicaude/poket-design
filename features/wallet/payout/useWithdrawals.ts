@@ -3,6 +3,8 @@ import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { listWithdrawals, reportSendProblem, requestRecall as requestRecallApi, setRecallStatus, setWithdrawalStatus, type RecallStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
 import { formatNaira } from "@/lib/money";
 import { useNgn } from "../ngn/useNgn";
+import { creditNgn } from "../history/credits";
+import { attribute } from "../history/ledger";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
 import { useNotifications } from "../useNotifications";
 import { useWalletToast } from "../useWalletToast";
@@ -38,7 +40,8 @@ function returnToSource(key: string, amount: number) {
 }
 
 export const useWithdrawals = create<State>((set, get) => ({
-  list: [],
+  // Ada's seeded history is there from the start
+  list: listWithdrawals(),
   refresh: () => set({ list: listWithdrawals() }),
 
   move: async (id, to) => {
@@ -47,12 +50,16 @@ export const useWithdrawals = create<State>((set, get) => ({
     const after = await setWithdrawalStatus(id, to);
     const total = before.sourceTotal ?? before.amount + before.fee;
     const d = reservationEffect(before.status, to, total);
-    if (before.reservedIn === "source" && before.sourceKey) {
-      // Taken from the paying balance at the PIN: given back when the send fails or is reversed; nothing on hold.
-      if (d.balance) returnToSource(before.sourceKey, d.balance);
-    } else if (before.reservedIn === "ngn" || after.currency === "NGN") {
-      useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + d.balance, ngnReserved: s.ngnReserved + d.reserved }));
-    }
+    // The NGN balance's ledger: money given back by a failed or reversed send (NEW lines)
+    const back = { description: `${to === "reversed" ? "Reversed" : "Returned"} · To ${before.recipientName}`, reference: before.ref, withdrawalId: before.id };
+    attribute(back, () => {
+      if (before.reservedIn === "source" && before.sourceKey) {
+        // Taken from the paying balance at the PIN: given back when the send fails or is reversed; nothing on hold.
+        if (d.balance) returnToSource(before.sourceKey, d.balance);
+      } else if (before.reservedIn === "ngn" || after.currency === "NGN") {
+        useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + d.balance, ngnReserved: s.ngnReserved + d.reserved }));
+      }
+    });
     get().refresh();
     if (to === "reversed") {
       const desc = `${sentText(after)} to ${after.recipientName}. Funds returned to your balance.`; // what left (and returns to) your balance
@@ -66,7 +73,8 @@ export const useWithdrawals = create<State>((set, get) => ({
   setRecall: async (id, to) => {
     const w = await setRecallStatus(id, to);
     if (to === "recovered") {
-      useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + w.amount }));
+      // WGT-11: the recovered naira is its own record (from the account it came back from)
+      creditNgn({ kind: "recall", amount: w.amount, from: w.recipientSub, withdrawalId: w.id, description: `Recall · ${w.recipientName}` });
       useNotifications.getState().add({ type: "payout", title: "Transfer recovered", desc: `${formatNaira(w.amount)} is back in your NGN balance.` });
     } else if (to === "not_recovered") {
       useNotifications.getState().add({ type: "payout", title: "Recall closed", desc: `We couldn’t recover your transfer to ${w.recipientName}.` });

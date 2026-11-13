@@ -75,3 +75,27 @@
 .ud-more .c{margin-left:auto;display:flex;color:var(--txt3);transform:rotate(90deg);transition:transform .15s}
 .ud-more.open .c{transform:rotate(-90deg)}
 .ud-foot{border-top:1px solid var(--bdr2);margin-top:14px;padding-top:12px}
+
+/* WGT-11: the history's day headings, and its filter (the wallet's .chip-row) a little tighter */
+.history-day{font-size:12px;font-weight:600;color:var(--txt2);margin:14px 0 6px}
+.history-filter{margin-bottom:4px}
+
+/* Share receipt (NEW): a sheet over the panel, and the receipt in the wallet's look with the brand's colour on top */
+.rc-backdrop{position:absolute;inset:0;z-index:35;background:rgba(16,24,40,.38);display:flex;align-items:flex-end;animation:ddIn .16s cubic-bezier(.16,1,.3,1)}
+.rc-sheet{width:100%;max-height:92%;overflow-y:auto;background:var(--bg);border-radius:20px 20px 0 0;padding:14px 18px 18px;box-shadow:var(--shadow-xl)}
+.rc-sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:14px;color:var(--n-900)}
+.rc-card{border:1px solid var(--bdr);border-top:5px solid var(--brand-500);border-radius:var(--r-lg,14px);padding:14px 16px 10px;background:#fff}
+.rc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.rc-brand{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--n-900)}
+.rc-brand svg{width:28px;height:28px;flex:none}
+.rc-brand svg.brand-lockup{width:76px;height:auto}
+.rc-kind{font-size:11.5px;font-weight:600;color:var(--txt2)}
+.rc-amount{text-align:center;font-size:24px;font-weight:600;color:var(--n-900)}
+.rc-title{text-align:center;font-size:13px;color:var(--txt2);margin:2px 0 8px}
+.rc-rows{margin-top:12px}
+.rc-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-top:1px solid var(--bdr2);font-size:12.5px;color:var(--txt2)}
+.rc-row .mono{color:var(--n-900);text-align:right;word-break:break-word;max-width:200px}
+.rc-foot{border-top:1px solid var(--bdr2);padding-top:10px;text-align:center;font-size:11px;font-weight:600;color:var(--txt3)}
+.rc-downloads{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.rc-downloads .btn-secondary{margin:0}
+.rc-card .alert.err{background:var(--err-50);color:var(--err-600)}
