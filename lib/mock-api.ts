@@ -20,6 +20,8 @@ export const DIRECTORY: Record<string, Account> = {
   },
 };
 
+/** The demo user: the wallet is hers, and Checkout's "Ada (remembered)" customer. */
+export const DEMO_USER_EMAIL = "ada@osun.co";
 export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
 
 /** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */

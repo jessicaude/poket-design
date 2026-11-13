@@ -14,6 +14,13 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - New users give their **legal first and last name** at sign-up; it prefills identity verification later.
 - Terms: https://onepoket.com/terms-and-conditions · Privacy: https://onepoket.com/privacy-policy
 
+## Refunds and disputes (WGT-12)
+- The demo user's Checkout payments (naira and dollar, card and bank transfer) are kept on the shared Poket account. They show in **Checkout's Poket account** (Activity, a payment's detail) and in the **wallet's Activity** (the reference's activity row and transaction detail).
+- A payment to a store can be disputed **up to 60 days** after it was made ("Raise a dispute" on its detail: "You can raise a dispute for N more days."; after that, contact the merchant or Poket support). Deposits, top-ups, refunds, sends and conversions can't be disputed.
+- The dispute flow is the reference's: what happens and what to have ready, then one form where only the reason is required (contact date, evidence and details are optional). A dispute raised in one widget shows open in both, and the merchant is told (payment.dispute_opened, with the reason).
+- Two disputes restrict the account from raising more ("You can't raise a dispute right now").
+- In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported. Resolving a dispute (refund or not) isn't built yet.
+
 ## Payout (Get paid)
 - No identity step up front. Sanctions screening and a payout account name match run on every payout, in the background.
 - **Lifetime payouts ≥ $2,000:** keyed-in ID check (ID number + date of birth; no document, no selfie).

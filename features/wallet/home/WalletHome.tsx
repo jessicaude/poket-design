@@ -1,4 +1,5 @@
 "use client";
+import { CheckoutPaymentRow, DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import type { ReactNode } from "react";
 import { Raw } from "@/components/ui/Raw";
@@ -125,8 +126,11 @@ type Activity = { at: number; key: string; el: ReactNode };
 function useActivity(): Activity[] {
   const withdrawals = useWithdrawals((s) => s.list);
   const conversions = useConvert((s) => s.conversions);
+  // WGT-12: the demo user's Checkout payments (naira and dollar, card and bank transfer), kept on the account
+  const payments = useAccount((s) => s.account?.payments) ?? [];
   return [
     ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, el: <DemoTxRow key={t.id} t={t} /> })),
+    ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, el: <CheckoutPaymentRow key={p.id} p={p} /> })),
     ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, el: <WithdrawalRow key={w.id} w={w} /> })),
     ...conversions.map((c) => ({ at: c.createdAt, key: c.id, el: <ConversionRow key={c.id} c={c} /> })),
   ].sort((a, b) => b.at - a.at);
@@ -324,6 +328,7 @@ export function ActivityScreen() {
 export function DemoTxDetailScreen({ id }: { id: string }) {
   const back = useWalletNav((s) => s.back);
   const t = DEMO_TXNS.find((x) => x.id === id);
+  const disputed = useDemoDisputes((s) => !!s.open[id]);
   if (!t) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
   return (
     <>
@@ -338,7 +343,10 @@ export function DemoTxDetailScreen({ id }: { id: string }) {
         <DetailRow label="Date" value={formatTxDate(t.ts)} />
         {t.details.map(([k, v]) => <DetailRow key={k} label={k} value={v} />)}
         <ReferenceRow refText={t.ref} />
+        {disputed && <DisputeRow />}
       </div>
+      {/* extDisputable: only a payment to a store can be disputed (not a deposit, top-up or refund) */}
+      {t.type === "payment" && !disputed && <RaiseDispute at={t.ts} merchant={t.details.find(([k]) => k === "Merchant")?.[1] ?? t.title} target={{ kind: "demo", id: t.id }} />}
     </>
   );
 }

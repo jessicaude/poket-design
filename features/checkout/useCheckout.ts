@@ -3,7 +3,7 @@ import { useNairaPartner } from "@/store/partner";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, registerAccount, saveAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
+import { DIRECTORY, registerAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 import { useAccountLock } from "@/store/lock";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
@@ -25,7 +25,9 @@ export type TransferAmount = "exact" | "less" | "more";
 export const demoTransferAmount = (amount: number, a: TransferAmount) =>
   a === "exact" ? amount : amount + (a === "less" ? -1 : 1) * Math.round(amount / 10 / 100) * 100;
 export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "details" | "vendor" | "verifying" | "id-review"
-  | "id-retry" | "id-done" | "blocked" | "locked" | "processing" | "declined" | "done";
+  | "id-retry" | "id-done" | "blocked" | "locked" | "processing" | "declined" | "done"
+  /** WGT-12: Checkout's Poket account (Activity tab, a payment's detail, a dispute) */
+  | "activity" | "pay-detail" | "dispute";
 
 /** SCREENS['blocked'] reasons: the prototype's age and id_declined, plus a sanctions match (copy from tSanctionsDeclined). */
 export type BlockReason = "age" | "id_declined" | "sanctions";
@@ -90,6 +92,9 @@ type State = {
   quote: Quote | null;        // USD method on an NGN order (Conversion): the held rate
   charging: Cents | null;     // converted payment in progress: the dollars being charged (processing screen)
   toast: string | null;
+  /** WGT-12: the payment open in pay-detail (and its dispute), and where its Back goes (S.viewPay, S.navFrom). */
+  viewPay: string | null;
+  navFrom: "done" | "activity" | null;
   skipId: boolean;            // the order is under $500: the stepper shows Account and Payment only
   idv: Idv;
   blockReason: BlockReason | null;
@@ -103,6 +108,10 @@ type State = {
   /** Where an opened widget starts: "Account locked", the returning customer, or sign-up. */
   route: (order: Order, settings: MerchantSettings) => void;
   go: (s: Screen) => void;
+  /** "Your Poket": the account's Activity tab. */
+  openAccount: () => void;
+  /** A payment's detail (pay-detail), from the done screen's View receipt or an Activity row. */
+  viewPayment: (id: string, from: "done" | "activity") => void;
   addCard: (currency: OrderCurrency) => void;
   startTransfer: () => Promise<void>;
   transferArrives: (amount?: TransferAmount) => Promise<void>;
@@ -145,7 +154,7 @@ const afterSignIn = (a: Account, o: Order) => {
 let verifyTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useCheckout = create<State>((set, get) => ({
-  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null,
+  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null, viewPay: null, navFrom: null,
   skipId: true, idv: NEW_IDV, blockReason: null,
 
   start: (order) => {
@@ -186,6 +195,8 @@ export const useCheckout = create<State>((set, get) => ({
     set({ open: false });
   },
   go: (screen) => set({ screen }),
+  openAccount: () => set({ screen: "activity", onboarding: false }),
+  viewPayment: (id, from) => set({ viewPay: id, navFrom: from, screen: "pay-detail", onboarding: false }),
   addCard: (cardCurrency) => set({ cardCurrency, screen: "add-card" }),
 
   // Bank transfer: "Dynamic" creates a one-time virtual account ("Get a new account" calls this again); "Merchant pool"
@@ -219,7 +230,8 @@ export const useCheckout = create<State>((set, get) => ({
     const id = match.id;
     const m: PaymentMethod = { id: va.id, kind: "bank", last4: va.num.slice(-4), name: "Bank transfer", sub: `Account •••• ${va.num.slice(-4)}`, oneTime: true };
     useAccount.getState().update((a) => ({ ...a,
-      payments: [{ id, merchant: order.merchant, amount: order.amount, currency: order.currency, method: m.name, at: new Date().toISOString(), status: "paid" }, ...a.payments] }));
+      payments: [{ id, merchant: order.merchant, amount: order.amount, currency: order.currency, method: m.name, at: new Date().toISOString(), status: "paid",
+        order: order.orderRef, methodKind: m.kind, brand: m.brand }, ...a.payments] }));
     useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: "bank_transfer",
       rail: "ngn_bank_transfer", account_type: va.kind, identity_verified: (useAccount.getState().account?.tier ?? 0) >= 1 });
     set({ paid: { ref: id, method: m }, screen: "done", transfer: { state: "creating", va: null } });
@@ -269,6 +281,7 @@ export const useCheckout = create<State>((set, get) => ({
         ...a,
         methods: a.methods.filter((x) => !x.oneTime || x.id === m.id),
         payments: [{ id, merchant: order.merchant, amount: order.amount, currency: order.currency, method: m.name, at: new Date().toISOString(), status: "paid",
+          order: order.orderRef, methodKind: m.kind, brand: m.brand,
           ...(charged ? { charged: { amount: charged.amount, currency: charged.currency } } : {}) }, ...a.payments],
       }));
       useEvents.getState().emit("payment.succeeded", { widget: "checkout", amount: order.amount, currency: order.currency, poket_reference: id, method: m.kind, identity_verified: account.tier >= 1,
@@ -311,9 +324,6 @@ export const useCheckout = create<State>((set, get) => ({
     set({ blockReason: reason, screen: "blocked" });
   },
 }));
-
-/** The server keeps the signed-in account's changes (tier, failed checks, block, methods, payments). */
-useAccount.subscribe((st) => { if (st.account) saveAccount(st.account); });
 
 /** Tier 1: the reference's idResult() success path. */
 function verified() {

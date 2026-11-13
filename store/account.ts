@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { BrandKey } from "@/lib/card";
+import { saveAccount } from "@/lib/mock-api";
 
 /** A saved way to pay. `name` and `sub` are display text, as in the prototype ("Visa ••• 4242", "Debit · Expires 12/2028"). */
 export type PaymentMethod = {
@@ -12,10 +13,17 @@ export type PaymentMethod = {
   oneTime?: boolean; // "Save this card for next time" was unticked
   currency?: "USD" | "NGN"; // what the method pays in: NGN for a Nigerian card; USD when not set
 };
-/** `amount` is in minor units of `currency` (cents or kobo). */
-export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid";
+/**
+ * A Checkout payment, kept on the account: Checkout's Poket account and the wallet's Activity both list it (WGT-12).
+ * `amount` is in minor units of `currency` (cents or kobo). "disputed": a dispute is open (lib/disputes.ts).
+ */
+export type Payment = { id: string; merchant: string; amount: number; currency: "USD" | "NGN"; method: string; at: string; status: "paid" | "disputed";
   /** Converted: what the method was actually debited, e.g. $23.40 USD for a ₦36,270.00 NGN order. */
-  charged?: { amount: number; currency: "USD" } };
+  charged?: { amount: number; currency: "USD" };
+  /** The merchant's order reference, and how it was paid (for the receipt's Paid with). */
+  order?: string; methodKind?: "card" | "bank"; brand?: BrandKey;
+  /** The open dispute: its reason (one of DISPUTE_REASONS) and when it was raised. */
+  dispute?: { reason: string; at: string } };
 export type Account = {
   email: string;
   first: string;
@@ -28,6 +36,8 @@ export type Account = {
   idBlocked?: "age" | "id_declined" | "sanctions";
   methods: PaymentMethod[];
   payments: Payment[];
+  /** Disputes raised (at most 2 counted): at 2 the account can't raise more (the reference's disputeStrikes). */
+  disputeStrikes?: number;
 };
 
 type AccountState = {
@@ -43,3 +53,6 @@ export const useAccount = create<AccountState>((set) => ({
   signOut: () => set({ account: null }),
   update: (fn) => set((s) => (s.account ? { account: fn(s.account) } : s)),
 }));
+
+/** The server keeps the signed-in account's changes (tier, failed checks, block, methods, payments, disputes). */
+useAccount.subscribe((st) => { if (st.account) saveAccount(st.account); });

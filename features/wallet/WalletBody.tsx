@@ -19,6 +19,7 @@ import { ConversionReceiptScreen } from "./withdrawals/ConversionReceiptScreen";
 import { AccountBlockedScreen, AccountLockedScreen } from "./AccountLockedScreen";
 import { useSettings } from "./settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+import { DisputeScreen, PaymentDetailScreen } from "./disputes/DisputeScreens";
 // WGT-13: credits and sends that waited on the naira partner move on when it's back
 import "./partnerRecovery";
 
@@ -44,7 +45,7 @@ export function WalletBody() {
   if (payout) return <PayoutBody />;
   if (ngn) return <NgnBody />;
   if (!screen) return tab === "activity" ? <ActivityScreen /> : <WalletHome />;
-  const key = screen.name + ("id" in screen ? screen.id : "") + ("holding" in screen ? JSON.stringify(screen.holding) : "");
+  const key = screen.name + ("id" in screen ? screen.id : "") + ("holding" in screen ? JSON.stringify(screen.holding) : "") + ("target" in screen ? screen.target.id : "");
   return (
     <div className="screen-fade" key={key}>
       {screen.name === "ngn-balance" && <NgnBalanceScreen />}
@@ -55,6 +56,8 @@ export function WalletBody() {
       {screen.name === "assets-all" && <AssetsAllScreen />}
       {screen.name === "holding" && <HoldingDetailScreen h={screen.holding} />}
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
+      {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
+      {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}
       {screen.name === "security" && <SecurityScreen />}
       {screen.name === "compliance" && <ComplianceScreen />}

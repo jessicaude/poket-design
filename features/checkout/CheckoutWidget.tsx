@@ -1,4 +1,5 @@
 "use client";
+import { AccountActivityScreen, AccountDisputeScreen, AccountTabbar, PayDetailScreen } from "./screens/AccountScreens";
 import { useEffect, type ComponentType } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CLOSE_ICON, POKET_WORDMARK } from "@/lib/icons";
@@ -16,7 +17,7 @@ import { BlockedScreen, DetailsScreen, IdDoneScreen, IdRetryScreen, IdReviewScre
  * One component per screen; `step` is the stepper position as in the prototype's stepper(): Account 0, Identity 1,
  * Payment 2. null hides the stepper.
  */
-const SCREENS: Record<Screen, { C: ComponentType; step: number | null }> = {
+const SCREENS: Record<Screen, { C: ComponentType; step: number | null; account?: true }> = {
   signup: { C: SignupScreen, step: 0 },
   details: { C: DetailsScreen, step: 1 },
   vendor: { C: VendorScreen, step: 1 },
@@ -33,6 +34,10 @@ const SCREENS: Record<Screen, { C: ComponentType; step: number | null }> = {
   processing: { C: ProcessingScreen, step: 2 },
   declined: { C: DeclinedScreen, step: 2 },
   done: { C: DoneScreen, step: null },
+  // WGT-12: the Poket account (the reference's account:true screens: the taller .wg.acct frame and the tab bar)
+  activity: { C: AccountActivityScreen, step: null, account: true },
+  "pay-detail": { C: PayDetailScreen, step: null, account: true },
+  dispute: { C: AccountDisputeScreen, step: null, account: true },
 };
 /** Under $500 there's no identity step, so the stepper shows two steps (Payment moves to position 1). */
 const STEPS_ID = ["Account", "Identity", "Payment"];
@@ -50,14 +55,14 @@ export function CheckoutWidget() {
     return () => { document.body.classList.remove("wg-open"); window.removeEventListener("keydown", onKey); };
   }, [open, close]);
 
-  const { C, step: rawStep } = SCREENS[screen];
+  const { C, step: rawStep, account } = SCREENS[screen];
   const labels = skipId ? STEPS_NO_ID : STEPS_ID;
   const step = rawStep === null ? null : skipId && rawStep === 2 ? 1 : rawStep;
   return (
     <>
       <div className={`scrim ${open ? "open" : ""}`} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
         {open && (
-          <div className="wg" role="dialog" aria-modal="true" aria-label="Poket checkout" data-testid="checkout-widget">
+          <div className={`wg ${account ? "acct" : ""}`} role="dialog" aria-modal="true" aria-label="Poket checkout" data-testid="checkout-widget">
             <div className="wg-head">
               <span className="centry-lock" role="img" aria-label="CentryOS" />
               <Raw html={POKET_WORDMARK} />
@@ -74,6 +79,7 @@ export function CheckoutWidget() {
               )}
               <C />
             </div>
+            {account && <AccountTabbar />}
           </div>
         )}
       </div>
