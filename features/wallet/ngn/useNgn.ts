@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { useNairaPartner } from "@/store/partner";
 import {
-  checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
+  DEMO_NGN_START, checkId, closeDedicatedAccount, createDedicatedAccount, createTemporaryAccount, resetNgnServer, seedNgnServer, setDedicatedAccountFrozen,
   simulateTransferArrives,
   type DedicatedAccount, type NgnIdRoute, type TemporaryAccount,
 } from "@/lib/mock-api";
@@ -41,6 +41,8 @@ export const NGN_ID: Record<NgnIdRoute, { name: string; long: string; len: numbe
   nrbvn: { name: "NRBVN", long: "Non-Resident BVN", len: 11 },
   permit: { name: "Passport and residence permit", long: "Passport and residence permit", len: 0 },
 };
+/** The demo's starting NGN balance, ₦50,000.00 (the seeded statement history ends at it: history/ledgerSeed.ts). */
+export const NGN_START: Kobo = DEMO_NGN_START;
 /** Failed ID matches share Veriff's limit (VF_MAX_TRIES). */
 export const NGN_MAX_ATTEMPTS = 3;
 /** Smallest temporary-account top-up: ₦100.00 (the reference enables "Create temporary account" from 10000 kobo). */
@@ -109,7 +111,7 @@ type State = {
 };
 
 const INITIAL = {
-  tier: 0 as Tier, ngnBalance: 5000000, ngnReserved: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
+  tier: 0 as Tier, ngnBalance: NGN_START, ngnReserved: 0, eligibility: "ng_in" as Eligibility, ngnId: null, attempts: 0, dedicated: null,
   stage: null, entry: null, temp: null, tempCents: 0, route: null, mismatch: false, idNum: "", confirmClose: false,
 };
 

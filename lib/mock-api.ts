@@ -2,9 +2,9 @@
  * Mock Poket API: stands in for the backend while designing.
  * Function names follow the planned endpoints so engineering can swap in real calls.
  */
-import type { Account, PaymentMethod } from "@/store/account";
+import type { Account, Payment, PaymentMethod } from "@/store/account";
 import type { CardOutcome } from "@/store/demo";
-import type { Kobo } from "@/lib/money";
+import { DEMO_NGN_PER_USD, formatNaira, type Kobo } from "@/lib/money";
 import { detectBrand, fundingOf } from "@/lib/card";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -154,8 +154,10 @@ const ngnServer: { temp: TemporaryAccount | null; verifiedId: { route: NgnIdRout
 /** A transaction's reference, "TXN-" and 6 digits: unique across every record the mock hands out (WGT-11). */
 const usedRefs = new Set<string>();
 export function genRef(): string {
-  let ref: string;
-  do ref = "TXN-" + Math.floor(100000 + Math.random() * 900000); while (usedRefs.has(ref));
+  // On a clash, the next free number (never "try again": a fixed Math.random, as tests use, would loop forever)
+  let n = Math.floor(Math.random() * 900000);
+  while (usedRefs.has("TXN-" + (100000 + n))) n = (n + 1) % 900000;
+  const ref = "TXN-" + (100000 + n);
   usedRefs.add(ref);
   return ref;
 }
@@ -780,3 +782,74 @@ export async function saveStablecoinWallet(w: Omit<StablecoinWallet, "id">): Pro
   STABLECOIN_WALLETS.push(saved);
   return { ...saved };
 }
+
+
+/* ---------- Ada's NGN history (seed) ----------
+   About three months of naira history before the demo starts, as real records (credits, sends, a conversion, a
+   payment's refund) and as the NGN balance's ledger lines for statements, with the same timestamps and references.
+   It starts from nothing and ends at the demo's starting balance. */
+
+/** The demo's starting NGN balance, ₦50,000.00 (useNgn NGN_START). */
+export const DEMO_NGN_START: Kobo = 5000000;
+/** A line of the NGN balance's ledger (lib/statement.ts LedgerEntry, without the id). */
+export type HistoryLine = { at: number; delta: Kobo; balance: Kobo; description: string; reference: string; status?: "Completed" | "Returned"; withdrawalId?: string };
+export type AdaHistory = { lines: HistoryLine[]; credits: NgnCredit[]; sends: Withdrawal[]; conversions: Conversion[]; payments: Payment[] };
+
+/** The seed, for `now` (pure but for references). */
+export function buildAdaHistory(now: Date, start: Kobo = DEMO_NGN_START, ref: () => string = genRef): AdaHistory {
+  const at = (m: number, d: number) => new Date(now.getFullYear(), now.getMonth() - m, d, 10, 15).getTime();
+  // This month's: a day ago, or halfway into the month if it's only just begun
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const thisMonth = now.getTime() - monthStart > 2 * 86400000 ? now.getTime() - 86400000 : monthStart + Math.floor((now.getTime() - monthStart) / 2);
+  const h: AdaHistory = { lines: [], credits: [], sends: [], conversions: [], payments: [] };
+  const line = (t: number, delta: Kobo, description: string, reference: string, extra: Partial<HistoryLine> = {}) => { h.lines.push({ at: t, delta, balance: 0, description, reference, ...extra }); };
+  const credit = (kind: NgnCreditKind, amount: Kobo, from: string, t: number) => {
+    const c: NgnCredit = { id: `cr_seed${h.credits.length + 1}`, ref: ref(), kind, amount, at: t, from };
+    h.credits.push(c);
+    line(t, amount, kind === "temp" ? "Top-up · Bank transfer" : `From ${from.split(" · ")[0]}`, c.ref);
+  };
+  const send = (w: Pick<Withdrawal, "kind" | "recipientId" | "recipientName" | "recipientSub" | "amount" | "status">, t: number) => {
+    const sent: Withdrawal = { id: `wd_seed${h.sends.length + 1}`, ref: ref(), currency: "NGN", fee: 0, createdAt: t, amountText: formatNaira(w.amount), feeText: "₦[fee]",
+      sourceKey: "cash:NGN:open", sourceTotal: w.amount, reservedIn: "ngn", eta: "Usually within seconds", ...w };
+    h.sends.push(sent);
+    const failed = w.status === "failed";
+    line(t, -w.amount, `To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, ...(failed ? { status: "Returned" as const } : {}) });
+    // A failed send's money comes back the next day
+    if (failed) line(t + 86400000, w.amount, `Returned · To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, status: "Returned" });
+  };
+
+  credit("temp", 4000000, "Ada Osun", at(3, 20));
+  send({ kind: "bank", recipientId: "lb2", recipientName: "Naira account", recipientSub: "GTBank · •••• 6789", amount: 1500000, status: "paid" }, at(2, 4));
+  credit("account", 2500000, DEMO_ACCOUNT_SENDER, at(2, 18));
+  send({ kind: "poket", recipientId: "pd1", recipientName: "Amara Okafor", recipientSub: "@amara", amount: 500000, status: "paid" }, at(1, 3));
+  // ₦10,000.00 to USD
+  const cvAmt = 1000000, usd = Math.floor(cvAmt / DEMO_NGN_PER_USD), cvRef = ref();
+  h.conversions.push({ id: "cv_seed1", ref: cvRef, from: "cash:NGN:open", to: "cash:USD:open", amount: cvAmt, fee: 0, receive: usd, createdAt: at(1, 12),
+    rateText: `1 USD ≈ ${DEMO_NGN_PER_USD.toLocaleString("en-US", { minimumFractionDigits: 2 })} NGN`, feeLabel: "Fee", feeText: "₦[fee]",
+    paidText: formatNaira(cvAmt), receivedText: `$${(usd / 100).toFixed(2)} USD` });
+  line(at(1, 12), -cvAmt, "Converted NGN to USD", cvRef);
+  // A naira bank transfer to Mama Tee's Kitchen (not from the balance), half refunded into the NGN balance
+  const refund = { id: "rf_seedmtk", amount: 350000, at: new Date(at(1, 21)).toISOString(), to: "ngn" as const, inBalance: true as const };
+  h.payments.push({ id: "pay_mtk2140", merchant: "Mama Tee’s Kitchen", amount: 700000, currency: "NGN", method: "Bank transfer", at: new Date(at(1, 19)).toISOString(), status: "paid",
+    order: "MTK-2140", methodKind: "bank", refunds: [refund] });
+  line(at(1, 21), refund.amount, "Refund · Mama Tee’s Kitchen", refund.id);
+  send({ kind: "poket", recipientId: "pu1", recipientName: "Tobi Bello", recipientSub: "tobi@lagos.ng", amount: 800000, status: "failed" }, at(1, 26));
+  const net = h.lines.reduce((t, l) => t + l.delta, 0);
+  credit("temp", start - net, "Ada Osun", thisMonth);
+
+  h.lines.sort((a, b) => a.at - b.at);
+  let balance = 0;
+  for (const l of h.lines) { balance += l.delta; l.balance = balance; }
+  return h;
+}
+
+const ADA_HISTORY = buildAdaHistory(new Date());
+ngnCredits.push(...ADA_HISTORY.credits);
+withdrawals.push(...ADA_HISTORY.sends);
+conversionServer.list.push(...ADA_HISTORY.conversions);
+{
+  const ada = DIRECTORY[DEMO_USER_EMAIL];
+  ada.payments = [...ada.payments, ...ADA_HISTORY.payments].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
+/** Ada's seeded ledger lines (the NGN balance's statements start from them). */
+export const adaLedgerSeed = (): HistoryLine[] => ADA_HISTORY.lines.map((l) => ({ ...l }));

@@ -21,6 +21,7 @@ export function NgnBalanceScreen() {
   const reserved = useNgn((s) => s.ngnReserved);
   const openDeposit = useNgn((s) => s.open);
   const back = useWalletNav((s) => s.back);
+  const push = useWalletNav((s) => s.push);
   // WGT-11: everything that moved the NGN balance (sends from it, conversions, deposits and other credits, refunds into it)
   const list = useActivity().filter((x) => x.ngn);
   return (
@@ -43,7 +44,11 @@ export function NgnBalanceScreen() {
         <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: "cash:NGN:open" })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
       {NGN_VA.supported && <NgnAccountCard />}
-      <div className="section-title">Transaction history</div>
+      <div className="section-title">Transaction history
+        {/* NEW: a statement of the NGN balance for a period, as PDF or CSV */}
+        <span className="btn-ghost" id="ngnStatement" role="button" tabIndex={0} style={{ textTransform: "none", letterSpacing: 0 }}
+          onClick={() => push({ name: "statement" })} onKeyDown={(e) => { if (e.key === "Enter") push({ name: "statement" }); }}>Statement</span>
+      </div>
       <History id="ngnHistory" items={list} empty="No activity yet." />
     </>
   );

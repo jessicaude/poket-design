@@ -236,7 +236,7 @@ test("a deposit's receipt has the Session ID after the Reference: in the text, t
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   /** A credit's receipt: its text (copied), its PDF's Subject and its image's height. */
   async function files(kind: "account" | "poket") {
-    await page.locator(`#ngnHistory [data-credit="${kind}"]`).click();
+    await page.locator(`#ngnHistory [data-credit="${kind}"]:not([data-txid*="seed"])`).click();
     const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
     await openSheet(page);
     const labels = await page.locator("#receiptCard .rc-row > span:first-child").allTextContents();

@@ -266,7 +266,7 @@ test("conversions in the NGN balance history; View transaction opens the receipt
 
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const row = page.locator("#panelBody .section-card .tx-row");
+  const row = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada's seeded history
   await expect(row.locator(".tx-title")).toHaveText(["Converted NGN to USDC"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦10,000.00 NGN → 6.45 USDC"]);
   await expect(row.locator(".tx-amt")).toHaveText(["+6.45 USDC"]);

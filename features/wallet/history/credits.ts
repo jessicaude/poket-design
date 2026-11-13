@@ -3,6 +3,7 @@ import { DEMO_ACCOUNT_SENDER, DEMO_POKET_SENDER, listNgnCredits, recordNgnCredit
 import { formatNaira, type Kobo } from "@/lib/money";
 import { useNotifications } from "../useNotifications";
 import { useNgn } from "../ngn/useNgn";
+import { attribute } from "./ledger";
 
 /**
  * WGT-11: the NGN balance's own credits (lib/mock-api.ts recordNgnCredit): temporary-account top-ups, transfers to
@@ -10,14 +11,16 @@ import { useNgn } from "../ngn/useNgn";
  * the history with its own receipt.
  */
 export const useNgnCredits = create<{ list: NgnCredit[]; refresh: () => void }>((set) => ({
-  list: [],
+  list: listNgnCredits(),
   refresh: () => set({ list: listNgnCredits() }),
 }));
 
-/** Credit the NGN balance and record it. */
-export function creditNgn(p: { kind: NgnCreditKind; amount: Kobo; from: string; ref?: string; withdrawalId?: string }): NgnCredit {
-  const c = recordNgnCredit(p);
-  useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + c.amount }));
+/** Credit the NGN balance and record it. `description`: the statement's line (default: the record's title). */
+export function creditNgn(p: { kind: NgnCreditKind; amount: Kobo; from: string; ref?: string; withdrawalId?: string; description?: string }): NgnCredit {
+  const { description, ...rec } = p;
+  const c = recordNgnCredit(rec);
+  const line = description ?? (c.kind === "temp" ? "Top-up · Bank transfer" : c.kind === "recall" ? `Recall · ${c.from}` : `From ${c.from.split(" · ")[0]}`);
+  attribute({ description: line, reference: c.ref }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + c.amount })));
   useNgnCredits.getState().refresh();
   return c;
 }

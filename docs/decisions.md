@@ -31,6 +31,7 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - Every transaction has its own record and receipt with a unique reference (copyable), including naira that comes in by itself (deposits, transfers to the account details, delayed transfers, naira from Poket users, recovered recalls). Bank transfers also show the bank's session ID (format not decided: "[session ID]").
 - Receipts use the same rows, in the same order, for every kind: Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed, Fee, Reference, Session ID (only those that apply).
 - History is grouped by day and filters by All, Money in and Money out. Conversions show under All only.
+- The NGN balance has statements for This month, Last month, Last 3 months or a custom range of up to 12 months, as PDF or CSV: the account holder, the NGN account details if any, the period, opening and closing balances, money in and out, and every transaction with its running balance. Opening plus money in minus money out is always the closing balance.
 - Every naira transaction's receipt can be shared (native share, else copied as text) or downloaded as a PDF or image. It carries the wallet's brand (Poket or white-label) and always "Payments by Poket". A receipt for a transaction that isn't done (pending, held, failed, reversed, under dispute) says so at the top.
 
 ## Payout (Get paid)

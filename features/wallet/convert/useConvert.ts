@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { attribute } from "../history/ledger";
 import { createConversion, listConversions, setNgnToStablecoinsAllowed, type Conversion } from "@/lib/mock-api";
 import { useWalletToast } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
@@ -88,27 +89,30 @@ export const useConvert = create<State>((set, get) => {
       paidText: cvFmt(q.amt, q.f), receivedText: cvFmt(q.receive, q.to),
     });
     const f = q.f, t = q.to;
-    if (f.k === "cash") {
-      setCashAmount(f.cur, cashAmount(f.cur) - q.amt);
-      if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) - q.amt) } }));
-    } else {
-      const c = useHoldings.getState().coins;
-      useHoldings.setState({ coins: { ...c, [f.asset]: { ...c[f.asset], [f.net]: Math.max(0, c[f.asset][f.net] - q.amt) } } });
-    }
-    if (t.k === "cash") {
-      setCashAmount(t.cur, cashAmount(t.cur) + q.receive);
-      if (f.k === "cash" && f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [t.cur]: (s.fiatOnly[t.cur] || 0) + q.receive } }));
-    } else {
-      const c = useHoldings.getState().coins;
-      useHoldings.setState({ coins: { ...c, [t.asset]: { ...c[t.asset], [t.net]: (c[t.asset][t.net] || 0) + q.receive } } });
-    }
+    // The NGN balance's ledger: a conversion from or to naira is one line each way
+    attribute({ description: conversionTitle(conv), reference: conv.ref }, () => {
+      if (f.k === "cash") {
+        setCashAmount(f.cur, cashAmount(f.cur) - q.amt);
+        if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) - q.amt) } }));
+      } else {
+        const c = useHoldings.getState().coins;
+        useHoldings.setState({ coins: { ...c, [f.asset]: { ...c[f.asset], [f.net]: Math.max(0, c[f.asset][f.net] - q.amt) } } });
+      }
+      if (t.k === "cash") {
+        setCashAmount(t.cur, cashAmount(t.cur) + q.receive);
+        if (f.k === "cash" && f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [t.cur]: (s.fiatOnly[t.cur] || 0) + q.receive } }));
+      } else {
+        const c = useHoldings.getState().coins;
+        useHoldings.setState({ coins: { ...c, [t.asset]: { ...c[t.asset], [t.net]: (c[t.asset][t.net] || 0) + q.receive } } });
+      }
+    });
     if (cvCounts(q.type)) useSpend.getState().record(q.usd / 100);
     set({ stage: "done", result: conv, conversions: listConversions() });
   };
 
   return {
     ...BLANK,
-    conversions: [],
+    conversions: listConversions(),
     ngnCoinsBlocked: false,
 
     start: (opts) => {
@@ -194,7 +198,7 @@ export const useConvert = create<State>((set, get) => {
     stepUpContinue: () => execute(),
 
     setNgnCoinsBlocked: (blocked) => { setNgnToStablecoinsAllowed(!blocked); set({ ngnCoinsBlocked: blocked }); },
-    reset: () => set({ ...BLANK, conversions: [], ngnCoinsBlocked: false }),
+    reset: () => set({ ...BLANK, conversions: listConversions(), ngnCoinsBlocked: false }),
   };
 });
 

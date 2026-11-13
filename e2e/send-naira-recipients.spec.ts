@@ -91,7 +91,7 @@ test("Daniel can't hold naira: the notice, They get in USD and the quote; the re
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const row = page.locator("#panelBody .tx-row[data-txid]");
+  const row = page.locator('#panelBody .tx-row[data-txid]:not([data-txid*="seed"])'); // not Ada's seeded history
   await expect(row.locator(".tx-title")).toHaveText(["To Daniel Cho"]);
   await expect(row.locator(".tx-sub")).toHaveText(["₦5,000.00 NGN → $3.23 USD"]); // paid: no status chip
   await expect(row.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);

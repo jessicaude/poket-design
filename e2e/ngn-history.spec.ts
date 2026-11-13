@@ -45,16 +45,23 @@ test("Activity: rows grouped by day; All, Money in, Money out", async ({ page })
   expect(new Set(await days.allTextContents()).size).toBe(await days.count());
   const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   await expect(h.locator(`[data-histday="${twoDaysAgo}"] + .section-card [data-payment="pay_mtk2291"]`)).toHaveCount(1);
-  await expect(h.locator(".tx-row")).toHaveCount(6);
+  // The reference's 3 records, Ada's 4 Checkout payments and her 8 seeded naira records (3 credits, 3 sends, a
+  // conversion, a refund)
+  await expect(h.locator(".tx-row")).toHaveCount(15);
+  const titles = async () => (await h.locator(".tx-title").allTextContents()).sort();
 
   await h.locator('[data-histfilter="in"]').click();
   await expect(h.locator('[data-histfilter="in"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(h.locator(".tx-title")).toHaveText(["Refund · Kola Books", "Top-up · Visa ····4242"]);
+  expect(await titles()).toEqual(["From Chinedu Eze", "Refund · Kola Books", "Refund · Mama Tee’s Kitchen", "Top-up · Bank transfer", "Top-up · Bank transfer", "Top-up · Visa ····4242"]);
+  for (const a of await h.locator(".tx-amt").allTextContents()) expect(a).toMatch(/^\+/);
   await h.locator('[data-histfilter="out"]').click();
-  await expect(h.locator(".tx-title")).toHaveText(["Mama Tee’s Kitchen", "Sooyah Bistro", "Ilé Living", "Adire Market"]);
-  await expect(h.locator(".tx-amt").first()).toHaveText(/^-/);
+  expect(await titles()).toEqual(["Adire Market", "Ilé Living", "Mama Tee’s Kitchen", "Mama Tee’s Kitchen", "Sooyah Bistro", "To Amara Okafor", "To Naira account", "To Tobi Bello"]);
+  for (const a of await h.locator(".tx-amt").allTextContents()) expect(a).toMatch(/^-/);
+  // Tobi Bello's send failed: its chip says so
+  await expect(h.locator('[data-txid="wd_seed3"] .va-status')).toHaveText("Failed");
   await h.locator('[data-histfilter="all"]').click();
-  await expect(h.locator(".tx-row")).toHaveCount(6);
+  await expect(h.locator(".tx-row")).toHaveCount(15);
+  await expect(h.locator('[data-txid="cv_seed1"] .tx-title')).toHaveText("Converted NGN to USD"); // under All only
 });
 
 test("a payment's row carries its status chip unless it's completed", async ({ page }) => {
@@ -86,13 +93,16 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
 
   await openNgnBalance(page);
   const h = page.locator("#ngnHistory");
-  await expect(h.locator("[data-credit]")).toHaveCount(4);
-  await expect(h.locator("[data-credit] .tx-title")).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
-  await expect(h.locator("[data-credit] .tx-sub")).toHaveText(["NGN account details · Delayed", "Poket", "NGN account details", "Temporary account"]);
-  await expect(h.locator("[data-credit] .tx-amt")).toHaveText(["+₦25,000.00 NGN", "+₦10,000.00 NGN", "+₦25,000.00 NGN", "+₦10,000.00 NGN"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"])')).toHaveCount(4);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-title')).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "Poket", "NGN account details", "Temporary account"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦25,000.00 NGN", "+₦10,000.00 NGN", "+₦25,000.00 NGN", "+₦10,000.00 NGN"]);
   await expect(h.locator("[data-histday]").first()).toHaveText("Today");
   await h.locator('[data-histfilter="out"]').click();
-  await expect(h.locator("[data-histempty]")).toHaveText("Nothing matches.");
+  // Money out: Ada's seeded sends, none of the credits
+  await expect(h.locator(".tx-row")).not.toHaveCount(0);
+  await expect(h.locator("[data-credit]")).toHaveCount(0);
+  for (const a of await h.locator(".tx-amt").allTextContents()) expect(a).toMatch(/^-/);
   await h.locator('[data-histfilter="in"]').click();
 
   const refs = new Set<string>();
@@ -103,7 +113,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
     ["temp", "Ada Osun", "Bank transfer · Temporary account", true],
   ];
   for (const [kind, from, method, bank] of expectations) {
-    await h.locator(`[data-credit="${kind}"]`).click();
+    await h.locator(`[data-credit="${kind}"]:not([data-txid*="seed"])`).click();
     const ls = await labels(page);
     inOrder(ls);
     expect(ls).toEqual(["Status", "Date", "From", "To", "Method", "Fee", "Reference", ...(bank ? ["Session ID"] : [])]);
@@ -134,7 +144,10 @@ test("the NGN balance's history: what moved the balance, not card payments", asy
   await page.locator("#demoPoketTransfer").click();
   await openNgnBalance(page);
   const h = page.locator("#ngnHistory");
-  await expect(h.locator(".tx-row")).toHaveCount(1);
+  // Ada's 8 seeded records that moved it (the refund into it, not the payment it refunds), and today's
+  await expect(h.locator(".tx-row")).toHaveCount(9);
+  await expect(h.locator('.tx-row:not([data-txid*="seed"])')).toHaveCount(1);
+  await expect(h.locator('[data-refund="rf_seedmtk"]')).toHaveCount(1);
   await expect(h.locator("[data-payment]")).toHaveCount(0);
   await expect(h.locator("[data-histfilter]")).toHaveText(["All", "Money in", "Money out"]);
 });
