@@ -377,6 +377,14 @@ WGT-10 is four parts, each with its rules below:
   notification; the refund row in the NGN balance's history). **To confirm: not in the PRD.** The wallet credits it
   (features/wallet/refundCredits.ts), whichever widget the refund was made in.
 - payment.refunded: refunded_to "card", "bank" or "ngn_balance".
+- Disputes (lib/disputes.ts): reasons not received, not as described, charged twice, didn't authorise, other; a short
+  description (required, 300 characters); then review and submit. Open: "Dispute open" and "{amount} held while we
+  review". Demo "Resolve: refund / release / reversal" on an open dispute (wallet demo bar; Checkout's DEMO pill):
+  refund is a merchant refund of what's left (a naira bank transfer to the NGN balance, to confirm as above);
+  release closes it with the reason line ("Dispute closed. {merchant} keeps the payment. Reason: [reason].", NEW;
+  [reason] not decided); reversal goes back the way it was paid, so a naira bank transfer to the bank account that paid,
+  never the NGN balance ("Reversal · {merchant}"). payment.dispute_resolved (outcome, amount), only for Ilé Living's
+  payments; the wallet notifies the user. A resolved dispute can't be reopened.
 - Tests: e2e/disputes.spec.ts.
 
 ## Checkout (WGT-06: pay at checkout with NGN rails)

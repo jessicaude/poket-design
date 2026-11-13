@@ -4,37 +4,39 @@
  * Poket wallet"). A payment to a store can be disputed up to DISPUTE_DAYS after it was made; deposits, top-ups,
  * refunds, sends and conversions can't.
  */
-import { useAccount } from "@/store/account";
+import { useAccount, type DisputeOutcome, type Payment } from "@/store/account";
 import { useEvents } from "@/store/events";
-import { HOST_MERCHANT } from "./refunds";
+import { HOST_MERCHANT, isFullyRefunded, merchantRefunds, refundLeft } from "./refunds";
 
 /** "Disputes can be raised up to 60 days after a payment." (poket-widgets DISPUTE_DAYS) */
 export const DISPUTE_DAYS = 60;
 /** At this many disputes the account can't raise more ("You can't raise a dispute right now"). */
 export const DISPUTE_STRIKE_LIMIT = 2;
 
+/**
+ * WGT-12's reasons (in place of the reference's six): not received, not as described, charged twice, didn't
+ * authorise, other. The full sentence is the chip's title; the short one its label.
+ */
 export const DISPUTE_REASONS = [
-  "I was charged the wrong amount", "I was charged twice", "I never received the product or service",
-  "The product or service wasn't as described", "I did not make this transaction", "I canceled a subscription that still renewed",
+  "I never received the product or service", "The product or service wasn't as described", "I was charged twice",
+  "I didn’t authorise this payment", "Something else",
 ] as const;
-export const SUBSCRIPTION_REASON = "I canceled a subscription that still renewed";
-export const NOT_MINE_REASON = "I did not make this transaction";
+export const NOT_MINE_REASON = "I didn’t authorise this payment";
 export const REASON_SHORT: Record<string, string> = {
-  "I was charged the wrong amount": "Wrong amount", "I was charged twice": "Charged twice", "I never received the product or service": "Not received",
-  "The product or service wasn't as described": "Not as described", "I did not make this transaction": "Didn’t make this payment",
-  "I canceled a subscription that still renewed": "Subscription renewed",
+  "I never received the product or service": "Not received", "The product or service wasn't as described": "Not as described",
+  "I was charged twice": "Charged twice", "I didn’t authorise this payment": "Didn’t authorise", "Something else": "Other",
 };
 export const EVIDENCE_LABEL: Record<string, string> = {
-  "I was charged the wrong amount": "the wrong charge amount", "I was charged twice": "the duplicate charge",
   "I never received the product or service": "not receiving this", "The product or service wasn't as described": "the issue with your order",
-  "I did not make this transaction": "not making this transaction", "I canceled a subscription that still renewed": "the canceled subscription",
+  "I was charged twice": "the duplicate charge", "I didn’t authorise this payment": "not authorising this payment", "Something else": "this issue",
 };
-/** payment.dispute_opened's reason (poket-widgets DISPUTE_REASON_CODE). */
+/** payment.dispute_opened's reason. */
 export const DISPUTE_REASON_CODE: Record<string, string> = {
-  "I was charged the wrong amount": "wrong_amount", "I was charged twice": "duplicate", "I never received the product or service": "not_received",
-  "The product or service wasn't as described": "not_as_described", "I did not make this transaction": "unrecognised",
-  "I canceled a subscription that still renewed": "subscription_canceled",
+  "I never received the product or service": "not_received", "The product or service wasn't as described": "not_as_described",
+  "I was charged twice": "duplicate", "I didn’t authorise this payment": "unauthorised", "Something else": "other",
 };
+/** The short description's length limit. */
+export const DESCRIPTION_MAX = 300;
 
 /** Whole days since `at` (ISO or ms). */
 export const ageDays = (at: string | number) => Math.floor((Date.now() - new Date(at).getTime()) / 86400000);
@@ -68,11 +70,13 @@ export function maskDate(raw: string) {
 
 /** The dispute form (S.disp / the reference's disputeX fields). */
 export type DisputeForm = {
-  reason: string | null; contacted: boolean; date: string; evidence: boolean; details: string; contact: string; editContact: boolean; more: boolean;
+  reason: string | null; description: string; contacted: boolean; date: string; evidence: boolean; contact: string; editContact: boolean; more: boolean;
 };
-export const NEW_DISPUTE: DisputeForm = { reason: null, contacted: false, date: "", evidence: false, details: "", contact: "", editContact: false, more: false };
+export const NEW_DISPUTE: DisputeForm = { reason: null, description: "", contacted: false, date: "", evidence: false, contact: "", editContact: false, more: false };
 /** "Add more detail · N added". */
-export const addedCount = (d: DisputeForm) => (d.contacted ? 1 : 0) + (d.evidence ? 1 : 0) + (d.details ? 1 : 0);
+export const addedCount = (d: DisputeForm) => (d.contacted ? 1 : 0) + (d.evidence ? 1 : 0);
+/** The form's button: what's still missing, else Review dispute. */
+export const formButton = (d: DisputeForm) => (!d.reason ? "Choose a reason to continue" : !d.description.trim() ? "Describe what happened to continue" : "Review dispute");
 
 export const disputeStrikes = () => useAccount.getState().account?.disputeStrikes ?? 0;
 
@@ -81,12 +85,12 @@ export const disputeStrikes = () => useAccount.getState().account?.disputeStrike
  * payment is "disputed", the account's strikes go up (at most DISPUTE_STRIKE_LIMIT), and the merchant hears
  * payment.dispute_opened with the reason code.
  */
-export function openDispute(paymentId: string, reason: string, widget: "checkout" | "wallet") {
+export function openDispute(paymentId: string, reason: string, description: string, widget: "checkout" | "wallet") {
   const at = new Date().toISOString();
   useAccount.getState().update((a) => ({
     ...a,
     disputeStrikes: Math.min((a.disputeStrikes ?? 0) + 1, DISPUTE_STRIKE_LIMIT),
-    payments: a.payments.map((p) => (p.id === paymentId ? { ...p, status: "disputed", dispute: { reason, at } } : p)),
+    payments: a.payments.map((p) => (p.id === paymentId ? { ...p, status: "disputed", dispute: { reason, description: description.trim(), at } } : p)),
   }));
   const p = useAccount.getState().account?.payments.find((x) => x.id === paymentId);
   if (p?.merchant === HOST_MERCHANT) useEvents.getState().emit("payment.dispute_opened", { widget, poket_reference: paymentId, reason: DISPUTE_REASON_CODE[reason] ?? "other" });
@@ -94,4 +98,37 @@ export function openDispute(paymentId: string, reason: string, widget: "checkout
 /** A dispute on one of the wallet's own demo records (not a Checkout payment): only the strike counts. */
 export function countDisputeStrike() {
   useAccount.getState().update((a) => ({ ...a, disputeStrikes: Math.min((a.disputeStrikes ?? 0) + 1, DISPUTE_STRIKE_LIMIT) }));
+}
+
+/** A payment can be disputed once: not after a dispute (open or resolved), nor once it's all been returned. */
+export const canRaiseDispute = (p: Payment) => p.status === "paid" && !p.dispute && !isFullyRefunded(p);
+
+/** The reason a released dispute went the merchant's way: not decided, so a placeholder. */
+export const RELEASE_REASON_PLACEHOLDER = "[reason]";
+/** A released dispute's line (NEW copy). */
+export const releaseNote = (merchant: string) => `Dispute closed. ${merchant} keeps the payment. Reason: ${RELEASE_REASON_PLACEHOLDER}.`;
+
+/**
+ * Demo "Resolve: refund / release / reversal" on an open dispute. Refund: the merchant refunds what's left (as
+ * "Merchant refunds", so to the card or the NGN balance, with payment.refunded). Release: closed, the merchant keeps
+ * it. Reversal: what's left goes back the way it was paid (the card, or the bank account a transfer came from).
+ * The dispute is then resolved (it can't be reopened), and the merchant hears payment.dispute_resolved.
+ */
+export function resolveDispute(paymentId: string, outcome: DisputeOutcome) {
+  const p = useAccount.getState().account?.payments.find((x) => x.id === paymentId);
+  if (!p || p.status !== "disputed") return;
+  const left = refundLeft(p);
+  if (outcome === "refund") merchantRefunds(p.id, "full", true);
+  const at = new Date().toISOString();
+  useAccount.getState().update((a) => ({
+    ...a,
+    payments: a.payments.map((x) => {
+      if (x.id !== paymentId) return x;
+      const refunds = outcome === "reversal" && left > 0
+        ? [...(x.refunds ?? []), { id: "rv_" + Math.random().toString(36).slice(2, 10), amount: left, at, to: "method" as const, kind: "reversal" as const, fromDispute: true }]
+        : x.refunds;
+      return { ...x, status: "paid", refunds, dispute: { ...x.dispute!, outcome, resolvedAt: at } };
+    }),
+  }));
+  if (p.merchant === HOST_MERCHANT) useEvents.getState().emit("payment.dispute_resolved", { poket_reference: p.id, outcome, amount: outcome === "release" ? 0 : left, currency: p.currency });
 }

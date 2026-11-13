@@ -5,11 +5,11 @@ import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW } from "@/lib/icons";
 import { WICON } from "@/lib/icons";
 import {
-  DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT, SUBSCRIPTION_REASON,
-  addedCount, countDisputeStrike, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
+  DESCRIPTION_MAX, DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT,
+  addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
-import { allRefunds, isFullyRefunded, paymentStatus, refundDest, refundNote, refundedTotal } from "@/lib/refunds";
+import { allRefunds, paymentStatus, refundDest, refundLeft, refundNote, refundTitle, refundedTotal, reversedTotal } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
@@ -53,7 +53,7 @@ export function RefundRow({ p, r }: { p: Payment; r: Refund }) {
   return (
     <div className="tx-row" data-txid={r.id} data-refund={r.id} role="button" tabIndex={0} onClick={() => push({ name: "refund", id: r.id })}>
       <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">Refund · {p.merchant}</div><div className="tx-sub">Merchant refund · {p.merchant}</div></div>
+      <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">Merchant {r.kind === "reversal" ? "reversal" : "refund"} · {p.merchant}</div></div>
       <div className="tx-amt pos"><Grey>{"+" + fmtCurrency(r.amount, p.currency)}</Grey></div>
     </div>
   );
@@ -74,13 +74,13 @@ export function RefundDetailScreen({ id }: { id: string }) {
         <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: p.currency === "NGN" ? WICON.ngFlag : WICON.usFlag }} />
       </div>
       <div className="step-title mono" id="refundAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{fmtCurrency(r.amount, p.currency)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>Refund · {p.merchant}</p>
+      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{refundTitle(p, r)}</p>
       <div className="info-card" id="txDetail">
         <DetailRow label="Status" value="Completed" />
         <DetailRow label="Date" value={formatTxDate(new Date(r.at).getTime())} />
         <DetailRow label="Currency" value={p.currency} />
         <DetailRow label="Merchant" value={p.merchant} />
-        <DetailRow label="Refunded to" value={refundDest(p, r)} />
+        <DetailRow label={r.kind === "reversal" ? "Reversed to" : "Refunded to"} value={refundDest(p, r)} />
         <DetailRow label="Context" value="Checkout" />
         <ReferenceRow refText={r.id} />
       </div>
@@ -138,12 +138,16 @@ export function PaymentDetailScreen({ id }: { id: string }) {
         <DetailRow label="Date" value={formatTxDate(at)} />
         <DetailRow label="Currency" value={p.currency} />
         {refundedTotal(p) > 0 && <DetailRow label="Refunded" value={fmtCurrency(refundedTotal(p), p.currency)} />}
+        {reversedTotal(p) > 0 && <DetailRow label="Reversed" value={fmtCurrency(reversedTotal(p), p.currency)} />}
         <DetailRow label="Merchant" value={p.merchant} />
         <DetailRow label="Context" value="Checkout" />
         <ReferenceRow refText={p.id} />
         {p.status === "disputed" && <DisputeRow />}
       </div>
-      {p.status === "paid" && !isFullyRefunded(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
+      {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
+      {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{fmtCurrency(refundLeft(p), p.currency)} held while we review.</span></div>}
+      {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}
+      {canRaiseDispute(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
     </>
   );
 }
@@ -172,7 +176,7 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
   const nav = useWalletNav();
   const t = useDisputeTx(target);
   const email = useAccount((s) => s.account?.email) || "ada@osun.co";
-  const [stage, setStage] = useState<"start" | "form" | "submitting" | "done">("start");
+  const [stage, setStage] = useState<"start" | "form" | "review" | "submitting" | "done">("start");
   const [d, setD] = useState<DisputeForm>(NEW_DISPUTE);
   const [dateTouched, setDateTouched] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -217,16 +221,8 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
   if (stage === "form") {
     const problem = d.contacted && d.date ? dateProblem(d.date, t.at) : null;
     const showBad = !!problem && (dateTouched ? maskDate(d.date).complete : true);
-    const reasons = DISPUTE_REASONS.filter((r) => r !== SUBSCRIPTION_REASON || t.sub);
+    const reasons = DISPUTE_REASONS;
     const n = addedCount(d);
-    const submit = () => {
-      setStage("submitting");
-      timer.current = setTimeout(() => {
-        if (target.kind === "checkout") openDispute(target.id, d.reason!, "wallet");
-        else { useDemoDisputes.getState().add(target.id); countDisputeStrike(); }
-        setStage("done");
-      }, 1300);
-    };
     return (
       <div className="ud-form">
         {backRow(() => setStage("start"))}
@@ -241,6 +237,11 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
         {d.reason === NOT_MINE_REASON && (
           <div className="info-card" style={{ fontSize: "12.5px", lineHeight: 1.5, margin: "0 0 12px" }}>If you don&rsquo;t recognise this payment, also lock your card in the Card tab and contact Poket support so we can secure your account.</div>
         )}
+        {/* WGT-12: a short description, required (NEW copy) */}
+        <label className="field-label" htmlFor="extDisputeDescription">Describe what happened</label>
+        <textarea className="field-input" id="extDisputeDescription" rows={3} maxLength={DESCRIPTION_MAX} placeholder="A sentence or two is enough." value={d.description}
+          style={{ height: "auto", resize: "vertical", fontFamily: "inherit", fontSize: "13.5px" }} onChange={(e) => patch({ description: e.target.value })} />
+        <p id="extDisputeDescriptionCount" style={{ fontSize: "11.5px", margin: "4px 0 10px", color: "var(--txt3)", textAlign: "right" }}>{d.description.length}/{DESCRIPTION_MAX}</p>
         <button type="button" className={`ud-more ${d.more ? "open" : ""}`} id="extDisputeMore" aria-expanded={d.more} onClick={() => patch({ more: !d.more })}>
           Add more detail <span className="o">{!d.more && n ? `${n} added` : "Optional"}</span>
           <span className="c"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
@@ -271,16 +272,42 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
               <span className="settings-row-ic" style={{ width: "30px", height: "30px" }}><Raw html={WICON.copy} /></span>
               <div className="meta"><div className="t1">{d.evidence ? "evidence.pdf attached" : "Attach a file"}</div><div className="t2">{d.evidence ? "Tap to remove" : "PDF or image"}</div></div>
             </div>
-            <label className="field-label" htmlFor="extDisputeDetails" style={{ marginTop: "6px" }}>Anything else?</label>
-            <textarea className="field-input" id="extDisputeDetails" rows={3} style={{ height: "auto", resize: "vertical", fontFamily: "inherit", fontSize: "13.5px" }} value={d.details} onChange={(e) => patch({ details: e.target.value })} />
           </>
         )}
         {d.editContact && <input className="field-input" id="extDisputeEmail" type="email" value={d.contact || email} aria-label="Email for updates" style={{ marginTop: "12px" }} onChange={(e) => patch({ contact: e.target.value.trim() })} />}
         <div className="ud-foot">
           <p style={{ fontSize: "12.5px", color: "var(--txt2)", margin: "0 0 10px" }}>We&rsquo;ll email updates to <b id="disputeEmail">{d.contact || email}</b> · <button className="btn-ghost" id="extDisputeChange" style={{ fontSize: "12.5px" }} onClick={() => patch({ editContact: !d.editContact })}>{d.editContact ? "Done" : "Change"}</button></p>
-          <button className="btn-primary" id="extSubmitDispute" disabled={!d.reason || (!!d.date && d.contacted && !!problem)} onClick={submit}>{d.reason ? "Submit dispute" : "Choose a reason to continue"}</button>
+          <button className="btn-primary" id="extReviewDispute" disabled={!d.reason || !d.description.trim() || (!!d.date && d.contacted && !!problem)} onClick={() => setStage("review")}>{formButton(d)}</button>
         </div>
       </div>
+    );
+  }
+
+  if (stage === "review") {
+    // WGT-12: review, then submit (NEW screen, in the wallet's info-card rows)
+    const submit = () => {
+      setStage("submitting");
+      timer.current = setTimeout(() => {
+        if (target.kind === "checkout") openDispute(target.id, d.reason!, d.description, "wallet");
+        else { useDemoDisputes.getState().add(target.id); countDisputeStrike(); }
+        setStage("done");
+      }, 1300);
+    };
+    const line = (k: string, v: string, id?: string) => <div className="info-row"><span>{k}</span><span id={id} style={{ maxWidth: "200px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
+    return (
+      <>
+        {backRow(() => setStage("form"))}
+        <div className="step-title">Review your dispute</div>
+        <p className="step-sub">About your {t.amount} payment to {merchant}.</p>
+        <div className="info-card" id="disputeReview">
+          {line("Reason", REASON_SHORT[d.reason!], "reviewReason")}
+          {line("What happened", d.description.trim(), "reviewDescription")}
+          {line(`Contacted ${merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
+          {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
+          {line("Updates to", d.contact || email)}
+        </div>
+        <button className="btn-primary" id="extSubmitDispute" style={{ marginTop: "14px" }} onClick={submit}>Submit dispute</button>
+      </>
     );
   }
 

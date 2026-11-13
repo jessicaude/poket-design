@@ -1,4 +1,5 @@
 "use client";
+import { resolveDispute } from "@/lib/disputes";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { NGN_ROUTES, useNgn, type Eligibility, type Tier } from "@/features/wallet/ngn/useNgn";
@@ -137,7 +138,15 @@ export function NgnDemoBar() {
       {partnerDown && <button className="pbtn" id="demoQueuedArrival" onClick={() => queueArrival(QUEUED_ARRIVAL_DEMO_KOBO)}>
         Transfer arrived while down{queued.length ? ` (${queued.length})` : ""}</button>}
       {/* WGT-12: on a Checkout payment's detail, the merchant refunds it (all that's left, or half of it) */}
-      {payment && (
+      {/* WGT-12: an open dispute is resolved: refunded, released (the merchant keeps it) or reversed */}
+      {payment?.status === "disputed" && (
+        <>
+          <button className="pbtn" id="demoResolveRefund" onClick={() => resolveDispute(payment.id, "refund")}>Resolve: refund</button>
+          <button className="pbtn" id="demoResolveRelease" onClick={() => resolveDispute(payment.id, "release")}>Resolve: release</button>
+          <button className="pbtn" id="demoResolveReversal" onClick={() => resolveDispute(payment.id, "reversal")}>Resolve: reversal</button>
+        </>
+      )}
+      {payment && payment.status !== "disputed" && (
         <>
           <button className="pbtn" id="demoRefundFull" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "full")}>Merchant refunds: full</button>
           <button className="pbtn" id="demoRefundPart" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "part")}>Merchant refunds: part</button>

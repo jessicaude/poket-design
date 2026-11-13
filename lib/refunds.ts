@@ -15,21 +15,31 @@ export const HOST_MERCHANT = "Ilé Living";
 /** How long a refund takes to reach a card or bank: not decided. */
 export const REFUND_TIME = "[refund time]";
 
-export const refundedTotal = (p: Payment) => (p.refunds ?? []).reduce((s, r) => s + r.amount, 0);
-export const refundLeft = (p: Payment) => Math.max(0, p.amount - refundedTotal(p));
-export const isFullyRefunded = (p: Payment) => refundedTotal(p) >= p.amount;
+/** Everything returned: refunds and a reversal. */
+export const returnedTotal = (p: Payment) => (p.refunds ?? []).reduce((s, r) => s + r.amount, 0);
+/** Refunds only (a reversal is shown on its own). */
+export const refundedTotal = (p: Payment) => (p.refunds ?? []).filter((r) => r.kind !== "reversal").reduce((s, r) => s + r.amount, 0);
+export const reversedTotal = (p: Payment) => (p.refunds ?? []).filter((r) => r.kind === "reversal").reduce((s, r) => s + r.amount, 0);
+export const refundLeft = (p: Payment) => Math.max(0, p.amount - returnedTotal(p));
+export const isFullyRefunded = (p: Payment) => returnedTotal(p) >= p.amount;
 /** A naira bank transfer: refunds go to the NGN balance. */
 export const refundsToNgn = (p: Payment) => p.methodKind === "bank" && p.currency === "NGN";
 
 /** Where a refund goes, for "Refunded to" and "To …": the card or bank, or the NGN balance. */
-export const refundDest = (p: Payment, r?: Refund) => ((r ? r.to === "ngn" : refundsToNgn(p)) ? "NGN balance" : p.method);
+export const refundDest = (p: Payment, r?: Refund) =>
+  r?.kind === "reversal" ? (p.methodKind === "bank" && p.currency === "NGN" ? "the bank account that paid" : p.method)
+  : (r ? r.to === "ngn" : refundsToNgn(p)) ? "NGN balance" : p.method;
 /** The refund's arrival: "Back to Visa ••• 4242 in [refund time]", or straight into the NGN balance. */
-export const refundNote = (p: Payment, r: Refund) => (r.to === "ngn" ? "Added to your NGN balance." : `Back to ${p.method} in ${REFUND_TIME}`);
+export const refundNote = (p: Payment, r: Refund) => (r.to === "ngn" ? "Added to your NGN balance." : `Back to ${refundDest(p, r)} in ${REFUND_TIME}`);
+/** A refund row's title: "Refund · {merchant}", or "Reversal · {merchant}". */
+export const refundTitle = (p: Payment, r: Refund) => `${r.kind === "reversal" ? "Reversal" : "Refund"} · ${p.merchant}`;
 
 /** The payment's status line: a dispute, a refund (all or part), else completed. Tone: the reference's chip tones. */
 export function paymentStatus(p: Payment): { label: string; tone: "ok" | "warn" | "" } {
+  if (p.dispute?.outcome === "reversal") return { label: "Reversed", tone: "" };
   if (isFullyRefunded(p)) return { label: "Refunded", tone: "" };
   if (p.status === "disputed") return { label: "Dispute open", tone: "warn" };
+  if (p.dispute?.outcome === "release") return { label: "Dispute closed", tone: "" };
   if (refundedTotal(p) > 0) return { label: "Partly refunded", tone: "" };
   return { label: "Completed", tone: "ok" };
 }
@@ -42,13 +52,13 @@ export const allRefunds = (payments: Payment[]) =>
  * Demo "Merchant refunds": in full (what's left), or in part (half of what's left, in whole units). Records the
  * refund on the payment and tells the merchant (payment.refunded; the demo's merchant hears about its own payments). Returns the refund, or null when nothing's left.
  */
-export function merchantRefunds(paymentId: string, kind: "full" | "part"): Refund | null {
+export function merchantRefunds(paymentId: string, kind: "full" | "part", fromDispute = false): Refund | null {
   const p = useAccount.getState().account?.payments.find((x) => x.id === paymentId);
   if (!p) return null;
   const left = refundLeft(p);
   if (left <= 0) return null;
   const amount = kind === "full" ? left : Math.max(100, Math.floor(left / 2 / 100) * 100);
-  const r: Refund = { id: "rf_" + Math.random().toString(36).slice(2, 10), amount: Math.min(amount, left), at: new Date().toISOString(), to: refundsToNgn(p) ? "ngn" : "method" };
+  const r: Refund = { id: "rf_" + Math.random().toString(36).slice(2, 10), amount: Math.min(amount, left), at: new Date().toISOString(), to: refundsToNgn(p) ? "ngn" : "method", ...(fromDispute ? { fromDispute } : {}) };
   useAccount.getState().update((a) => ({ ...a, payments: a.payments.map((x) => (x.id === paymentId ? { ...x, refunds: [...(x.refunds ?? []), r] } : x)) }));
   const full = r.amount >= left;
   if (p.merchant === HOST_MERCHANT) useEvents.getState().emit("payment.refunded", {

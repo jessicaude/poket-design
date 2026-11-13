@@ -17,11 +17,13 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 ## Refunds and disputes (WGT-12)
 - The demo user's Checkout payments (naira and dollar, card and bank transfer) are kept on the shared Poket account. They show in **Checkout's Poket account** (Activity, a payment's detail) and in the **wallet's Activity** (the reference's activity row and transaction detail).
 - A payment to a store can be disputed **up to 60 days** after it was made ("Raise a dispute" on its detail: "You can raise a dispute for N more days."; after that, contact the merchant or Poket support). Deposits, top-ups, refunds, sends and conversions can't be disputed.
-- The dispute flow is the reference's: what happens and what to have ready, then one form where only the reason is required (contact date, evidence and details are optional). A dispute raised in one widget shows open in both, and the merchant is told (payment.dispute_opened, with the reason).
+- The dispute flow keeps the reference's screens: what happens and what to have ready, then the form: a **reason** (not received, not as described, charged twice, didn't authorise, other) and a **short description** (both required; contact date and evidence optional), then **review and submit**. A dispute raised in one widget shows open in both, and the merchant is told (payment.dispute_opened, with the reason).
+- An open dispute: the payment reads "Dispute open" and "{amount} held while we review".
+- A dispute is resolved by **refund** (refunded as a merchant refund: to the card, or a naira bank transfer to the NGN balance), **release** (closed, the merchant keeps the payment, with the reason: "[reason]", not decided) or **reversal** (back the way it was paid: the card, or the bank account a transfer came from). The merchant is told (payment.dispute_resolved, with the outcome) and the user gets a notification. A resolved dispute can't be reopened: a payment is disputed once.
 - Two disputes restrict the account from raising more ("You can't raise a dispute right now").
 - **Refunds:** a merchant can refund a payment in full or in part. The payment then reads "Refunded" or "Partly refunded", and each refund is its own "Refund · {merchant}" record with a receipt. Card payments go back to the card ("Back to Visa ••• 4242 in [refund time]"); naira bank-transfer payments go to the NGN balance (*to confirm: not in the PRD*). The merchant is told (payment.refunded). A fully refunded payment can't be disputed.
 - Ada's demo account is seeded with three Checkout payments, as the reference does: a recent naira card payment, a naira bank transfer from 10 days ago, and a dollar card payment from 76 days ago (outside the dispute window).
-- In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported. Resolving a dispute isn't built yet.
+- In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported.
 
 ## Payout (Get paid)
 - No identity step up front. Sanctions screening and a payout account name match run on every payout, in the background.

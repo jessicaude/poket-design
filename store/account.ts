@@ -22,15 +22,24 @@ export type Payment = { id: string; merchant: string; amount: number; currency: 
   charged?: { amount: number; currency: "USD" };
   /** The merchant's order reference, and how it was paid (for the receipt's Paid with). */
   order?: string; methodKind?: "card" | "bank"; brand?: BrandKey;
-  /** The open dispute: its reason (one of DISPUTE_REASONS) and when it was raised. */
-  dispute?: { reason: string; at: string };
+  /**
+   * The dispute: its reason (one of DISPUTE_REASONS), the short description and when it was raised; once resolved,
+   * the outcome (status is back to "paid"). A payment is disputed once: a resolved dispute can't be reopened.
+   */
+  dispute?: { reason: string; description?: string; at: string; outcome?: DisputeOutcome; resolvedAt?: string };
   /** The merchant's refunds, oldest first (lib/refunds.ts): all of it ("Refunded") or part ("Partly refunded"). */
   refunds?: Refund[] };
 /**
  * A merchant's refund of (part of) a payment, in the payment's currency. `to`: back to the card or bank that paid
  * ("method"), or, for a naira bank transfer, into the NGN balance ("ngn"; to confirm: not in the PRD).
  */
-export type Refund = { id: string; amount: number; at: string; to: "method" | "ngn" };
+export type Refund = { id: string; amount: number; at: string; to: "method" | "ngn";
+  /** "reversal": a dispute resolved by reversing the payment, back the way it was paid (never the NGN balance). */
+  kind?: "refund" | "reversal";
+  /** Made by resolving a dispute (the resolution's notification covers it). */
+  fromDispute?: boolean };
+/** How an open dispute was resolved (demo "Resolve: …"). */
+export type DisputeOutcome = "refund" | "release" | "reversal";
 export type Account = {
   email: string;
   first: string;

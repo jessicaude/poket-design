@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { ACCT_ICON, ALERT_ICON, AV_COLORS, BANK_MINI, BRANDS, CHECK_DRAW, ICON, MERCHANT_LOGO } from "@/lib/icons";
 import {
-  DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT, SUBSCRIPTION_REASON,
-  addedCount, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
+  DESCRIPTION_MAX, DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT,
+  addedCount, canRaiseDispute, dateProblem, formButton, releaseNote, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { formatOrder } from "@/lib/money";
 import { useAccount, type Payment, type Refund } from "@/store/account";
-import { allRefunds, isFullyRefunded, paymentStatus, refundDest, refundNote, refundedTotal } from "@/lib/refunds";
+import { allRefunds, paymentStatus, refundDest, refundLeft, refundNote, refundTitle, refundedTotal, reversedTotal } from "@/lib/refunds";
 import { useCheckout } from "../useCheckout";
 import { MoneyU } from "./PayScreen";
 
@@ -87,7 +87,7 @@ function RefundRowC({ p, r, i }: { p: Payment; r: Refund; i: number }) {
   return (
     <button type="button" className="tx-row stg" style={{ ["--i" as string]: i }} data-refund={r.id} onClick={() => view(r.id)}>
       <span className="tx-ic in"><Raw html={ACCT_ICON.refund} /></span>
-      <span className="tx-main"><span className="tx-title">Refund · {p.merchant}</span><span className="tx-sub">{fmtDate(r.at)} · To {refundDest(p, r)}</span></span>
+      <span className="tx-main"><span className="tx-title">{refundTitle(p, r)}</span><span className="tx-sub">{fmtDate(r.at)} · To {refundDest(p, r)}</span></span>
       <span className="tx-amt pos">+{formatOrder(r.amount, p.currency)}</span>
     </button>
   );
@@ -127,7 +127,7 @@ export function PayDetailScreen() {
   const { viewPay, navFrom, go, showToast } = useCheckout();
   const p = useAccount((s) => s.account?.payments.find((x) => x.id === viewPay));
   if (!p) return <h2 className="title">Payment not found</h2>;
-  const w = disputeWindow(p.at), canDispute = p.status === "paid" && w.open && !isFullyRefunded(p);
+  const w = disputeWindow(p.at), canDispute = canRaiseDispute(p) && w.open;
   const st = paymentStatus(p), stat = [st.label, st.tone];
   const row = (ic: string, label: string, value: React.ReactNode, cls = "") => (
     <div className="receipt-row"><span className="r-ic"><Raw html={ic} /></span><span className="r-label">{label}</span><span className={`r-value ${cls}`}>{value}</span></div>
@@ -142,17 +142,21 @@ export function PayDetailScreen() {
         {row(ACCT_ICON.card, "Paid with", <><Raw html={pmMini(p)} />{p.method}</>, "pm")}
         {p.order && row(ACCT_ICON.bag, "Order", p.order, "mono")}
         {refundedTotal(p) > 0 && row(ACCT_ICON.check, "Refunded", <span id="pdRefunded">{formatOrder(refundedTotal(p), p.currency)} to {refundDest(p)}</span>)}
+        {reversedTotal(p) > 0 && row(ACCT_ICON.check, "Reversed", <span id="pdReversed">{formatOrder(reversedTotal(p), p.currency)} to {refundDest(p, p.refunds!.find((r) => r.kind === "reversal"))}</span>)}
         {row(ACCT_ICON.card, "On your statement", descriptor(p.merchant))}
         {row(ACCT_ICON.hash, "Reference", <button type="button" className="ref-chip" id="pdCopy" onClick={() => { try { navigator.clipboard?.writeText(p.id).catch(() => {}); } catch { /* no clipboard */ } showToast("Reference copied"); }}>{p.id} <Raw html={ACCT_ICON.copy} /></button>)}
       </div>
+      {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
+      {p.status === "disputed" && <div className="infobox" id="pdHeld">{formatOrder(refundLeft(p), p.currency)} held while we review.</div>}
       {p.status === "disputed" && <div className="infobox" id="pdDisputed">You raised a dispute. It can take up to 14 days to resolve; we&rsquo;ll email you with updates.</div>}
+      {p.dispute?.outcome === "release" && <div className="infobox" id="pdReleased">{releaseNote(p.merchant)}</div>}
       {canDispute && (
         <>
           <button className="btn quiet" id="pdDispute" onClick={() => go("dispute")}>Raise a dispute</button>
           <p className="hint center" id="pdWindow" style={{ margin: "8px 0 0" }}>You can raise a dispute for {w.left} more day{w.left === 1 ? "" : "s"}.</p>
         </>
       )}
-      {p.status === "paid" && !w.open && !isFullyRefunded(p) && <div className="infobox" id="pdClosed">Disputes can be raised up to {DISPUTE_DAYS} days after payment. This payment was {w.age} days ago, so contact {p.merchant} directly or reach Poket support.</div>}
+      {canRaiseDispute(p) && !w.open && <div className="infobox" id="pdClosed">Disputes can be raised up to {DISPUTE_DAYS} days after payment. This payment was {w.age} days ago, so contact {p.merchant} directly or reach Poket support.</div>}
       <button className="btn outline" id="pdContact" style={{ width: "100%", marginTop: "10px" }} onClick={() => showToast("Messages aren’t ported yet")}><Raw html={ACCT_ICON.msg} /> Message {p.merchant}</button>
     </>
   );
@@ -172,11 +176,11 @@ export function RefundDetailScreen() {
   return (
     <>
       <button className="link nav-back" id="rdBack" onClick={() => go("activity")}><Raw html={ICON.back} /> Activity</button>
-      <div className="tx-hero"><span className="tx-hero-logo"><Raw html={storeLogo(p.merchant, 48)} /></span><div className="tx-hero-amt" id="rdAmount"><MoneyU minor={r.amount} currency={p.currency} /></div><div className="tx-hero-sub">Refund · {p.merchant}</div></div>
+      <div className="tx-hero"><span className="tx-hero-logo"><Raw html={storeLogo(p.merchant, 48)} /></span><div className="tx-hero-amt" id="rdAmount"><MoneyU minor={r.amount} currency={p.currency} /></div><div className="tx-hero-sub">{refundTitle(p, r)}</div></div>
       <div className="receipt-card" id="rdReceipt">
-        {row(ACCT_ICON.check, "Status", "Refunded", "st")}
+        {row(ACCT_ICON.check, "Status", r.kind === "reversal" ? "Reversed" : "Refunded", "st")}
         {row(ACCT_ICON.cal, "Date", <Raw html={receiptDate(r.at)} />, "nowrap")}
-        {row(ACCT_ICON.card, "Refunded to", <>{r.to === "method" && <Raw html={pmMini(p)} />}{refundDest(p, r)}</>, "pm")}
+        {row(ACCT_ICON.card, r.kind === "reversal" ? "Reversed to" : "Refunded to", <>{r.to === "method" && <Raw html={pmMini(p)} />}{refundDest(p, r)}</>, "pm")}
         {p.order && row(ACCT_ICON.bag, "Order", p.order, "mono")}
         {row(ACCT_ICON.hash, "Reference", <button type="button" className="ref-chip" id="rdCopy" onClick={() => { try { navigator.clipboard?.writeText(r.id).catch(() => {}); } catch { /* no clipboard */ } showToast("Reference copied"); }}>{r.id} <Raw html={ACCT_ICON.copy} /></button>)}
       </div>
@@ -195,7 +199,7 @@ export function AccountDisputeScreen() {
   const { viewPay, go, showToast } = useCheckout();
   const p = useAccount((s) => s.account?.payments.find((x) => x.id === viewPay));
   const email = useAccount((s) => s.account?.email) ?? "";
-  const [stage, setStage] = useState<"start" | "form" | "submitting" | "done">("start");
+  const [stage, setStage] = useState<"start" | "form" | "review" | "submitting" | "done">("start");
   const [d, setD] = useState<DisputeForm>(NEW_DISPUTE);
   const [dateTouched, setDateTouched] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -233,12 +237,8 @@ export function AccountDisputeScreen() {
   if (stage === "form") {
     const problem = d.contacted && d.date ? dateProblem(d.date, p.at) : null;
     const showBad = !!problem && (dateTouched ? maskDate(d.date).complete : true);
-    const reasons = DISPUTE_REASONS.filter((r) => r !== SUBSCRIPTION_REASON);
+    const reasons = DISPUTE_REASONS;
     const n = addedCount(d);
-    const submit = () => {
-      setStage("submitting");
-      timer.current = setTimeout(() => { openDispute(p.id, d.reason!, "checkout"); setStage("done"); }, 1300);
-    };
     return (
       <div className="disp-form">
         {back(() => setStage("start"))}
@@ -248,6 +248,10 @@ export function AccountDisputeScreen() {
           {reasons.map((r) => <button key={r} type="button" className={`chip-opt ${d.reason === r ? "on" : ""}`} role="radio" aria-checked={d.reason === r} data-dreason={r} title={r} onClick={() => patch({ reason: r })}>{REASON_SHORT[r]}</button>)}
         </div>
         {d.reason === NOT_MINE_REASON && <div className="infobox">If you don&rsquo;t recognise this payment, also remove the card from Methods and contact Poket support so we can secure your account.</div>}
+        {/* WGT-12: a short description, required (NEW copy) */}
+        <label className="lbl" htmlFor="dispDescription">Describe what happened</label>
+        <textarea className="field" id="dispDescription" rows={3} maxLength={DESCRIPTION_MAX} placeholder="A sentence or two is enough." style={{ height: "auto" }} value={d.description} onChange={(e) => patch({ description: e.target.value })} />
+        <p className="hint" id="dispDescriptionCount" style={{ textAlign: "right" }}>{d.description.length}/{DESCRIPTION_MAX}</p>
         <button type="button" className="more-toggle" id="dispMore" aria-expanded={d.more} onClick={() => patch({ more: !d.more })}>
           Add more detail <span className="opt">{!d.more && n ? `${n} added` : "Optional"}</span><span className={`chev ${d.more ? "up" : ""}`}><Raw html={ACCT_ICON.chev} /></span>
         </button>
@@ -269,16 +273,38 @@ export function AccountDisputeScreen() {
               <span className="settings-row-ic" style={{ width: "30px", height: "30px" }}><Raw html={ACCT_ICON.copy} /></span>
               <span className="m1">{d.evidence ? "evidence.pdf attached" : "Attach a file"}<small>{d.evidence ? "Tap to remove" : "PDF or image"}</small></span>
             </div>
-            <label className="lbl" htmlFor="dispDetails">Anything else?</label>
-            <textarea className="field" id="dispDetails" rows={3} style={{ height: "auto" }} value={d.details} onChange={(e) => patch({ details: e.target.value })} />
           </div>
         )}
         {d.editContact && <input className="field" id="dispEmail" type="email" value={d.contact || email} placeholder="you@example.com" aria-label="Email for updates" style={{ marginTop: "12px" }} onChange={(e) => patch({ contact: e.target.value.trim() })} />}
         <div className="disp-foot">
           <p className="contact-line">We&rsquo;ll email updates to <b>{d.contact || email}</b> · <button className="link" id="dispChange" onClick={() => patch({ editContact: !d.editContact })}>{d.editContact ? "Done" : "Change"}</button></p>
-          <button className="btn" id="dispSubmit" disabled={!d.reason || (d.contacted && !!d.date && !!problem)} onClick={submit}>{d.reason ? "Submit dispute" : "Choose a reason to continue"}</button>
+          <button className="btn" id="dispReview" disabled={!d.reason || !d.description.trim() || (d.contacted && !!d.date && !!problem)} onClick={() => setStage("review")}>{formButton(d)}</button>
         </div>
       </div>
+    );
+  }
+
+  if (stage === "review") {
+    // WGT-12: review, then submit (NEW screen, in Checkout's summary box)
+    const submit = () => {
+      setStage("submitting");
+      timer.current = setTimeout(() => { openDispute(p.id, d.reason!, d.description, "checkout"); setStage("done"); }, 1300);
+    };
+    const line = (k: string, v: string, id?: string) => <div className="line"><span>{k}</span><span id={id} className="txt" style={{ maxWidth: "220px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
+    return (
+      <>
+        {back(() => setStage("form"))}
+        <h2 className="title">Review your dispute</h2>
+        <div className="disp-pay"><span className="tx-ic out"><Raw html={ACCT_ICON.pay} /></span><span className="tx-main"><span className="tx-title">{p.merchant}</span><span className="tx-sub">{fmtDate(p.at)} · {p.method}</span></span><span className="tx-amt">{amount(p)}</span></div>
+        <div className="sumbox" id="dispReviewBox">
+          {line("Reason", REASON_SHORT[d.reason!], "dispReviewReason")}
+          {line("What happened", d.description.trim(), "dispReviewDescription")}
+          {line(`Contacted ${p.merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
+          {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
+          {line("Updates to", d.contact || email)}
+        </div>
+        <button className="btn" id="dispSubmit" style={{ marginTop: "12px" }} onClick={submit}>Submit dispute</button>
+      </>
     );
   }
 

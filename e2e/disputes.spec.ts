@@ -103,13 +103,18 @@ test("Checkout: raise a dispute: start, the form (only the reason is required), 
   await expect(widget.locator(".warnbox")).toContainText("False claims can close your account");
   await widget.locator("#dispStart").click();
   await expect(widget.getByRole("heading", { name: "Tell us what happened" })).toBeVisible();
-  const submit = widget.locator("#dispSubmit");
+  const submit = widget.locator("#dispReview");
   await expect(submit).toHaveText("Choose a reason to continue");
   await expect(submit).toBeDisabled();
-  // A Checkout payment isn't a subscription: 5 reasons
-  await expect(widget.locator(".chip-opt")).toHaveText(["Wrong amount", "Charged twice", "Not received", "Not as described", "Didn’t make this payment"]);
+  // WGT-12's five reasons
+  await expect(widget.locator(".chip-opt")).toHaveText(["Not received", "Not as described", "Charged twice", "Didn’t authorise", "Other"]);
   await chooseReason(page, widget, "Not received");
-  await expect(submit).toHaveText("Submit dispute");
+  // Then a short description (required)
+  await expect(submit).toHaveText("Describe what happened to continue");
+  await expect(submit).toBeDisabled();
+  await widget.locator("#dispDescription").fill("The cushions never arrived.");
+  await expect(widget.locator("#dispDescriptionCount")).toHaveText("27/300");
+  await expect(submit).toHaveText("Review dispute");
   // Add more detail: evidence label follows the reason; a contact date before the payment is refused
   await widget.locator("#dispMore").click();
   await expect(widget.locator(".more-body .lbl").filter({ hasText: "Evidence" })).toHaveText("Evidence of not receiving this");
@@ -127,6 +132,15 @@ test("Checkout: raise a dispute: start, the form (only the reason is required), 
   await widget.locator("#dispMore").click();
   await expect(widget.locator("#dispMore .opt")).toHaveText("1 added");
   await submit.click();
+  // Review, then submit (Back keeps what was entered)
+  await expect(widget.getByRole("heading", { name: "Review your dispute" })).toBeVisible();
+  await expect(widget.locator("#dispReviewReason")).toHaveText("Not received");
+  await expect(widget.locator("#dispReviewDescription")).toHaveText("The cushions never arrived.");
+  await expect(widget.locator("#dispReviewBox")).toContainText("Evidenceevidence.pdf");
+  await widget.locator("#dispBack").click();
+  await expect(widget.locator("#dispDescription")).toHaveValue("The cushions never arrived.");
+  await submit.click();
+  await widget.locator("#dispSubmit").click();
   await expect(widget.getByRole("heading", { name: "Submitting dispute…" })).toBeVisible();
   await expect(widget.getByRole("heading", { name: "Dispute submitted" })).toBeVisible();
   await expect(widget.locator("#dispDoneScreen .sub")).toHaveText("If resolved in your favor, the money returns to Visa ••• 4242.");
@@ -139,6 +153,7 @@ test("Checkout: raise a dispute: start, the form (only the reason is required), 
   await expect(row.locator(".tx-ic.disp")).toHaveCount(1);
   await row.click();
   await expect(widget.locator("#pdStatus")).toHaveText("Dispute open");
+  await expect(widget.locator("#pdHeld")).toHaveText("$23.40 held while we review.");
   await expect(widget.locator("#pdDisputed")).toBeVisible();
   await expect(widget.locator("#pdDispute")).toHaveCount(0);
 });
@@ -181,18 +196,24 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await expect(body.locator(".settings-row-title")).toHaveText(["Up to 14 days to resolve", "Refunds go to your balance"]);
   await page.locator("#disputeStart").click();
   await expect(body.locator(".step-sub").first()).toHaveText("About your ₦36,270.00 NGN payment to Ilé Living.");
-  await expect(page.locator("#extSubmitDispute")).toHaveText("Choose a reason to continue");
+  await expect(page.locator("#extReviewDispute")).toHaveText("Choose a reason to continue");
+  await expect(body.locator(".ud-chip")).toHaveText(["Not received", "Not as described", "Charged twice", "Didn’t authorise", "Other"]);
   await chooseReason(page, body, "Charged twice");
+  await page.locator("#extDisputeDescription").fill("I was charged twice for one order.");
   await page.locator("#extDisputeMore").click();
   await expect(body.locator(".field-label", { hasText: "Evidence" })).toHaveText("Evidence of the duplicate charge");
   await page.locator("#extDisputeContacted").click();
   await page.locator("#extDisputeDate").pressSequentially("12312099");
   await expect(page.locator("#extDisputeDateMsg")).toHaveText("That date is in the future.");
-  await expect(page.locator("#extSubmitDispute")).toBeDisabled();
+  await expect(page.locator("#extReviewDispute")).toBeDisabled();
   await page.locator("#extDisputeDate").fill("");
   const today = new Date();
   await page.locator("#extDisputeDate").pressSequentially(`${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}${today.getFullYear()}`);
   await expect(page.locator("#extDisputeDateMsg")).toHaveText(/^Between .* \(when you paid\) and today\.$/);
+  await page.locator("#extReviewDispute").click();
+  await expect(body.locator(".step-title")).toHaveText("Review your dispute");
+  await expect(page.locator("#reviewReason")).toHaveText("Charged twice");
+  await expect(page.locator("#reviewDescription")).toHaveText("I was charged twice for one order.");
   await page.locator("#extSubmitDispute").click();
   await expect(body.locator(".step-title")).toHaveText("Submitting dispute…");
   await expect(page.locator("#disputeDone .step-title")).toHaveText("Dispute submitted");
@@ -201,6 +222,8 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await expect(body.locator(".step-title").first()).toHaveText("Activity");
   await walletRow(page).first().click();
   await expect(page.locator("#disputeChip")).toHaveText("Open · under review");
+  await expect(detailRow(page, "Status")).toContainText("Dispute open");
+  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 NGN held while we review.");
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
 
   // Checkout's account shows it open
@@ -280,7 +303,9 @@ test("two disputes use up the account's disputes: the third says it can't be rai
   await page.locator('[data-txid="t2"]').click();
   await page.locator("#extRaiseDispute").click();
   await page.locator("#disputeStart").click();
-  await chooseReason(page, page.locator("#panelBody"), "Wrong amount");
+  await chooseReason(page, page.locator("#panelBody"), "Other");
+  await page.locator("#extDisputeDescription").fill("Not what I ordered.");
+  await page.locator("#extReviewDispute").click();
   await page.locator("#extSubmitDispute").click();
   await expect(page.locator("#disputeDone")).toBeVisible();
   expect(await page.evaluate(() => (window as any).__account.getState().account.disputeStrikes)).toBe(2);
@@ -438,4 +463,149 @@ test("Checkout: a card payment to Ilé Living refunded in full: Refunded, no dis
   await expect(widget.locator("#pdRefunded")).toHaveText("$23.40 to Visa ••• 4242");
   await expect(widget.locator("#pdDispute")).toHaveCount(0);
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toContainText('"amount":2340,"currency":"USD","full":true,"refunded_to":"card"');
+});
+
+/** A dispute already raised on one of Ada's payments (wallet page). */
+async function disputed(page: Page, id: string) {
+  await page.waitForFunction(() => !!(window as any).__ngn && !!(window as any).__account?.getState().account);
+  await page.evaluate((pid) => (window as any).__account.getState().update((a: any) => ({ ...a,
+    payments: a.payments.map((p: any) => (p.id === pid ? { ...p, status: "disputed", dispute: { reason: "I was charged twice", description: "Charged twice.", at: new Date().toISOString() } } : p)) })), id);
+}
+const notes = (page: Page) => page.locator("#panelBody [data-notif]");
+const events = (page: Page, type: string) => page.getByTestId("events").locator("li", { hasText: type });
+
+test("resolve: refund. A naira bank transfer's dispute refunded to the NGN balance; the merchant and the user are told; it can't be reopened", async ({ page }) => {
+  await page.goto("/demo/wallet");
+  await disputed(page, "pay_ilv10077");
+  const ngn = () => page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
+  const before = await ngn();
+  await page.locator("#tabActivity").click();
+  await page.locator('[data-payment="pay_ilv10077"]').click();
+  await expect(detailRow(page, "Status")).toContainText("Dispute open");
+  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 NGN held while we review.");
+  await expect(page.locator("#demoRefundFull")).toHaveCount(0); // while a dispute is open, it's resolved instead
+  await page.locator("#demoResolveRefund").click();
+  await expect(detailRow(page, "Status")).toContainText("Refunded");
+  await expect(page.locator("#disputeHeld")).toHaveCount(0);
+  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // can't be reopened
+  await expect(page.locator("#demoResolveRefund")).toHaveCount(0);
+  await expect.poll(ngn).toBe(before + 3627000);
+  await expect(events(page, "payment.dispute_resolved")).toContainText('"poket_reference":"pay_ilv10077","outcome":"refund","amount":3627000,"currency":"NGN"');
+  await expect(events(page, "payment.refunded")).toContainText('"refunded_to":"ngn_balance"');
+  await page.locator("#openNotifHeader").click();
+  await expect(notes(page)).toHaveCount(1); // the resolution's, not a separate "Refund received"
+  await expect(notes(page).first()).toContainText("Dispute resolved in your favor");
+  await expect(notes(page).first()).toContainText("₦36,270.00 NGN was added to your NGN balance.");
+});
+
+test("resolve: release. Closed, the merchant keeps it, with the reason line; can't be reopened; no event for another merchant's payment", async ({ page }) => {
+  await page.goto("/demo/wallet");
+  await disputed(page, "pay_mtk2291");
+  await page.locator("#tabActivity").click();
+  await page.locator('[data-payment="pay_mtk2291"]').click();
+  await expect(page.locator("#disputeHeld")).toHaveText("₦65,100.00 NGN held while we review.");
+  await page.locator("#demoResolveRelease").click();
+  await expect(detailRow(page, "Status")).toContainText("Dispute closed");
+  await expect(page.locator("#disputeReleased")).toHaveText("Dispute closed. Mama Tee’s Kitchen keeps the payment. Reason: [reason].");
+  await expect(page.locator("#disputeHeld")).toHaveCount(0);
+  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // within the window, but resolved: can't be reopened
+  await expect(page.locator("#panelBody [data-refund]")).toHaveCount(0);
+  await expect(events(page, "payment.dispute_resolved")).toHaveCount(0); // Mama Tee’s Kitchen isn't the demo's merchant
+  await page.locator("#openNotifHeader").click();
+  await expect(notes(page).first()).toContainText("Dispute closed");
+  await expect(notes(page).first()).toContainText("We couldn’t resolve your dispute with Mama Tee’s Kitchen in your favor.");
+});
+
+test("resolve: reversal. A naira bank transfer goes back to the bank account that paid, not the NGN balance", async ({ page }) => {
+  await page.goto("/demo/wallet");
+  await disputed(page, "pay_ilv10077");
+  const ngn = () => page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
+  const before = await ngn();
+  await page.locator("#tabActivity").click();
+  await page.locator('[data-payment="pay_ilv10077"]').click();
+  await page.locator("#demoResolveReversal").click();
+  await expect(detailRow(page, "Status")).toContainText("Reversed");
+  await expect(detailRow(page, "Reversed")).toContainText("₦36,270.00 NGN");
+  await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
+  await expect(events(page, "payment.dispute_resolved")).toContainText('"outcome":"reversal","amount":3627000');
+  await expect(events(page, "payment.refunded")).toHaveCount(0); // a reversal isn't a merchant refund
+  await page.waitForTimeout(300);
+  expect(await ngn()).toBe(before);
+  await page.locator("#backFromTxDetail").click();
+  const row = page.locator("#panelBody [data-refund]");
+  await expect(row.locator(".tx-title")).toHaveText("Reversal · Ilé Living");
+  await expect(row.locator(".tx-sub")).toHaveText("Merchant reversal · Ilé Living");
+  await row.click();
+  await expect(detailRow(page, "Reversed to")).toContainText("the bank account that paid");
+  await expect(page.locator("#refundNote")).toHaveText("Back to the bank account that paid in [refund time]");
+  await page.locator("#openNotifHeader").click();
+  await expect(notes(page).first()).toContainText("Dispute resolved: payment reversed");
+  await expect(notes(page).first()).toContainText("₦36,270.00 NGN is on its way back to the bank account that paid.");
+});
+
+test("Checkout: raise a dispute, then the DEMO pill's three resolutions; reversal back to the card; the wallet's notification", async ({ page }) => {
+  const widget = await adaPays(page);
+  await widget.locator("#doneView").click();
+  await widget.locator("#pdDispute").click();
+  await widget.locator("#dispStart").click();
+  await chooseReason(page, widget, "Didn’t authorise");
+  await expect(widget.locator(".infobox")).toContainText("If you don’t recognise this payment");
+  await widget.locator("#dispDescription").fill("I didn't make this payment.");
+  await widget.locator("#dispReview").click();
+  await widget.locator("#dispSubmit").click();
+  await expect(events(page, "payment.dispute_opened")).toContainText('"reason":"unauthorised"');
+  await widget.locator("#dispDone").click();
+  await widget.locator("[data-pay]").first().click();
+  await expect(widget.locator("#pdHeld")).toHaveText("$23.40 held while we review.");
+  await expect(page.locator("#demo button")).toHaveText(["Resolve: refund", "Resolve: release", "Resolve: reversal"]);
+  await page.locator("#demoBtn3").click();
+  await expect(widget.locator("#pdStatus")).toHaveText("Reversed");
+  await expect(widget.locator("#pdReversed")).toHaveText("$23.40 to Visa ••• 4242");
+  await expect(widget.locator("#pdHeld")).toHaveCount(0);
+  await expect(widget.locator("#pdDispute")).toHaveCount(0);
+  await expect(page.locator("#demo button")).toHaveCount(0); // nothing left to resolve or refund
+  await expect(events(page, "payment.dispute_resolved")).toContainText('"outcome":"reversal","amount":2340,"currency":"USD"');
+
+  await widget.locator("#pdBack").click();
+  const rev = widget.locator("[data-refund]").first();
+  await expect(rev.locator(".tx-title")).toHaveText("Reversal · Ilé Living");
+  await expect(rev.locator(".tx-sub")).toContainText("· To Visa ••• 4242");
+  await rev.click();
+  await expect(widget.locator("#rdReceipt .receipt-row", { hasText: "Status" })).toContainText("Reversed");
+  await expect(widget.locator("#rdReceipt .receipt-row", { hasText: "Reversed to" })).toContainText("Visa ••• 4242");
+  await expect(widget.locator("#rdNote")).toHaveText("Back to Visa ••• 4242 in [refund time]");
+
+  // The user is told in the wallet (the account's notifications)
+  await page.keyboard.press("Escape");
+  await page.locator("#demoToWallet").click();
+  await page.locator("#openNotifHeader").click();
+  await expect(notes(page).first()).toContainText("Dispute resolved: payment reversed");
+  await expect(notes(page).first()).toContainText("$23.40 USD is on its way back to Visa ••• 4242.");
+});
+
+test("Checkout: Resolve: release shows the reason line; Resolve: refund refunds to the card", async ({ page }) => {
+  for (const [btn, check] of [["#demoBtn2", "release"], ["#demoBtn", "refund"]] as const) {
+    const widget = await adaPays(page);
+    await widget.locator("#doneView").click();
+    await widget.locator("#pdDispute").click();
+    await widget.locator("#dispStart").click();
+    await chooseReason(page, widget, "Not as described");
+    await widget.locator("#dispDescription").fill("Wrong colour.");
+    await widget.locator("#dispReview").click();
+    await widget.locator("#dispSubmit").click();
+    await widget.locator("#dispDone").click();
+    await widget.locator("[data-pay]").first().click();
+    await page.locator(btn).click();
+    if (check === "release") {
+      await expect(widget.locator("#pdStatus")).toHaveText("Dispute closed");
+      await expect(widget.locator("#pdReleased")).toHaveText("Dispute closed. Ilé Living keeps the payment. Reason: [reason].");
+      await expect(widget.locator("#pdDispute")).toHaveCount(0);
+      await expect(events(page, "payment.dispute_resolved")).toContainText('"outcome":"release","amount":0');
+    } else {
+      await expect(widget.locator("#pdStatus")).toHaveText("Refunded");
+      await expect(widget.locator("#pdRefunded")).toHaveText("$23.40 to Visa ••• 4242");
+      await expect(events(page, "payment.dispute_resolved").first()).toContainText('"outcome":"refund","amount":2340');
+      await expect(events(page, "payment.refunded").first()).toContainText('"refunded_to":"card"');
+    }
+  }
 });
