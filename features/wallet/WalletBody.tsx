@@ -16,6 +16,9 @@ import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
 import { ComplianceScreen, ComplianceStepUpScreen, InstantLimitScreen, InstantTransfersScreen, SecurityScreen, SettingsScreen } from "./settings/SettingsScreens";
 import { ConversionReceiptScreen } from "./withdrawals/ConversionReceiptScreen";
+import { AccountBlockedScreen, AccountLockedScreen } from "./AccountLockedScreen";
+import { useSettings } from "./settings/useSettings";
+import { useAccountLock } from "@/store/lock";
 
 /**
  * WalletShell's default #panelBody: an open Send, Convert, send-to-bank or NGN flow first, then the current wallet screen
@@ -28,6 +31,12 @@ export function WalletBody() {
   const ngn = useNgn((s) => s.stage);
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const tab = useWalletHome((s) => s.tab);
+  // Locked after too many wrong codes: no money moves, so any money flow shows the lock instead
+  const locked = useAccountLock((s) => s.until) !== null;
+  const blocked = useSettings((s) => s.idBlocked);
+  if (locked && (send || convert || payout || ngn)) return <AccountLockedScreen />;
+  // Blocked after 3 failed ID checks: no money moves either (the held send's own done screen still shows)
+  if (blocked && (send || convert || ngn || (payout && payout !== "done" && payout !== "processing"))) return <AccountBlockedScreen />;
   if (send) return <SendBody />;
   if (convert) return <ConvertBody />;
   if (payout) return <PayoutBody />;

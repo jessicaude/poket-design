@@ -12,10 +12,11 @@ import { useSettings } from "./useSettings";
  * Settings screen or the amount screen's "Turn on" (the send comes back as it was).
  */
 export function turnOnInstantTransfers() {
-  usePayout.getState().approveWithPin("Turns on instant transfers.", () => {
+  // A new device confirms itself first (WGT-10), then the PIN
+  usePayout.getState().requireDevice(() => usePayout.getState().approveWithPin("Turns on instant transfers.", () => {
     useSettings.getState().setInstantOn(true);
     useWalletToast.getState().showToast("Instant transfers are on.");
-  });
+  }));
 }
 
 /**

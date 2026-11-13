@@ -4,6 +4,7 @@ import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurr
 import { useEvents } from "@/store/events";
 import { DIRECTORY, registerAccount, saveAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
+import { useAccountLock } from "@/store/lock";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
 
 /**
@@ -23,7 +24,7 @@ export type TransferAmount = "exact" | "less" | "more";
 export const demoTransferAmount = (amount: number, a: TransferAmount) =>
   a === "exact" ? amount : amount + (a === "less" ? -1 : 1) * Math.round(amount / 10 / 100) * 100;
 export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "details" | "vendor" | "verifying" | "id-review"
-  | "id-retry" | "id-done" | "blocked" | "processing" | "declined" | "done";
+  | "id-retry" | "id-done" | "blocked" | "locked" | "processing" | "declined" | "done";
 
 /** SCREENS['blocked'] reasons: the prototype's age and id_declined, plus a sanctions match (copy from tSanctionsDeclined). */
 export type BlockReason = "age" | "id_declined" | "sanctions";
@@ -94,6 +95,12 @@ type State = {
 
   start: (order: Order) => void;
   close: (reason?: string) => void;
+  /** Too many wrong codes: "Account locked" (shared with the wallet's device codes; store/lock.ts). */
+  locked: () => void;
+  /** The lock ended (or the demo skipped it): back to signing in. */
+  unlocked: () => void;
+  /** Where an opened widget starts: "Account locked", the returning customer, or sign-up. */
+  route: (order: Order, settings: MerchantSettings) => void;
   go: (s: Screen) => void;
   addCard: (currency: OrderCurrency) => void;
   startTransfer: () => Promise<void>;
@@ -141,9 +148,26 @@ export const useCheckout = create<State>((set, get) => ({
   skipId: true, idv: NEW_IDV, blockReason: null,
 
   start: (order) => {
-    const { customer, shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
+    const { shareDetails, merchantAccepts, bankTransferAccount } = useDemo.getState();
     const settings: MerchantSettings = { accepts: { ...merchantAccepts }, bankTransferAccount };
     useEvents.getState().emit("widget.opened", { widget: "checkout", amount: order.amount, currency: order.currency, customer_details: shareDetails });
+    get().route(order, settings);
+  },
+  locked: () => set({ screen: "locked", onboarding: false }),
+  unlocked: () => {
+    const { order, settings } = get();
+    if (order && settings) get().route(order, settings); // as when the widget opened (no second widget.opened)
+  },
+  route: (order, settings) => {
+    const { customer } = useDemo.getState();
+    // A locked account can't sign in or pay until the lock ends
+    useAccountLock.getState().sync();
+    if (useAccountLock.getState().until) {
+      useAccount.getState().signOut();
+      set({ open: true, order, settings, quote: null, onboarding: false, screen: "locked", selected: null, failed: null, paid: null,
+        skipId: !needsId(order), idv: NEW_IDV, blockReason: null });
+      return;
+    }
     if (customer === "returning") {
       const a = structuredClone(DIRECTORY["ada@osun.co"]);
       useAccount.getState().signIn(a);

@@ -1,4 +1,5 @@
 import { press } from "./keypad";
+import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
@@ -188,7 +189,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // the hold is for bank accounts
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
-  await page.locator("#stepupIntroContinue").click(); // $25.00 leaves USD: over the step-up limit
+  await passSelfie(page); // $25.00 leaves USD: over the step-up limit
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Kemi Adeyemi");

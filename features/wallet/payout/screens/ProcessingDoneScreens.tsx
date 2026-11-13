@@ -7,7 +7,7 @@ import { usePayout } from "../usePayout";
 import { useWalletNav } from "../../useWalletNav";
 import { sendSummary } from "../../send/sendSummary";
 import { cvParse } from "../../convert/convertMath";
-import { QUICK_CHECK } from "../withdrawals";
+import { QUICK_CHECK, STATUS_META } from "../withdrawals";
 
 /** tPayout stage 'processing': what they get, to whom. */
 export function ProcessingScreen() {
@@ -33,6 +33,8 @@ export function DoneScreen() {
   const held = sent.status === "scheduled";
   // A first payment of $500 or more to a new card, wallet or Poket user (the exploration's doneScreen when held)
   const checking = sent.status === "review" && !!sent.quickCheck;
+  // Held for review after the 3rd failed selfie check (not approved, not sent)
+  const reviewing = sent.status === "review" && !sent.quickCheck;
   // A converted send leads with what left your balance (its badge too); what they get follows
   const t = cvParse(s.converting ? payFrom : s.targetKey);
   const iconKey = t.k === "coin" ? t.asset.toLowerCase() : CURRENCY_INFO[t.cur as keyof typeof CURRENCY_INFO]?.icon;
@@ -50,7 +52,13 @@ export function DoneScreen() {
             <p className="step-sub" id="doneTheyGet" style={{ marginBottom: "2px" }}>{who} gets <Grey>{s.theyGetText}</Grey></p>
           </>
         ) : <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>}
-        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : checking ? `To ${r.name}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
+        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : checking || reviewing ? `To ${r.name}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
+        {reviewing && (
+          <>
+            <span className="va-status warn" id="heldForReview">{STATUS_META.review.chip}</span>
+            <p className="step-sub" id="heldForReviewNote" style={{ marginTop: "8px" }}>{STATUS_META.review.message}</p>
+          </>
+        )}
         {checking && (
           <>
             <span className="va-status warn" id="quickCheck">{QUICK_CHECK.chip}</span>
@@ -63,7 +71,7 @@ export function DoneScreen() {
       <div className="receipt-card" style={{ marginTop: "16px" }}>
         <div className="receipt-row"><span className="r-ic"><Raw html={WICON.hash} /></span><span className="r-label">Confirmation</span><span className="r-value mono">{lastRef}</span></div>
         {/* Held for a quick check: no estimate until it's cleared (the note above says how long) */}
-        {!checking && <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.calendar} /></span><span className="r-label">{r.isSelf ? "Estimated arrival" : "Estimated delivery"}</span><span className="r-value">{held ? `After ${HOLD_PLACEHOLDER}` : s.arrival}</span></div>}
+        {!checking && !reviewing && <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.calendar} /></span><span className="r-label">{r.isSelf ? "Estimated arrival" : "Estimated delivery"}</span><span className="r-value">{held ? `After ${HOLD_PLACEHOLDER}` : s.arrival}</span></div>}
       </div>
       <p className="fine-print"><Raw html={WICON.info} /><span>A confirmation receipt has been sent to your email.</span></p>
       <button className="btn-primary" id="payoutDone" style={{ marginTop: "18px" }} onClick={close}>Done</button>

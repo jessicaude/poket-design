@@ -1,6 +1,8 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useCheckout } from "@/features/checkout/useCheckout";
+import { useAccountLock } from "@/store/lock";
 import { useDemo, type BankTransferAccount, type CardOutcome, type Customer, type IdOutcome, type MerchantAccepts, type OrderCurrency, type OrderSize, type Theme } from "@/store/demo";
 
 /** ID check outcomes: the prototype's pId (passes, declined) and its sign-up outcomes (SIGNUP_OUTCOMES labels). */
@@ -24,6 +26,7 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
   const action = !open ? null
     : screen === "vendor" ? (idv.vstage === "phone" ? { label: "Finish on phone", run: finishOnPhone } : { label: "Open on phone", run: openOnPhone })
     : screen === "id-review" ? { label: "Approve review", run: approveReview }
+    : screen === "locked" ? { label: "Skip lock time", run: () => useAccountLock.getState().skip() }
     : null;
   const onTransfer = checkout && open && screen === "bank-transfer" && (transfer.state === "waiting" || transfer.state === "arriving");
   // The bar wraps onto more rows when it doesn't fit: keep --bar (page offset, scrim, widget height) equal to its height
@@ -42,7 +45,8 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
   return (
     <>
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
-      <span className="name">Poket design</span>
+      {/* Demo only: to the wallet's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
+      <Link className="pbtn" id="demoToWallet" href="/demo/wallet">To wallet</Link>
       <label className="opt-lbl"><span>Customer</span>
         <select aria-label="Customer" value={customer} onChange={(e) => set({ customer: e.target.value as Customer })}>
           <option value="new">New to Poket</option><option value="returning">Ada (remembered)</option>

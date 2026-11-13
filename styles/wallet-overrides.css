@@ -35,3 +35,31 @@
 .pk-sheet{width:100%;background:var(--bg);border-radius:20px 20px 0 0;padding:20px 20px 22px;box-shadow:0 -10px 30px rgba(0,0,0,.14);animation:pk-sheet-up 180ms var(--ease-out)}
 .pk-sheet .step-title{margin-top:0}
 @keyframes pk-sheet-up{from{transform:translateY(100%)}to{transform:none}}
+
+/* WGT-10 "Confirm this device": Checkout's sign-up code entry (styles/prototype.css: .id-summary, .lbl, .otp,
+   .otp-status, .mini-spin), copied with the checkout's tokens mapped to the wallet's (--brand → --brand-500,
+   --err → --err-600, --n-300 → --bdr). */
+.id-summary{display:flex;align-items:center;gap:8px;height:46px;padding:0 10px 0 12px;border-radius:10px;background:var(--brand-50);margin:14px 0 16px}
+.id-summary .id-ic{color:var(--brand-600);display:flex}
+.id-summary .id-val{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbl{display:block;font-size:12px;font-weight:500;color:var(--txt2);margin:0 0 6px}
+.otp{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.otp input{width:100%;min-width:0;height:52px;text-align:center;font:600 20px var(--font-mono);border:1px solid var(--bdr);border-radius:10px;background:var(--bg);color:var(--txt)}
+.otp input:focus{outline:none;border-color:var(--brand-500);box-shadow:0 0 0 3px var(--brand-100)}
+.otp input:disabled{background:var(--n-50);color:var(--txt2)}
+.otp-status{min-height:22px;margin:-4px 0 6px;font-size:13px;color:var(--txt2);display:flex;align-items:center;justify-content:center;gap:8px}
+.otp-status.err{color:var(--err-600)}
+.mini-spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--n-200);border-top-color:var(--brand-500);animation:pk-mini-spin .8s linear infinite}
+@keyframes pk-mini-spin{to{transform:rotate(360deg)}}
+
+/* The selfie check before a send: Checkout's vendor handoff (styles/prototype.css .vendor ...), copied as is. */
+.vendor .vlogo{display:flex;justify-content:center;margin:2px 0 10px}
+.vendor .vlogo img{height:30px}
+.vendor .vlogo.plaid img{height:58px}
+.vendor .vt{text-align:center;font-size:19px;font-weight:700;margin:0 0 14px;color:var(--n-900)}
+.vendor .prep{background:#f7f8fa;border-radius:12px;padding:12px 14px;font-size:12.5px;color:#5a5f78;margin-bottom:10px;line-height:1.5}
+.vendor .prep b{display:block;color:#1c1e2a;font-size:13.5px}
+.vendor .opt{border:1px solid #e4e6ee;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#5a5f78}
+.vendor .opt b{display:block;color:#1c1e2a;font-size:13.5px;margin-bottom:2px}
+.vendor .qr{width:132px;height:132px;margin:10px auto 2px;display:block}
+.vendor .wait{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:13px;color:#5a5f78;padding:10px 0}

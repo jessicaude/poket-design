@@ -19,6 +19,7 @@ Status: **ported**, matching `reference/poket-widgets.html`. Demo: `/demo/ile-li
 | `id-retry` | `screens/IdentityScreens.tsx` | Needs retry (tVfRetry): the reason and tries left out of Veriff's 3, Try again. |
 | `id-done` | `screens/IdentityScreens.tsx` | "You're verified" (Tier 1); Continue goes back to paying (Pay, or add a method first). |
 | `blocked` | `screens/IdentityScreens.tsx` | Under 18, ID declined (including the 3rd failed check), or a sanctions match (copy from tSanctionsDeclined). "You haven’t been charged." Back to the merchant. |
+| `locked` | `screens/LockedScreen.tsx` | Too many wrong sign-up or log-in codes (counted with the wallet's device codes): "Account locked", "Too many incorrect codes. Try again in 2 hours.", a live countdown, Back to the merchant. Opening the widget during the lock shows it. Sends `account.locked`. DEMO pill: Skip lock time. |
 
 Flow logic: `features/checkout/useCheckout.ts`; conversion quote and which methods can pay: `features/checkout/quote.ts`.
 Mock backend: `lib/mock-api.ts` (`registerAccount`, `saveAccount`, `createCheckoutVirtualAccount`, `getMerchantPoolAccount`,
