@@ -1,10 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * WGT-11, NGN history, receipts and statements. History: the reference's activity rows, grouped by day, with status
+ * WGT-11, NGN history, receipts and statements. History: the reference’s activity rows, grouped by day, with status
  * chips and the filter All, Money in, Money out (a conversion shows under All only). Detail: every transaction has
  * the same rows in the same order (Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed,
- * Fee, Reference, Session ID), a unique reference in the copyable chip and, for a bank transfer, the bank's session
+ * Fee, Reference, Session ID), a unique reference in the copyable chip and, for a bank transfer, the bank’s session
  * ID as "[session ID]". The audit found naira coming into the NGN balance with no record at all (temporary-account
  * top-ups, transfers to the account details, delayed transfers, naira from Poket users, recovered recalls): each is
  * now its own record with a receipt.
@@ -18,9 +18,9 @@ async function wallet(page: Page) {
   await page.goto("/demo/wallet");
   await page.waitForFunction(() => !!(window as any).__ngn && !!(window as any).__account?.getState().account);
 }
-/** The open detail's row labels. */
+/** The open detail’s row labels. */
 const labels = (page: Page) => page.locator("#txDetail .info-row > span:first-child").allTextContents();
-/** Labels in FIELD_ORDER's order, none unknown. */
+/** Labels in FIELD_ORDER’s order, none unknown. */
 function inOrder(ls: string[]) {
   const idx = ls.map((l) => FIELD_ORDER.indexOf(l.trim()));
   expect(idx.every((i) => i >= 0), `unknown label in ${ls.join(", ")}`).toBe(true);
@@ -45,7 +45,7 @@ test("Activity: rows grouped by day; All, Money in, Money out", async ({ page })
   expect(new Set(await days.allTextContents()).size).toBe(await days.count());
   const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   await expect(h.locator(`[data-histday="${twoDaysAgo}"] + .section-card [data-payment="pay_mtk2291"]`)).toHaveCount(1);
-  // The reference's 3 records, Ada's 4 Checkout payments and her 8 seeded naira records (3 credits, 3 sends, a
+  // The reference’s 3 records, Ada’s 4 Checkout payments and her 8 seeded naira records (3 credits, 3 sends, a
   // conversion, a refund)
   await expect(h.locator(".tx-row")).toHaveCount(15);
   const titles = async () => (await h.locator(".tx-title").allTextContents()).sort();
@@ -57,14 +57,14 @@ test("Activity: rows grouped by day; All, Money in, Money out", async ({ page })
   await h.locator('[data-histfilter="out"]').click();
   expect(await titles()).toEqual(["Adire Market", "Ilé Living", "Mama Tee’s Kitchen", "Mama Tee’s Kitchen", "Sooyah Bistro", "To Amara Okafor", "To Naira account", "To Tobi Bello"]);
   for (const a of await h.locator(".tx-amt").allTextContents()) expect(a).toMatch(/^-/);
-  // Tobi Bello's send failed: its chip says so
+  // Tobi Bello’s send failed: its chip says so
   await expect(h.locator('[data-txid="wd_seed3"] .va-status')).toHaveText("Failed");
   await h.locator('[data-histfilter="all"]').click();
   await expect(h.locator(".tx-row")).toHaveCount(15);
   await expect(h.locator('[data-txid="cv_seed1"] .tx-title')).toHaveText("Converted NGN to USD"); // under All only
 });
 
-test("a payment's row carries its status chip unless it's completed", async ({ page }) => {
+test("a payment’s row carries its status chip unless it’s completed", async ({ page }) => {
   await wallet(page);
   await page.locator("#tabActivity").click();
   await expect(page.locator('[data-payment="pay_ilv10077"] .va-status')).toHaveCount(0);
@@ -84,7 +84,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await page.locator("#demoAccountTransfer").click();
   // Naira from a Poket user
   await page.locator("#demoPoketTransfer").click();
-  // One that arrived while the partner was down: credited when it's back
+  // One that arrived while the partner was down: credited when it’s back
   await page.getByLabel("Naira partner").selectOption("down");
   await expect(page.locator("#demoAccountTransfer")).toHaveCount(0);
   await page.locator("#demoQueuedArrival").click();
@@ -99,7 +99,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦25,000.00 NGN", "+₦10,000.00 NGN", "+₦25,000.00 NGN", "+₦10,000.00 NGN"]);
   await expect(h.locator("[data-histday]").first()).toHaveText("Today");
   await h.locator('[data-histfilter="out"]').click();
-  // Money out: Ada's seeded sends, none of the credits
+  // Money out: Ada’s seeded sends, none of the credits
   await expect(h.locator(".tx-row")).not.toHaveCount(0);
   await expect(h.locator("[data-credit]")).toHaveCount(0);
   for (const a of await h.locator(".tx-amt").allTextContents()) expect(a).toMatch(/^-/);
@@ -139,12 +139,12 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await expect(page.locator("#panelBody [data-notif]").filter({ hasText: "₦25,000.00 from Chinedu Eze added to your NGN balance." })).toHaveCount(1);
 });
 
-test("the NGN balance's history: what moved the balance, not card payments", async ({ page }) => {
+test("the NGN balance’s history: what moved the balance, not card payments", async ({ page }) => {
   await wallet(page);
   await page.locator("#demoPoketTransfer").click();
   await openNgnBalance(page);
   const h = page.locator("#ngnHistory");
-  // Ada's 8 seeded records that moved it (the refund into it, not the payment it refunds), and today's
+  // Ada’s 8 seeded records that moved it (the refund into it, not the payment it refunds), and today’s
   await expect(h.locator(".tx-row")).toHaveCount(9);
   await expect(h.locator('.tx-row:not([data-txid*="seed"])')).toHaveCount(1);
   await expect(h.locator('[data-refund="rf_seedmtk"]')).toHaveCount(1);

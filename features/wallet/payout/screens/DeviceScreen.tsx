@@ -30,7 +30,7 @@ export function DeviceScreen() {
       </div>
       <div className="step-title" style={{ textAlign: "center" }}>Confirm this device</div>
       {/* NEW copy */}
-      <p className="step-sub" style={{ textAlign: "center" }}>It&apos;s the first time money moves from this device. We sent a code to your email.</p>
+      <p className="step-sub" style={{ textAlign: "center" }}>It&rsquo;s the first time money moves from this device. We sent a code to your email.</p>
       <div className="id-summary">
         <span className="id-ic"><Raw html={WICON.mail} /></span>
         <span className="id-val" id="deviceEmail">{maskEmail(email)}</span>

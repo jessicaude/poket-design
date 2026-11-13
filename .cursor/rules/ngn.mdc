@@ -178,7 +178,7 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
 - Statuses and chips (STATUS_META): Scheduled "Sends after [hold]", Held for review "We're checking this payment.
   We'll let you know.", Sending: the send's own arrival once it's sending (Withdrawal.eta: "Usually within seconds"
   for Nigerian banks, "About 1 minute" for wallets, "1 to 3 business days" for US banks...; never the naira copy for other sends),
-  Paid, Failed / Reversed "Funds returned to your balance".
+  Paid, Failed / Reversed "The money is back in your balance."
   Chips use the wallet's .va-status tones; no new colours.
 - Selfie check (WGT-10; replaces the step-up placeholder for sends): a send whose USD value leaving the source balance (the
   amount plus every decided fee, in whatever currency it's paid from) is over ₦[step-up], or any send while the demo's
@@ -216,8 +216,8 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
     shows the wallet's "Not in the prototype yet" notice (showNotPorted in useWalletToast.ts), like other unported actions.
   - Naira conversion fees are undecided: "Fee: ₦[fee]" (or "$[fee]", or the coin equivalent "[fee] USDC") and 0 in
     the maths. The quote card shows the rate, the fee, "You get" and the reference's 30-second countdown.
-  - Naira conversions are capped at ₦[limit] per conversion ("Over your limit of ₦[limit] per conversion") and have a
-    minimum, "Minimum is ₦[minimum]", both on the naira side. NGN_CONVERT_LIMIT_DEMO_KOBO and NGN_CONVERT_MIN_DEMO_KOBO
+  - Naira conversions are capped at ₦[limit] per conversion ("That’s over your ₦[limit] limit per conversion. Enter a smaller amount.") and have a
+    minimum, "The minimum is ₦[minimum]. Enter a larger amount.", both on the naira side. NGN_CONVERT_LIMIT_DEMO_KOBO and NGN_CONVERT_MIN_DEMO_KOBO
     are demo values that never show.
   - Before converting, the reference's limit and tier check runs (evaluateLimit in features/wallet/limits.ts, then
     step-up or "This exceeds Poket's limits"). Naira conversions show the tier limit as ₦[limit].
@@ -265,15 +265,15 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   "Sends to Nigerian banks won't go until you turn them back on.", Turn off / Keep them on; a tap outside cancels),
   then it takes effect at once. The sheet (.pk-sheet in styles/wallet-overrides.css) is new: the wallet has none.
 - While off, a send to a Nigerian bank account (naira to a Nigerian bank, whatever pays it, USD converted too) shows
-  "Instant transfers are off. Turn on" on the amount screen (#instantOffNotice), and Review is disabled (the store's
+  "Instant transfers are off. Turn them on to send to banks. Turn on" on the amount screen (#instantOffNotice), and Review is disabled (the store's
   toReview refuses too). "Turn on" asks for the PIN, then the send comes back as it was (approving or not).
   Poket users, other banks, cards, stablecoin wallets, Convert and Checkout aren't affected
   (blockedByInstantOff in features/wallet/settings/instant.ts).
 - The daily limit in Send: while on, a send to a Nigerian bank can't take today's total over the daily limit (the
   limit in use: never above the tier's maximum). Today's total is the naira sent to Nigerian banks today, whatever
   paid it (getInstantSentToday in lib/mock-api.ts): scheduled, held and sending sends count; failed and reversed
-  don't; Poket users, other banks, cards and wallets don't. Over it, the amount screen shows "Over your daily limit
-  of ₦X. You have ₦Y left today." (formatNaira, grey code) with "Change limit" (NEW copy: it leaves the send for
+  don't; Poket users, other banks, cards and wallets don't. Over it, the amount screen shows "That’s over your daily
+  limit of ₦X. You have ₦Y left today." (running text: no code, docs/copy.md) with "Change limit" (NEW copy: it leaves the send for
   Settings → Instant transfers → Daily limit), and Review is disabled (the store's toReview refuses too). Exactly
   what's left fits (overDailyLimit in features/wallet/settings/instant.ts).
 - Tests: e2e/settings.spec.ts (on and off, the PIN, the sheet, Send blocked when off, lowering, raising with
@@ -350,16 +350,16 @@ WGT-10 is four parts, each with its rules below:
   the instant transfers and daily limit notices don't show) and Review is disabled; a review already open shows the
   same notice above the first-payment notice and has Send disabled. Neither shows the banner, as the paused deposit
   screens don't.
-  Adding a Nigerian bank: the name enquiry shows its existing unavailable state ("We can't check account names right
-  now. Try again").
+  Adding a Nigerian bank: the name enquiry shows its existing unavailable state ("We can’t check the name on the account
+  right now. Try again").
 - Sends to Nigerian banks already Sending stay Sending (the demo bar's Mark paid and Fail are disabled; a released
   first payment waits) until the partner is back.
 - Transfers into naira that arrive while down wait too: demo bar "Transfer arrived while down" (shown while down;
   it counts them) queues a ₦25,000.00 credit (useNairaPartner.queued). A temporary account's "Transfer arrives" is
   hidden while down.
 - Recovery (features/wallet/partnerRecovery.ts, on down → up): the banner and paused screens clear; each queued
-  credit is added to the NGN balance with its own notification, "Transfer received" / "₦X added to your NGN
-  balance. This transfer was delayed." (₦X without the code, as written in WGT-13); every send to a Nigerian bank
+  credit is added to the NGN balance with its own notification, "Transfer received" / "₦X from {sender}
+  added to your NGN balance, after a delay." (docs/copy.md: one sentence with the amount and who); every send to a Nigerian bank
   that's Sending moves on to Paid. Recovery runs once the wallet has loaded (WalletBody imports it), so a partner
   brought back on Checkout's bar after visiting the wallet recovers too.
 - Checkout: naira bank transfer is marked "Paused" (.method.off, its .chip) on add-method and can't be chosen;

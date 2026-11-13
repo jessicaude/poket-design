@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * "Report a problem" on a Paid send to a Nigerian bank (send-report in reference/poket-widgets.html). "I sent it to
- * the wrong account" opens a recall request: "Bank transfers can't always be recovered." up front, then Submitted,
+ * the wrong account" opens a recall request: "Bank transfers can’t always be recovered." up front, then Submitted,
  * In progress, and Recovered (back in the NGN balance, with a notification) or Not recovered (a "Recall closed" notification). Demo actions move the
  * recall on.
  */
@@ -61,7 +61,7 @@ test("another reason: Send report; then 'You reported a problem'", async ({ page
   await page.locator("#reportProblem").click();
   const body = page.locator("#panelBody");
   await expect(body.locator(".step-title")).toHaveText("Report a problem");
-  await expect(body.locator(".step-sub").first()).toHaveText("With your ₦5,000.00 NGN payment to Naira account.");
+  await expect(body.locator(".step-sub").first()).toHaveText("With your ₦5,000.00 payment to Naira account.");
   await expect(body.locator("[data-reportreason] .t1")).toHaveText(["I sent it to the wrong account", "It didn’t arrive", "Wrong amount", "Scam or fraud", "Something else"]);
   const go = page.locator("#reportGo");
   await expect(go).toBeDisabled();
@@ -94,7 +94,7 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
     const warn = el.querySelector("#recallWarning")!, sub = el.querySelector(".step-sub")!;
     return !!(warn.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING);
   })).toBe(true);
-  await expect(body.locator(".step-sub")).toHaveText("We’ll ask the receiving bank to return your ₦5,000.00 NGN from Naira account’s account. If they do, it goes back to your NGN balance.");
+  await expect(body.locator(".step-sub")).toHaveText("We’ll ask Naira account’s bank to return your ₦5,000.00. If they do, it goes back to your NGN balance.");
   // Back keeps the reason
   await page.locator("#reportBack").click();
   await expect(page.locator('[data-reportreason="I sent it to the wrong account"]')).toHaveAttribute("aria-checked", "true");
@@ -111,10 +111,10 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await expect(page.locator("#demoRecallProgress")).toBeDisabled();
   await page.locator("#demoRecallRecovered").click();
   await expect(page.locator("#recallStatus")).toHaveText("Recovered");
-  await expect(page.locator("#recallMsg")).toHaveText("₦5,000.00 NGN is back in your NGN balance.");
+  await expect(page.locator("#recallMsg")).toHaveText("₦5,000.00 is back in your NGN balance.");
   await expect.poll(() => ngn(page)).toBe(before + 500000);
   for (const id of ["#demoRecallProgress", "#demoRecallRecovered", "#demoRecallNot"]) await expect(page.locator(id)).toBeDisabled();
-  // WGT-11: the send is a bank transfer (the bank's session ID); the recovered naira is its own record
+  // WGT-11: the send is a bank transfer (the bank’s session ID); the recovered naira is its own record
   await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Fee", "Reference", "Session ID"]);
   await expect(page.locator('#txDetail [data-label="Session ID"]')).toContainText("[session ID]");
   const sendRef = (await page.locator("#copyRefBtn").textContent())!.trim();
@@ -131,10 +131,10 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   expect((await page.locator("#copyRefBtn").textContent())!.trim()).not.toBe(sendRef);
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif]").first()).toContainText("Transfer recovered");
-  await expect(page.locator("#panelBody [data-notif]").first()).toContainText("₦5,000.00 NGN is back in your NGN balance.");
+  await expect(page.locator("#panelBody [data-notif]").first()).toContainText("₦5,000.00 from Naira account is back in your NGN balance.");
 });
 
-test("wrong account: Not recovered: the receiving bank didn't return it; the balance is unchanged; Recall closed notification", async ({ page }) => {
+test("wrong account: Not recovered: the receiving bank didn’t return it; the balance is unchanged; Recall closed notification", async ({ page }) => {
   await sent(page);
   await paid(page);
   const before = await ngn(page);
@@ -148,7 +148,7 @@ test("wrong account: Not recovered: the receiving bank didn't return it; the bal
   await page.locator("#openNotifHeader").click();
   const n = page.locator("#panelBody [data-notif]").first();
   await expect(n).toContainText("Recall closed");
-  await expect(n).toContainText("We couldn’t recover your transfer to Naira account.");
+  await expect(n).toContainText("We couldn’t recover your ₦5,000.00 transfer to Naira account.");
   await expect(page.locator("#panelBody [data-notif]").filter({ hasText: "Transfer recovered" })).toHaveCount(0);
 });
 

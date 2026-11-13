@@ -8,7 +8,7 @@ import { usePayout } from "@/features/wallet/payout/usePayout";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
 import { reservationEffect, isOnHold } from "@/features/wallet/payout/withdrawals";
 
-/** Send's maths (fees, totals, arrival, sources) and PIN logic, without a browser. */
+/** Send’s maths (fees, totals, arrival, sources) and PIN logic, without a browser. */
 test.beforeEach(() => { resetPayoutServer(); usePayout.getState().reset(); useNgn.getState().reset(); });
 
 const recipient = (id: string) => listPayoutRecipients().find((r) => r.id === id)!;
@@ -37,10 +37,10 @@ test("step-up is judged on the USD value leaving the source; converting totals i
   expect(fromNgn).toMatchObject({ sourceTotal: 2732500, totalText: "₦27,325.00 NGN + ₦[fee]" });
   expect(Math.round(fromNgn.usdOut)).toBe(1763);
   expect(needsStepUp(fromNgn.usdOut)).toBe(true);
-  // The demo limit is ₦20,000.00 in USD: exactly that isn't over it, a kobo more is
+  // The demo limit is ₦20,000.00 in USD: exactly that isn’t over it, a kobo more is
   expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000000, 2000000, 1).usdOut)).toBe(false);
   expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000100, 2000100, 1).usdOut)).toBe(true);
-  // Sending's message is the send's own arrival, without the first-payment hold
+  // Sending’s message is the send’s own arrival, without the first-payment hold
   expect(sendSummary(recipient("r6"), "cash:NGN:open", 100, 100, 1)).toMatchObject({ arrival: "After [hold]", eta: "Usually within seconds" });
   expect(sendSummary(wallet, "coin:USDC:Base", 100, 100, 1).eta).toBe("About 1 minute");
 });
@@ -59,7 +59,7 @@ test("Poket users from card-funded money: the FIAT-ONLY tag carries to their bal
   expect(getPoketUserBalances("pu1")).toEqual({ "USD:fiat": 500, "NGN:open": 2000 });
 });
 
-test("quick check: a first payment of $500 or more to a new card, wallet or Poket user; banks and your own card aren't checked", async () => {
+test("quick check: a first payment of $500 or more to a new card, wallet or Poket user; banks and your own card aren’t checked", async () => {
   const { reservePayout, createPayout, saveDebitCard, getPoketUserBalances } = await import("@/lib/mock-api");
   const send = async (kind: "card" | "wallet" | "poket" | "bank", recipientId: string, usdOut: number, sourceKey = "coin:USDC:Base") => {
     const r = await reservePayout({ currency: "USD", amount: usdOut });
@@ -73,10 +73,10 @@ test("quick check: a first payment of $500 or more to a new card, wallet or Poke
   expect(await send("card", card2.id, 50000)).toMatchObject({ status: "sending" }); // paid before now
   const own = await saveDebitCard({ number: "4000056655665556", name: "OSUN ADA", zip: "10001", saved: true, verifiedName: "Ada Osun" });
   expect(own.isSelf).toBe(true); // in the verified name: Your accounts
-  expect(await send("card", own.id, 90000)).toMatchObject({ status: "sending" }); // your own card isn't checked
+  expect(await send("card", own.id, 90000)).toMatchObject({ status: "sending" }); // your own card isn’t checked
   expect(await send("wallet", "sw1", 60000)).toMatchObject({ status: "review", quickCheck: true });
   expect(await send("wallet", "wallet-new-1", 60000)).toMatchObject({ status: "review", quickCheck: true }); // unsaved: new
-  // A held Poket send is credited only once it's paid
+  // A held Poket send is credited only once it’s paid
   const held = await send("poket", "pu2", 70000, "cash:USD:fiat");
   expect(held).toMatchObject({ status: "review", quickCheck: true, tag: "FIAT-ONLY" });
   expect(getPoketUserBalances("pu2")).toEqual({});

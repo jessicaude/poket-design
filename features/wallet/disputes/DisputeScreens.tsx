@@ -1,4 +1,5 @@
 "use client";
+import { withoutCode } from "@/lib/money";
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { Raw } from "@/components/ui/Raw";
@@ -137,7 +138,7 @@ export function PaymentDetailScreen({ id }: { id: string }) {
       </div>
       <ShareReceiptButton receipt={paymentReceipt(p)} />
       {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
-      {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{fmtCurrency(refundLeft(p), p.currency)} held while we review.</span></div>}
+      {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{withoutCode(fmtCurrency(refundLeft(p), p.currency))} held while we review.</span></div>}
       {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}
       {canRaiseDispute(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
     </>
@@ -186,7 +187,7 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     if (disputeStrikes() >= DISPUTE_STRIKE_LIMIT) return (
       <>
         {backRow(nav.back)}
-        <div className="step-title">You can&apos;t raise a dispute right now</div>
+        <div className="step-title">You can&rsquo;t raise a dispute right now</div>
         <p className="step-sub">Your account has been restricted from raising further disputes after repeated dispute activity that violated our terms of use.</p>
         <WarnBox title="Account restricted" body="Contact support if you think this is a mistake." tone="err" />
       </>
@@ -219,7 +220,7 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
       <div className="ud-form">
         {backRow(() => setStage("start"))}
         <div className="step-title">Tell us what happened</div>
-        <p className="step-sub">About your {t.amount} payment to {merchant}.</p>
+        <p className="step-sub">About your {withoutCode(t.amount)} payment to {merchant}.</p>
         <label className="field-label">Why are you disputing it?</label>
         <div className={`ud-chips ${reasons.length % 2 ? "odd" : ""}`} role="radiogroup" aria-label="Reason">
           {reasons.map((r) => (
@@ -290,7 +291,7 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
       <>
         {backRow(() => setStage("form"))}
         <div className="step-title">Review your dispute</div>
-        <p className="step-sub">About your {t.amount} payment to {merchant}.</p>
+        <p className="step-sub">About your {withoutCode(t.amount)} payment to {merchant}.</p>
         <div className="info-card" id="disputeReview">
           {line("Reason", REASON_SHORT[d.reason!], "reviewReason")}
           {line("What happened", d.description.trim(), "reviewDescription")}

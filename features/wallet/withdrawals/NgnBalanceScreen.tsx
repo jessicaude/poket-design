@@ -73,7 +73,7 @@ function NgnAccountCard() {
         <div className="va-ic"><Raw html={WICON.bank} /></div>
         <div className="va-meta">
           <div className="t1">NGN account details <span className="va-status err">Not approved</span></div>
-          <div className="t2">We couldn&apos;t open your account. Try again or contact support.</div>
+          <div className="t2">We couldn&rsquo;t open your account. Try again or contact support.</div>
         </div>
         <button type="button" className="va-copy" id="vaRetry" onClick={open}>Try again</button>
       </div>

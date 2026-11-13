@@ -2,8 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { expectSelfie, passSelfie } from "./selfie";
 
 /**
- * The selfie check before a send's PIN, in place of the step-up placeholder: over ₦[step-up] (demo ₦20,000), or with
- * the demo's "Flag as unusual" on. Checkout's vendor and "Checking your ID" screens. Outcomes (demo bar "Selfie
+ * The selfie check before a send’s PIN, in place of the step-up placeholder: over ₦[step-up] (demo ₦20,000), or with
+ * the demo’s "Flag as unusual" on. Checkout’s vendor and "Checking your ID" screens. Outcomes (demo bar "Selfie
  * check"): passes (on to the PIN), needs retry, declined. Failures count toward the 3 ID check attempts (shared with
  * NGN ID matches); the 3rd holds the send for review and blocks the account.
  */
@@ -48,12 +48,12 @@ test("at or under ₦[step-up]: no selfie check; Flag as unusual asks for one on
   expect((await ngn(page)).attempts).toBe(0);
 });
 
-test("needs retry: the reference's selfie reasons and tries left; Try again goes back to the handoff; Finish later to review", async ({ page }) => {
+test("needs retry: the reference’s selfie reasons and tries left; Try again goes back to the handoff; Finish later to review", async ({ page }) => {
   await start(page, "retry");
   await toConfirm(page, "2500000"); // ₦25,000: over ₦[step-up]
   await passSelfie(page);
-  await expect(title(page)).toHaveText("We couldn't read your ID");
-  await expect(page.locator("#selfieReason")).toHaveText("We couldn't see your face clearly. Try again in good light.");
+  await expect(title(page)).toHaveText("We couldn’t read your ID");
+  await expect(page.locator("#selfieReason")).toHaveText("We couldn’t see your face clearly. Try again in good light.");
   await expect(page.locator("#selfieTriesLeft")).toHaveText("2 tries left");
   await page.locator("#selfieTryAgain").click();
   await passSelfie(page);
@@ -64,11 +64,11 @@ test("needs retry: the reference's selfie reasons and tries left; Try again goes
   expect(await ngn(page)).toMatchObject({ reserved: 0, attempts: 2 }); // nothing reserved without the PIN
 });
 
-test("declined: Checkout's wording with tries left", async ({ page }) => {
+test("declined: Checkout’s wording with tries left", async ({ page }) => {
   await start(page, "declined");
   await toConfirm(page, "2500000");
   await passSelfie(page);
-  await expect(title(page)).toHaveText("We couldn't verify your identity");
+  await expect(title(page)).toHaveText("We couldn’t verify your identity");
   await expect(page.locator("#selfieReason")).toHaveCount(0);
   await expect(page.locator("#selfieTriesLeft")).toHaveText("2 tries left");
 });
@@ -80,7 +80,7 @@ test("the 3rd failure holds the send for review (no PIN) and the account shows t
   await passSelfie(page);
   // Held for review: reserved, not sent, never asked for the PIN
   await expect(page.locator("#heldForReview")).toHaveText("Held for review");
-  await expect(page.locator("#heldForReviewNote")).toHaveText("We're checking this payment. We'll let you know.");
+  await expect(page.locator("#heldForReviewNote")).toHaveText("We’re checking this payment. We’ll let you know.");
   expect(await ngn(page)).toMatchObject({ balance: 5000000 - 2500000, reserved: 2500000, attempts: 3 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Held for review");
@@ -88,7 +88,7 @@ test("the 3rd failure holds the send for review (no PIN) and the account shows t
 
   // Blocked: no money moves (Send, Convert); balances still show
   await page.locator("#actSend").click();
-  await expect(page.locator("#accountBlocked .step-title")).toHaveText("We couldn't verify your identity");
+  await expect(page.locator("#accountBlocked .step-title")).toHaveText("We couldn’t verify your identity");
   await expect(page.locator("#accountBlocked .step-sub")).toHaveText("If you think this is a mistake, contact Poket support.");
   await page.locator("#blockedClose").click();
   await page.locator("#actConvert").click();
@@ -103,7 +103,7 @@ test("failures count with other ID checks: 2 NGN ID mismatches already, so one f
   await toConfirm(page, "2500000");
   await passSelfie(page);
   await expect(page.locator("#heldForReview")).toHaveText("Held for review");
-  // ...and the NGN account's ID check is locked too (the same 3 attempts)
+  // ...and the NGN account’s ID check is locked too (the same 3 attempts)
   await page.locator("#payoutDone").click();
   await page.getByLabel("Tier").selectOption("1");
   await page.evaluate(() => (window as any).__nav.getState().home()); // eslint-disable-line @typescript-eslint/no-explicit-any

@@ -80,8 +80,8 @@ export function cvType(f: Side, to: Side): CvType | null {
  */
 export function cvBlockReason(f: Side, to: Side | { k: "coin" }): string | null {
   if (f.k !== "cash") return null;
-  if (f.bucket === "fiat" && to.k === "coin") return "Card-funded cash can't convert to stablecoins";
-  if (f.bucket === "fiat" && to.k === "cash" && "cur" in to && to.cur === "NGN") return "Card-funded money can't be converted to naira";
+  if (f.bucket === "fiat" && to.k === "coin") return "Card-funded cash can’t convert to stablecoins";
+  if (f.bucket === "fiat" && to.k === "cash" && "cur" in to && to.cur === "NGN") return "Card-funded money can’t be converted to naira";
   return null;
 }
 export const cvBlockedPair = (f: Side, to: Side | { k: "coin" }) => cvBlockReason(f, to) !== null;

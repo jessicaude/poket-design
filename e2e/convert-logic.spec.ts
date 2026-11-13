@@ -4,10 +4,10 @@ import { evaluateLimit, useSpend } from "@/features/wallet/limits";
 import { useHoldings } from "@/features/wallet/useHoldings";
 import { useNgn } from "@/features/wallet/ngn/useNgn";
 
-/** Convert's pure helpers (convertMath.ts), against the reference's rules. */
+/** Convert’s pure helpers (convertMath.ts), against the reference’s rules. */
 test.beforeEach(() => {
   useHoldings.getState().reset(); useNgn.getState().reset(); useSpend.getState().reset();
-  // The reference's demo balances: all USD card-funded (the wallet demo also holds $50.00 of open USD)
+  // The reference’s demo balances: all USD card-funded (the wallet demo also holds $50.00 of open USD)
   useHoldings.getState().set({ cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
 });
 
@@ -21,7 +21,7 @@ test("pair types and the FIAT-ONLY block", () => {
   expect(cvType(p("coin:USDC:Base"), p("coin:USDC:Polygon"))).toBe("bridge");
   expect(cvType(p("coin:USDC:Base"), p("coin:USDC:Base"))).toBeNull();
   expect(cvBlockedPair(p("cash:USD:fiat"), p("coin:USDC:Base"))).toBe(true);
-  expect(cvBlockReason(p("cash:USD:fiat"), p("cash:NGN:open"))).toBe("Card-funded money can't be converted to naira");
+  expect(cvBlockReason(p("cash:USD:fiat"), p("cash:NGN:open"))).toBe("Card-funded money can’t be converted to naira");
   expect(cvBlockedPair(p("cash:USD:fiat"), p("cash:EUR:open"))).toBe(false);
 });
 
@@ -46,7 +46,7 @@ test("quotes: fees by type, integer amounts", () => {
   const c = cvQuote("coin:USDC:Base", "cash:NGN:open", 1000, 1);
   expect([c.fee, c.receive, cvFeeText(c)]).toEqual([0, 1550000, "[fee] USDC"]);
   expect(cvFeeText(cvQuote("cash:USD:open", "cash:NGN:open", 1000, 1))).toBe("$[fee]");
-  // Other pairs keep the reference's fees
+  // Other pairs keep the reference’s fees
   const e = cvQuote("cash:USD:open", "cash:EUR:open", 1000, 1);
   expect([e.type, e.fee, cvFeeLabel(e), cvFeeText(e)]).toEqual(["fx", 10, "Exchange fee (1%)", "$0.10 USD"]);
   expect(cvQuote("coin:USDC:Base", "coin:USDT:Base", 10000, 1)).toMatchObject({ type: "swap", fee: 10, receive: 9990 });
@@ -78,7 +78,7 @@ test("cvSourceFor: what can convert into NGN (not card-funded USD, not naira its
   expect(cvSourceFor("cash:NGN:open")).toBe("cash:USD:open");
 });
 
-test("evaluateLimit: the reference's tier limits (USD), including today's spend", () => {
+test("evaluateLimit: the reference’s tier limits (USD), including today’s spend", () => {
   expect(evaluateLimit(100, 0)).toEqual({ ok: false, needTier: 1 });
   expect(evaluateLimit(2000, 1)).toEqual({ ok: true });
   expect(evaluateLimit(2001, 1)).toEqual({ ok: false, needTier: 2 });
@@ -128,11 +128,11 @@ test("Send sources: what can pay each kind of recipient", async () => {
   // NGN: not for non-Nigerian banks
   expect(sourceAllowed("cash:NGN:open", bank("USD"), false)).toBe(false);
   expect(sourceAllowed("cash:NGN:open", bank("NGN"), false)).toBe(true);
-  // Conversions follow Convert's rules (and the demo block on naira to stablecoins)
+  // Conversions follow Convert’s rules (and the demo block on naira to stablecoins)
   expect(sourceAllowed("coin:USDC:Base", bank("NGN"), false)).toBe(true);
   expect(sourceAllowed("cash:NGN:open", wallet, false)).toBe(true);
   expect(sourceAllowed("cash:NGN:open", wallet, true)).toBe(false);
-  // Defaults: the recipient's currency (open, then card-funded), or the balance it was opened from if allowed
+  // Defaults: the recipient’s currency (open, then card-funded), or the balance it was opened from if allowed
   expect(defaultSource(bank("NGN"), null, false)).toBe("cash:NGN:open");
   expect(defaultSource(bank("USD"), null, false)).toBe("cash:USD:fiat");
   expect(defaultSource(bank("NGN"), "cash:USD:fiat", false)).toBe("cash:NGN:open");

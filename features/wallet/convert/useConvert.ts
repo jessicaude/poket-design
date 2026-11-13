@@ -141,8 +141,8 @@ export const useConvert = create<State>((set, get) => {
         const reason = cvBlockReason(f, o);
         if (reason) {
           const body: Record<string, string> = {
-            "Card-funded cash can't convert to stablecoins": "Choose cash, or convert from a balance without the FIAT-ONLY tag.",
-            "Card-funded money can't be converted to naira": "Choose another currency.",
+            "Card-funded cash can’t convert to stablecoins": "Choose cash, or convert from a balance without the FIAT-ONLY tag.",
+            "Card-funded money can’t be converted to naira": "Choose another currency.",
           };
           useWalletToast.getState().showNotice(reason, body[reason], 4000);
           return;

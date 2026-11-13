@@ -4,7 +4,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * NGN withdrawal: a first payment to an account shows "sends after [hold]" on amount and review, and the amount
  * is reserved from the balance once the PIN is accepted. Seed: "Naira account" (lb2) has been paid before;
- * "Ngozi Eze" (r6) and newly added accounts haven't.
+ * "Ngozi Eze" (r6) and newly added accounts haven’t.
  */
 
 const NOTICE = "First payment to a new account sends after [hold]";
@@ -49,7 +49,7 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
   await expect(title(page)).toHaveText("Enter your PIN");
   expect(await ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
   await typePin(page, "0000");
-  await expect(page.locator("#panelBody .step-sub")).toContainText("Incorrect PIN. 2 attempts left.");
+  await expect(page.locator("#panelBody .step-sub")).toContainText("That PIN isn’t right. Try again. 2 attempts left.");
   expect(await ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
 
   await typePin(page, "1234");

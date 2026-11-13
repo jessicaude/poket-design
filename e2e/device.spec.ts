@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 
 /**
  * WGT-10, device binding. Demo bar "This device: Known / New". On a new device, the first time money moves (any send,
- * or turning on instant transfers), "Confirm this device" asks for a 6-digit code sent to the user's email (Checkout's
+ * or turning on instant transfers), "Confirm this device" asks for a 6-digit code sent to the user’s email (Checkout’s
  * sign-up code entry; 000000 is wrong). A correct code binds the device ("This device" under Security) and the action
  * carries on. Known devices never see it.
  */
@@ -58,7 +58,7 @@ test("a new device: Confirm this device on the first send; a wrong code clears; 
 
   await toSend(page, "bank:lb2", "500000");
   await expect(title(page)).toHaveText("Confirm this device");
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("It's the first time money moves from this device. We sent a code to your email.");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("It’s the first time money moves from this device. We sent a code to your email.");
   await expect(page.locator("#deviceEmail")).toHaveText("a••••a@osun.co");
   await expect(page.locator("#panelBody .lbl")).toHaveText("Enter the 6-digit code we sent you");
   await expect(page.locator("#deviceOtp input")).toHaveCount(6);
@@ -77,7 +77,7 @@ test("a new device: Confirm this device on the first send; a wrong code clears; 
   await page.locator("#extBackSettings").click();
   await page.locator("#backFromSettings").click();
 
-  // Bound: the next send doesn't ask again
+  // Bound: the next send doesn’t ask again
   await toSend(page, "bank:lb2", "100000");
   await pin(page);
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
@@ -130,7 +130,7 @@ test("a new device: turning on instant transfers asks to confirm the device firs
   await expect(title(page)).toHaveText("Enter your PIN");
 });
 
-test("a new device: Convert doesn't ask (only sends and turning on instant transfers do)", async ({ page }) => {
+test("a new device: Convert doesn’t ask (only sends and turning on instant transfers do)", async ({ page }) => {
   await start(page, "new");
   await page.evaluate(() => (window as any).__convert.getState().start({ from: "cash:NGN:open", to: "cash:USD:open" })); // eslint-disable-line @typescript-eslint/no-explicit-any
   for (const d of "500000") await page.locator(`#panelBody [data-cvkey="${d}"]`).click();

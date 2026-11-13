@@ -73,7 +73,7 @@ export function DoneScreen() {
         {/* Held for a quick check: no estimate until it's cleared (the note above says how long) */}
         {!checking && !reviewing && <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.calendar} /></span><span className="r-label">{r.isSelf ? "Estimated arrival" : "Estimated delivery"}</span><span className="r-value">{held ? `After ${HOLD_PLACEHOLDER}` : s.arrival}</span></div>}
       </div>
-      <p className="fine-print"><Raw html={WICON.info} /><span>A confirmation receipt has been sent to your email.</span></p>
+      <p className="fine-print"><Raw html={WICON.info} /><span>We&rsquo;ve emailed you a receipt.</span></p>
       <button className="btn-primary" id="payoutDone" style={{ marginTop: "18px" }} onClick={close}>Done</button>
     </>
   );

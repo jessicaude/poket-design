@@ -183,7 +183,7 @@ let holdForReview = false;
 const takeHold = () => { const h = holdForReview; holdForReview = false; return h; };
 /** The reference's VF_RETRY_REASONS_SELFIE. */
 export const SELFIE_RETRY_REASONS = [
-  "We couldn't see your face clearly. Try again in good light.",
+  "We couldn’t see your face clearly. Try again in good light.",
   "Your selfie was blurry. Hold your phone still.",
   "Something was covering your face. Remove glasses or hats.",
 ];
@@ -453,7 +453,7 @@ export const usePayout = create<State>((set, get) => {
       const { pinStage, pinDraft, pinPurpose } = get();
       if (pinStage === "create") return set({ pinDraft: pin, pinStage: "confirm", pinError: "" });
       if (pinStage === "confirm") {
-        if (pin !== pinDraft) return set({ pinStage: "create", pinDraft: null, pinError: "PINs did not match. Start over." });
+        if (pin !== pinDraft) return set({ pinStage: "create", pinDraft: null, pinError: "Those PINs don’t match. Create your PIN again." });
         await setPin(pin);
         set({ pinDraft: null, pinError: "", pinSet: true });
         if (pinPurpose === "reset") return set({ stage: "moneyDone" });
@@ -463,7 +463,7 @@ export const usePayout = create<State>((set, get) => {
       const res = await verifyPin(pin);
       if (res.ok) { set({ pinError: "" }); return pinPurpose === "approve" ? approved() : execute(); }
       if (res.locked) return set({ stage: "pinLocked", pinError: "" });
-      set({ pinError: `Incorrect PIN. ${res.attemptsLeft} attempt${res.attemptsLeft === 1 ? "" : "s"} left.` });
+      set({ pinError: `That PIN isn’t right. Try again. ${res.attemptsLeft} attempt${res.attemptsLeft === 1 ? "" : "s"} left.` });
     },
 
     approveWithPin: (reason, run) => {

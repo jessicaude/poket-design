@@ -1,7 +1,7 @@
 import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
-/** Sending to a Nigerian bank account (tPayout's amount, review and done), with the checkout's PIN steps, in the wallet demo. */
+/** Sending to a Nigerian bank account (tPayout’s amount, review and done), with the checkout’s PIN steps, in the wallet demo. */
 
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
 
@@ -37,7 +37,7 @@ test("previews: ?send=review and ?send=ngn-account start in Send", async ({ page
   await page.goto("/demo/wallet?send=ngn-account");
   await expect(title(page)).toHaveText("Add a bank account");
   await page.locator("#backToPayoutRecipient").click();
-  await expect(title(page)).toHaveText("Currency"); // Send's currency step for a new bank account
+  await expect(title(page)).toHaveText("Currency"); // Send’s currency step for a new bank account
 });
 
 test("to your own account: amount, review, create the PIN, done", async ({ page }) => {
@@ -71,7 +71,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(title(page)).toHaveText("Confirm your PIN");
   await typePin(page, "9999");
   await expect(title(page)).toHaveText("Create your PIN");
-  await expect(body.locator(".step-sub")).toHaveText("Protects money leaving your account. 4 digits. PINs did not match. Start over.");
+  await expect(body.locator(".step-sub")).toHaveText("Protects money leaving your account. 4 digits. Those PINs don’t match. Create your PIN again.");
   await typePin(page, "1234");
   await expect(title(page)).toHaveText("Confirm your PIN");
   await typePin(page, "1234");
@@ -82,7 +82,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(body.locator(".receipt-row .r-value").first()).toHaveText(/^TXN-\d{6}$/);
   await expect(body.locator(".receipt-row.total")).toContainText("Estimated arrivalUsually within seconds");
   await page.locator("#payoutDone").click();
-  // NGN fees aren't decided, so only the amount comes off the balance
+  // NGN fees aren’t decided, so only the amount comes off the balance
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦37,500.00 NGN");
 });
@@ -95,7 +95,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   const body = page.locator("#panelBody");
   await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
   await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦5,000.00 NGN", "₦[fee]", "After [hold]", "₦5,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
-  await expect(body).toContainText("I've reviewed the destination, fee, and delivery estimate above.");
+  await expect(body).toContainText("I’ve reviewed the destination, fee, and delivery estimate above.");
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
 
@@ -103,7 +103,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(title(page)).toHaveText("Enter your PIN");
   for (const left of ["2 attempts left.", "1 attempt left."]) {
     await typePin(page, "0000");
-    await expect(body.locator(".step-sub")).toHaveText(`Approves this payment. Incorrect PIN. ${left}`);
+    await expect(body.locator(".step-sub")).toHaveText(`Approves this payment. That PIN isn’t right. Try again. ${left}`);
     await expect(body.locator(".otp-box").first()).toHaveValue("");
   }
   await typePin(page, "0000");
@@ -112,7 +112,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(body.locator(".fail-mark")).toBeVisible();
 
   await page.locator("#pinLockedReset").click();
-  await expect(title(page)).toHaveText("Verify it is you");
+  await expect(title(page)).toHaveText("Verify it’s you");
   await expect(body.locator(".step-sub")).toHaveText("Enter the 6-digit passcode sent to ada@osun.co before you can set a new PIN.");
   await page.locator("#resend").click();
   await expect(page.locator("#resend")).toHaveText("Sent ✓");
@@ -127,7 +127,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await expect(body.locator(".step-sub")).toHaveText("Your new PIN is set. Use it next time you send.");
   await page.locator("#doneToWallet").click();
   await expect(page.locator("#actSend")).toBeVisible();
-  // Balance untouched: the payout wasn't sent
+  // Balance untouched: the payout wasn’t sent
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦50,000.00 NGN");
 });
@@ -139,7 +139,7 @@ test("Cancel on the locked PIN returns to the wallet", async ({ page }) => {
   await toPin(page);
   for (const left of ["2 attempts", "1 attempt"]) {
     await typePin(page, "9876");
-    await expect(page.locator("#panelBody .step-sub")).toContainText(`Incorrect PIN. ${left} left.`);
+    await expect(page.locator("#panelBody .step-sub")).toContainText(`That PIN isn’t right. Try again. ${left} left.`);
   }
   await typePin(page, "9876");
   await expect(title(page)).toHaveText("Too many attempts");
@@ -165,5 +165,5 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await page.locator("#backToPayoutAmount").click();
   await expect(body.locator("#theyGet")).toHaveText("50,000.00");
   await page.locator("#backToPayoutRecipient2").click();
-  await expect(title(page)).toHaveText("Send"); // back to Send's recipients
+  await expect(title(page)).toHaveText("Send"); // back to Send’s recipients
 });

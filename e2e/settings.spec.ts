@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * The wallet's Settings (the reference's tSettings), Security (tSecurity) and Compliance (tAccountTier), and WGT-09's
+ * The wallet’s Settings (the reference’s tSettings), Security (tSecurity) and Compliance (tAccountTier), and WGT-09's
  * Instant transfers: the switch, the daily limit with Change (up to ₦[tier max]; demo maximums ₦100,000 at Tier 0,
  * ₦1,000,000 at Tier 1), and the tier link. The demo user starts at Tier 0, instant transfers on, ₦50,000.00 a day.
  */
@@ -29,7 +29,7 @@ async function enterPin(page: Page, pin = "1234") {
 }
 const press = async (page: Page, keys: string) => { for (const k of keys) await page.locator(`[data-limitkey="${k}"]`).click(); };
 
-test("the header gear opens Settings: name and email, then the reference's rows plus Instant transfers", async ({ page }) => {
+test("the header gear opens Settings: name and email, then the reference’s rows plus Instant transfers", async ({ page }) => {
   await openSettings(page);
   await expect(body(page).locator(".info-card .info-row")).toHaveText(["NameAda Osun", "Emailada@osun.co"]);
   await expect(body(page).locator(".settings-row-title")).toHaveText(["Compliance", "Instant transfers", "Payment methods", "Subscriptions", "Security", "Log out"]);
@@ -37,7 +37,7 @@ test("the header gear opens Settings: name and email, then the reference's rows 
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
   await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 2 signed-in devices");
   await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a passcode");
-  // The chevron is each row's last <svg> (.settings-row>svg:last-child)
+  // The chevron is each row’s last <svg> (.settings-row>svg:last-child)
   expect(await page.locator("#openSecurity > svg:last-child").count()).toBe(1);
   // Rows not ported say so
   await page.locator("#openSubscriptions").click();
@@ -54,7 +54,7 @@ test("Instant transfers: the switch, the daily limit, its tier maximum and the t
   await expect(sw).toHaveAttribute("role", "switch");
   await expect(sw).toHaveAttribute("aria-checked", "true");
   await expect(body(page).locator(".select-row .t1")).toHaveText("Instant transfers to banks");
-  await expect(page.locator("#instantExplain")).toHaveText("Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it's off, you can't send to banks.");
+  await expect(page.locator("#instantExplain")).toHaveText("Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it’s off, you can’t send to banks.");
   await expect(page.locator("#instantLimit")).toHaveText("₦50,000.00 NGN");
   await expect(page.locator("#instantTierMax")).toHaveText("Up to ₦[tier max] at your tier");
   await expect(page.locator("#instantChange")).toBeEnabled();
@@ -118,7 +118,7 @@ test("lowering the limit applies at once, after the PIN", async ({ page }) => {
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦20,000.00 NGN a day");
 });
 
-test("raising the limit needs the PIN, then waits out [cooling-off]: pending, Cancel change, and the demo's Skip cooling-off", async ({ page }) => {
+test("raising the limit needs the PIN, then waits out [cooling-off]: pending, Cancel change, and the demo’s Skip cooling-off", async ({ page }) => {
   test.setTimeout(60_000); // two raises, each typed on the keypad and approved with the PIN
   await openSettings(page);
   await page.locator("#openInstantTransfers").click();
@@ -179,7 +179,7 @@ test("the tier link opens Compliance; Increase my limits steps up (demo: the tie
   await page.locator("#instantRaiseTier").click();
   await expect(title(page)).toHaveText("Compliance");
   await expect(page.locator("#currentLevel")).toHaveText("Tier 0: Registered");
-  await expect(body(page)).toContainText("No monetary activity until Tier 1");
+  await expect(body(page)).toContainText("Verify your identity to raise your limits.");
   await page.locator("#startStepupFromAccount").click();
   await expect(title(page)).toHaveText("Additional verification needed");
   await expect(body(page).locator(".alert")).toHaveCount(0); // asked for, not over a limit
@@ -218,7 +218,7 @@ test("Security: passcode delivery (text needs a phone number) and signed-in devi
   await expect(page.locator('[data-channel="text"] .t2')).toHaveText("Add a phone number first");
   await expect(page.locator('[data-channel="text"]')).toHaveAttribute("aria-disabled", "true");
   await page.locator('[data-channel="text"]').click({ force: true });
-  await expect(page.locator('[data-channel="text"]')).not.toHaveClass(/\bsel\b/); // no phone: can't choose it
+  await expect(page.locator('[data-channel="text"]')).not.toHaveClass(/\bsel\b/); // no phone: can’t choose it
   await expect(body(page).locator("[data-device] .settings-row-title")).toHaveText(["This device", "Chrome · MacBook Air"]);
   await expect(body(page).locator("[data-device] .settings-row-sub")).toHaveText(["Active now", "Last active 2w ago"]);
   await expect(body(page).locator("[data-signout]")).toHaveCount(1); // not this device
@@ -235,7 +235,7 @@ test("turning off asks to confirm (a sheet), then takes effect at once; Keep the
   await sw.click();
   const sheet = page.locator("#instantOffSheet");
   await expect(sheet.locator(".step-title")).toHaveText("Turn off instant transfers?");
-  await expect(sheet.locator(".step-sub")).toHaveText("Sends to Nigerian banks won't go until you turn them back on.");
+  await expect(sheet.locator(".step-sub")).toHaveText("Sends to Nigerian banks won’t go until you turn them back on.");
   await expect(sheet.locator("button")).toHaveText(["Turn off", "Keep them on"]);
   await expect(sw).toHaveAttribute("aria-checked", "true"); // nothing changes until confirmed
   await page.locator("#instantOffCancel").click();
@@ -262,7 +262,7 @@ test("turning on asks for the PIN, then says so; a wrong PIN or Back leaves them
   await expect(sw).toHaveAttribute("aria-checked", "false");
   await sw.click();
   await enterPin(page, "0000");
-  await expect(page.locator("#panelBody .step-sub").first()).toContainText("Incorrect PIN. 2 attempts left.");
+  await expect(page.locator("#panelBody .step-sub").first()).toContainText("That PIN isn’t right. Try again. 2 attempts left.");
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#toastEl")).toHaveText("Instant transfers are on.");
@@ -299,7 +299,7 @@ async function offThenSend(page: Page, recipient: string, digits = "500000") {
 
 test("while off, sending naira to a Nigerian bank says so with Turn on, and Review is disabled; Turn on resumes the send", async ({ page }) => {
   await offThenSend(page, "bank:r6");
-  await expect(page.locator("#instantOffNotice")).toHaveText("Instant transfers are off. Turn on");
+  await expect(page.locator("#instantOffNotice")).toHaveText("Instant transfers are off. Turn them on to send to banks. Turn on");
   await expect(page.locator("#payoutReview")).toBeDisabled();
   await page.evaluate(() => (window as any).__payout.getState().toReview()); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(page.locator("#confirmPayout")).toHaveCount(0); // the store refuses too
@@ -353,7 +353,7 @@ test("while off, Convert is unaffected", async ({ page }) => {
   await expect(page.locator("#panelBody")).not.toContainText("Instant transfers are off");
 });
 
-/* ---------- The daily limit in Send: today's total to Nigerian banks (the mock's getInstantSentToday) ---------- */
+/* ---------- The daily limit in Send: today’s total to Nigerian banks (the mock’s getInstantSentToday) ---------- */
 
 /** Tier 1, PIN set, a ₦25,000.00 daily limit (under the demo step-up, so sends go straight to the PIN). */
 async function limitedWallet(page: Page) {
@@ -379,7 +379,7 @@ async function sendIt(page: Page) {
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
 }
 
-test("daily limit in Send: today's total can't go over it; the amount screen says how much is left, with Change limit", async ({ page }) => {
+test("daily limit in Send: today’s total can’t go over it; the amount screen says how much is left, with Change limit", async ({ page }) => {
   await limitedWallet(page);
   await amountTo(page, "bank:lb2", "1500000"); // ₦15,000.00 to your Naira account (paid before)
   await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);
@@ -387,11 +387,11 @@ test("daily limit in Send: today's total can't go over it; the amount screen say
   await page.locator("#payoutDone").click();
 
   await amountTo(page, "bank:lb2", "1500000"); // another ₦15,000.00: ₦30,000 today, over ₦25,000
-  await expect(page.locator("#dailyLimitNotice")).toHaveText("Over your daily limit of ₦25,000.00 NGN. You have ₦10,000.00 NGN left today. Change limit");
+  await expect(page.locator("#dailyLimitNotice")).toHaveText("That’s over your daily limit of ₦25,000.00. You have ₦10,000.00 left today. Change limit");
   await expect(page.locator("#payoutReview")).toBeDisabled();
   await page.evaluate(() => (window as any).__payout.getState().toReview()); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(page.locator("#confirmPayout")).toHaveCount(0); // the store refuses too
-  // Exactly what's left fits
+  // Exactly what’s left fits
   await page.locator("#youSend").click();
   for (let i = 0; i < 7; i++) await page.locator('#sendKeypad [data-payoutkey="back"]').click();
   for (const d of "1000000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
@@ -405,7 +405,7 @@ test("daily limit in Send: today's total can't go over it; the amount screen say
   await expect(title(page)).toHaveText("Instant transfers");
 });
 
-test("daily limit in Send: a failed send doesn't count; Poket users aren't limited; naira converted from USD counts", async ({ page }) => {
+test("daily limit in Send: a failed send doesn’t count; Poket users aren’t limited; naira converted from USD counts", async ({ page }) => {
   await limitedWallet(page);
   await amountTo(page, "bank:lb2", "1500000");
   await sendIt(page);
@@ -427,10 +427,10 @@ test("daily limit in Send: a failed send doesn't count; Poket users aren't limit
   await page.locator('[data-payfrom="cash:USD:open"]').click();
   await page.locator("#youSend").click();
   for (const d of "2000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click(); // $20.00 ≈ ₦31,000
-  await expect(page.locator("#dailyLimitNotice")).toContainText("Over your daily limit of ₦25,000.00 NGN.");
+  await expect(page.locator("#dailyLimitNotice")).toContainText("That’s over your daily limit of ₦25,000.00.");
 });
 
-test("mock: today's total counts sends to Nigerian banks today, not failed or reversed ones, other days or Poket users", async () => {
+test("mock: today’s total counts sends to Nigerian banks today, not failed or reversed ones, other days or Poket users", async () => {
   const { reservePayout, createPayout, setWithdrawalStatus, getInstantSentToday, resetPayoutServer } = await import("@/lib/mock-api");
   resetPayoutServer();
   const send = async (amount: number, recipientId: string, kind: "bank" | "poket" = "bank") => {

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-/** Checkout on the Ilé Living demo, following the prototype's flow. */
+/** Checkout on the Ilé Living demo, following the prototype’s flow. */
 
 async function enterCode(page: import("@playwright/test").Page, code = "123456") {
   const boxes = page.locator("#otp input");
@@ -12,7 +12,7 @@ test("a new user signs up, adds a card and pays", async ({ page }) => {
   await page.locator("#payWithPoket").click();
   const widget = page.getByTestId("checkout-widget");
 
-  // Prefilled from the store's checkout form
+  // Prefilled from the store’s checkout form
   await expect(widget.locator("#idInput")).toHaveValue("kemi.adeyemi@gmail.com");
   await expect(widget.locator("#suFirst")).toHaveValue("Kemi");
   await expect(widget.getByRole("link", { name: "Terms of Service" })).toHaveAttribute("href", "https://onepoket.com/terms-and-conditions");

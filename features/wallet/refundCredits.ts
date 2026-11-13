@@ -1,7 +1,7 @@
 import { useAccount } from "@/store/account";
 import { useNgn } from "./ngn/useNgn";
 import { useNotifications } from "./useNotifications";
-import { formatNaira } from "@/lib/money";
+import { formatNairaShort, withoutCode } from "@/lib/money";
 import { refundDest, refundTitle } from "@/lib/refunds";
 import { attribute } from "./history/ledger";
 import { fmtCurrency } from "./payout/payoutMath";
@@ -22,19 +22,19 @@ function creditNew() {
       credited.add(r.id);
       attribute({ description: refundTitle(p, r), reference: r.id }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + r.amount })));
       // A dispute's refund: the resolution's notification says so
-      if (!r.fromDispute) useNotifications.getState().add({ type: "payout", title: "Refund received", desc: `${formatNaira(r.amount)} from ${p.merchant} added to your NGN balance.` });
+      if (!r.fromDispute) useNotifications.getState().add({ type: "payout", title: "Refund received", desc: `${formatNairaShort(r.amount)} from ${p.merchant} added to your NGN balance.` });
     }
     // WGT-12: a resolved dispute, once (the reference's notify() wording where it has one; reversal is NEW)
     const o = p.dispute?.outcome;
     if (o && !resolved.has(p.id)) {
       resolved.add(p.id);
       const back = (p.refunds ?? []).filter((r) => r.fromDispute).at(-1);
-      const amt = back ? fmtCurrency(back.amount, p.currency) : "";
+      const amt = back ? withoutCode(fmtCurrency(back.amount, p.currency)) : "";
       const n = o === "refund"
-        ? { title: "Dispute resolved in your favor", desc: back?.to === "ngn" ? `${amt} was added to your NGN balance.` : `${amt} is on its way back to ${p.method}.` }
+        ? { title: "Dispute resolved", desc: back?.to === "ngn" ? `${amt} from ${p.merchant} added to your NGN balance.` : `${amt} from ${p.merchant} is on its way back to ${p.method}.` }
         : o === "reversal"
-          ? { title: "Dispute resolved: payment reversed", desc: `${amt} is on its way back to ${back ? refundDest(p, back) : p.method}.` }
-          : { title: "Dispute closed", desc: `We couldn’t resolve your dispute with ${p.merchant} in your favor.` };
+          ? { title: "Payment reversed", desc: `${amt} from ${p.merchant} is on its way back to ${back ? refundDest(p, back) : p.method}.` }
+          : { title: "Dispute closed", desc: `${p.merchant} keeps your ${withoutCode(fmtCurrency(p.amount, p.currency))} payment.` };
       useNotifications.getState().add({ type: "payout", ...n });
     }
   }

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW, WICON } from "@/lib/icons";
-import { formatNaira } from "@/lib/money";
+import { formatNairaShort, withoutCode } from "@/lib/money";
 import type { RecallStatus, Withdrawal } from "@/lib/mock-api";
 import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
@@ -22,7 +22,7 @@ export const RECALL_WARNING = "Bank transfers can’t always be recovered.";
 export const RECALL_META: Record<RecallStatus, { chip: string; tone: string; message: (w: Withdrawal) => string }> = {
   submitted: { chip: "Submitted", tone: "warn", message: () => `We’ve asked the receiving bank to return it. ${RECALL_WARNING}` },
   in_progress: { chip: "In progress", tone: "warn", message: () => "The receiving bank is looking at the recall." },
-  recovered: { chip: "Recovered", tone: "", message: (w) => `${formatNaira(w.amount)} is back in your NGN balance.` },
+  recovered: { chip: "Recovered", tone: "", message: (w) => `${formatNairaShort(w.amount)} is back in your NGN balance.` },
   not_recovered: { chip: "Not recovered", tone: "err", message: () => "We couldn’t recover this transfer. The receiving bank didn’t return it." },
 };
 
@@ -61,7 +61,8 @@ export function ReportProblemScreen({ id }: { id: string }) {
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
   if (!w) return <BackRow id="reportBack" onClick={back} />;
-  const amount = sentText(w);
+  // Running text drops the code (docs/copy.md)
+  const amount = withoutCode(sentText(w));
 
   if (stage === "reported" || stage === "recalled") return (
     <>
@@ -81,7 +82,7 @@ export function ReportProblemScreen({ id }: { id: string }) {
       <div className="step-title">Request a recall</div>
       {/* Said up front: a recall may not work */}
       <div className="alert warn" id="recallWarning" role="note"><Raw html={WICON.alert} /><span>{RECALL_WARNING}</span></div>
-      <p className="step-sub">We&rsquo;ll ask the receiving bank to return your {amount} from {w.recipientName}&rsquo;s account. If they do, it goes back to your NGN balance.</p>
+      <p className="step-sub">We&rsquo;ll ask {w.recipientName}&rsquo;s bank to return your {amount}. If they do, it goes back to your NGN balance.</p>
       <div className="info-card">
         <div className="info-row"><span>Amount</span><span><Grey>{amount}</Grey></span></div>
         <div className="info-row"><span>To</span><span>{w.recipientSub}</span></div>

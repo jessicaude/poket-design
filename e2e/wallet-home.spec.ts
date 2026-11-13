@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * Wallet home (tWalletHome in reference/poket-unified.html). Demo balances: ₦50,000.00 NGN, $65.60 USD ($50.00 open,
  * $15.60 card-funded), no stablecoins, so the total is $97.86 USD (65.60 + 50,000 / 1,550). Recent activity: the
- * reference's three records, with Ada's seeded Checkout payments (WGT-12).
+ * reference’s three records, with Ada’s seeded Checkout payments (WGT-12).
  */
 
 const body = (page: Page) => page.locator("#panelBody");
@@ -39,7 +39,7 @@ test("actions: Send and Convert open their flows; Deposit isn't ported", async (
   await expect(page.locator("#sendFrom")).toHaveCount(0); // from the home: no source preselected
 });
 
-test("Stablecoins tab: coins by network, sorted by balance, with the day's drift on held coins", async ({ page }) => {
+test("Stablecoins tab: coins by network, sorted by balance, with the day’s drift on held coins", async ({ page }) => {
   await expect(page.locator('[data-wallettab="assets"]')).toHaveClass(/\bsel\b/);
   await expect(body(page).locator(".assets-header > span").first()).toHaveText("Stablecoins");
   const rows = body(page).locator('[data-holdtype="crypto"]');
@@ -107,12 +107,12 @@ test("rows open their balance screens: USD (with account details card and histor
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From US DollarFIAT-ONLY"); // this balance is the source
   await page.locator('[data-sendrecipient="bank:r6"]').click();
-  // Card-funded money can't pay naira: the amount starts on the NGN balance instead
+  // Card-funded money can’t pay naira: the amount starts on the NGN balance instead
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
   await page.locator("#backToPayoutRecipient2").click();
   await page.locator("#backFromSend").click();
   await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. Free to receive.›");
-  await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242", "Converted NGN to USD"]); // + Ada's seeded conversion to USD
+  await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242", "Converted NGN to USD"]); // + Ada’s seeded conversion to USD
   await page.locator("#detailConvert").click();
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USDFIAT-ONLY");
   await page.locator("#backHome").click();
@@ -137,13 +137,13 @@ test("rows open their balance screens: USD (with account details card and histor
   await expect(body(page)).toContainText("No USDC on Base activity yet.");
 });
 
-test("Recent activity: the latest four, newest first; View all opens the Activity tab; a record's detail", async ({ page }) => {
+test("Recent activity: the latest four, newest first; View all opens the Activity tab; a record’s detail", async ({ page }) => {
   const recent = page.locator("#recentActivity .tx-row");
-  // The reference's records, with Ada's seeded Checkout payment from 2 days ago (WGT-12) and her NGN top-up from a day ago among them
+  // The reference’s records, with Ada’s seeded Checkout payment from 2 days ago (WGT-12) and her NGN top-up from a day ago among them
   await expect(recent.locator(".tx-title")).toHaveText(["Refund · Kola Books", "Top-up · Bank transfer", "Mama Tee’s Kitchen", "Sooyah Bistro"]);
   await expect(recent.locator(".tx-amt")).toHaveText(["+$4.50 USD", "+₦11,500.00 NGN", "-₦65,100.00 NGN", "-$7.20 USD"]);
 
-  // A conversion now tops the list (from NGN: the reference's balances, with no open USD, so Convert starts on NGN)
+  // A conversion now tops the list (from NGN: the reference’s balances, with no open USD, so Convert starts on NGN)
   await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
   await page.getByLabel("Tier").selectOption("1");
   await page.locator("#actConvert").click();
@@ -157,7 +157,7 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   await page.locator("#viewAllTx").click();
   await expect(page.locator("#tabActivity")).toHaveClass(/\bon\b/);
   await expect(body(page).locator(".step-title")).toHaveText("Activity");
-  await expect(body(page).locator(".tx-row")).toHaveCount(16); // the reference's 3, Ada's 4 Checkout payments, her 8 seeded naira records, the conversion
+  await expect(body(page).locator(".tx-row")).toHaveCount(16); // the reference’s 3, Ada’s 4 Checkout payments, her 8 seeded naira records, the conversion
   await page.locator('[data-txid="t1"]').click();
   const rows = page.locator("#txDetail .info-row");
   await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "Currency", "Merchant", "Context", "Reference"]);

@@ -156,14 +156,14 @@ export function ComplianceScreen() {
       <div className="step-title">Compliance</div>
       <p className="step-sub">Your verification level sets how much you can move with Poket.</p>
       <div className="info-card"><div className="info-row"><span>Current level</span><span id="currentLevel">{tierName(tier)}</span></div></div>
-      {tier > 0 ? <TierLimitsCard tier={tier as 1 | 2 | 3} /> : <div className="info-card"><div className="info-row"><span>Status</span><span>No monetary activity until Tier 1</span></div></div>}
+      {tier > 0 ? <TierLimitsCard tier={tier as 1 | 2 | 3} /> : <div className="info-card"><div className="info-row"><span>Status</span><span>Verify your identity to raise your limits.</span></div></div>}
       <div className="info-card">
         <div className="info-row"><span>Spent today</span><span className="mono">{fmtCurrency(Math.round(spentToday() * 100), "USD")}</span></div>
         <div className="info-row"><span>Spent this month</span><span className="mono">{fmtCurrency(Math.round(spentThisMonth() * 100), "USD")}</span></div>
       </div>
       {next
         ? <button className="btn-primary" id="startStepupFromAccount" onClick={() => push({ name: "compliance-stepup" })}>Increase my limits ({TIERS[next as 1 | 2 | 3].name})</button>
-        : <div className="alert success"><Raw html={WICON.check} /><span>You&apos;re at Poket&apos;s highest verification level.</span></div>}
+        : <div className="alert success"><Raw html={WICON.check} /><span>You&rsquo;re at Poket&rsquo;s highest verification level.</span></div>}
     </>
   );
 }
@@ -208,7 +208,7 @@ export function InstantTransfersScreen() {
       <div className="select-row" style={{ cursor: "default" }}>
         <div className="meta">
           <div className="t1">Instant transfers to banks</div>
-          <div className="t2" id="instantExplain">Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it&apos;s off, you can&apos;t send to banks.</div>
+          <div className="t2" id="instantExplain">Send naira to Nigerian bank accounts in seconds, up to your daily limit. When it&rsquo;s off, you can&rsquo;t send to banks.</div>
         </div>
         <Switch id="instantSwitch" on={instantOn} label="Instant transfers to banks" onChange={toggle} />
       </div>
@@ -236,12 +236,12 @@ export function InstantTransfersScreen() {
       {next
         ? <span className="btn-ghost" id="instantRaiseTier" role="button" tabIndex={0} style={{ display: "inline-block", marginTop: "12px" }}
             onClick={() => push({ name: "compliance" })}>Raise your maximum: {TIERS[next as 1 | 2 | 3].name}</span>
-        : <p className="step-sub" style={{ marginTop: "12px" }}>You&apos;re at Poket&apos;s highest verification level.</p>}
+        : <p className="step-sub" style={{ marginTop: "12px" }}>You&rsquo;re at Poket&rsquo;s highest verification level.</p>}
       {confirmOff && (
         <div className="pk-sheet-scrim" id="instantOffSheet" onClick={(e) => { if (e.target === e.currentTarget) setConfirmOff(false); }}>
           <div className="pk-sheet" role="dialog" aria-modal="true" aria-labelledby="instantOffTitle">
             <div className="step-title" id="instantOffTitle">Turn off instant transfers?</div>
-            <p className="step-sub">Sends to Nigerian banks won&apos;t go until you turn them back on.</p>
+            <p className="step-sub">Sends to Nigerian banks won&rsquo;t go until you turn them back on.</p>
             <button className="btn-primary btn-danger" id="instantOffConfirm" onClick={() => { setInstantOn(false); setConfirmOff(false); }}>Turn off</button>
             <button className="btn-secondary" id="instantOffCancel" style={{ width: "100%", marginTop: "8px" }} onClick={() => setConfirmOff(false)}>Keep them on</button>
           </div>

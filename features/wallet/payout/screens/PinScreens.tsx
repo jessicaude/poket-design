@@ -94,11 +94,11 @@ export function PinResetOtpScreen() {
   return (
     <>
       <div className="step-eyebrow">Reset PIN</div>
-      <div className="step-title">Verify it is you</div>
+      <div className="step-title">Verify it&rsquo;s you</div>
       <p className="step-sub">Enter the 6-digit passcode sent to <strong>{email}</strong> before you can set a new PIN.</p>
       <DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={pinResetCode} />
       {otpError && <p className="inline-err">{otpError}</p>}
-      <p className="otp-hint">Did not get it? <button id="resend" onClick={() => setSent(true)}>{sent ? "Sent ✓" : "Resend passcode"}</button></p>
+      <p className="otp-hint">Didn&rsquo;t get it? <button id="resend" onClick={() => setSent(true)}>{sent ? "Sent ✓" : "Resend passcode"}</button></p>
     </>
   );
 }

@@ -1,13 +1,13 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
 /**
- * WGT-12, refunds and disputes. The demo user's (Ada Osun's) Checkout payments (three seeded, as the reference
- * does: Mama Tee's Kitchen ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago,
+ * WGT-12, refunds and disputes. The demo user’s (Ada Osun’s) Checkout payments (three seeded, as the reference
+ * does: Mama Tee’s Kitchen ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago,
  * Adire Market $65.00 by Visa 76 days ago), naira and dollar, card and bank
- * transfer, appear in Checkout's Poket account (Activity, pay-detail) and in the wallet's Activity (txRow, tTxDetail).
- * A payment to a store can be disputed for 60 days ("Raise a dispute", then tDispute's start and form); deposits,
- * top-ups, refunds, sends and conversions can't. Disputes are kept on the account: raised in one widget, open in both;
- * two use up the account's disputes. The wallet is reached from Checkout by the demo bar's link (no reload), so it
+ * transfer, appear in Checkout’s Poket account (Activity, pay-detail) and in the wallet’s Activity (txRow, tTxDetail).
+ * A payment to a store can be disputed for 60 days ("Raise a dispute", then tDispute’s start and form); deposits,
+ * top-ups, refunds, sends and conversions can’t. Disputes are kept on the account: raised in one widget, open in both;
+ * two use up the account’s disputes. The wallet is reached from Checkout by the demo bar’s link (no reload), so it
  * shares the one mock account.
  */
 
@@ -25,7 +25,7 @@ async function adaPays(page: Page, currency: "USD" | "NGN" = "USD") {
   await expect(widget.getByRole("heading", { name: /^Paid / })).toBeVisible();
   return widget;
 }
-/** Ada pays a naira order by bank transfer (a one-time account; the demo's transfer arrives). */
+/** Ada pays a naira order by bank transfer (a one-time account; the demo’s transfer arrives). */
 async function adaPaysByTransfer(page: Page) {
   await page.goto("/demo/ile-living");
   await page.getByLabel("Order currency").selectOption("NGN");
@@ -52,7 +52,7 @@ async function chooseReason(page: Page, scope: Locator | Page, short: string) {
   await scope.getByRole("radio", { name: short }).click();
 }
 
-test("Checkout: View receipt opens the payment's detail; the 60-day window; Activity lists it", async ({ page }) => {
+test("Checkout: View receipt opens the payment’s detail; the 60-day window; Activity lists it", async ({ page }) => {
   const widget = await adaPays(page);
   await widget.locator("#doneView").click();
   await expect(widget.locator("#pdAmount")).toHaveText(/\$23\.40\s*USD/);
@@ -79,9 +79,9 @@ test("Checkout: 'Your Poket' opens Activity; Home and Methods aren't ported", as
   await widget.locator("#payAcct").click();
   await expect(widget.getByRole("heading", { name: "Activity" })).toBeVisible();
   await expect(widget.locator(".tx-group").first()).toHaveText(new Date().toLocaleDateString("en-US", { month: "long" }));
-  // The new payment first, then Ada's three seeded ones (as the reference seeds them)
+  // The new payment first, then Ada’s three seeded ones (as the reference seeds them)
   const rows = widget.locator("[data-pay]");
-  // Ada's seeded payments, with last month's naira bank transfer to Mama Tee's Kitchen (its refund is in her NGN history)
+  // Ada’s seeded payments, with last month’s naira bank transfer to Mama Tee’s Kitchen (its refund is in her NGN history)
   await expect(rows.locator(".tx-title")).toHaveText(["Ilé Living", "Mama Tee’s Kitchen", "Ilé Living", "Mama Tee’s Kitchen", "Adire Market"]);
   await expect(rows.locator(".tx-amt")).toHaveText(["-$23.40", "-₦65,100.00", "-₦36,270.00", "-₦7,000.00", "-$65.00"]);
   await expect(rows.nth(1).locator(".tx-sub")).toContainText("Verve ••• 6011");
@@ -159,7 +159,7 @@ test("Checkout: raise a dispute: start, the form (only the reason is required), 
   await expect(widget.locator("#pdDispute")).toHaveCount(0);
 });
 
-test("wallet: Ada's Checkout payments (dollar card, naira converted, naira bank transfer) appear in Activity, with the reference's detail", async ({ page }) => {
+test("wallet: Ada’s Checkout payments (dollar card, naira converted, naira bank transfer) appear in Activity, with the reference’s detail", async ({ page }) => {
   // A naira order by bank transfer, then (same page, no reload) a dollar order by card
   const w = await adaPaysByTransfer(page);
   await w.getByRole("button", { name: /^Back to / }).click();
@@ -171,14 +171,14 @@ test("wallet: Ada's Checkout payments (dollar card, naira converted, naira bank 
 
   await page.locator("#tabActivity").click();
   const rows = walletRow(page);
-  // The two new payments, newest first, then Ada's three seeded ones
+  // The two new payments, newest first, then Ada’s three seeded ones
   await expect(rows.locator(".tx-title")).toHaveText(["Ilé Living", "Ilé Living", "Mama Tee’s Kitchen", "Ilé Living", "Mama Tee’s Kitchen", "Adire Market"]);
   await expect(rows.locator(".tx-sub").first()).toHaveText("Merchant payment · Ilé Living");
   await expect(rows.locator(".tx-amt")).toHaveText(["-$23.40 USD", "-₦36,270.00 NGN", "-₦65,100.00 NGN", "-₦36,270.00 NGN", "-₦7,000.00 NGN", "-$65.00 USD"]);
   await rows.nth(1).click();
   await expect(page.locator("#paymentAmount")).toHaveText("₦36,270.00 NGN");
   await expect(detailRow(page, "Status")).toContainText("Completed");
-  // WGT-11's rows: a naira bank transfer names no account to come from, and has the bank's session ID
+  // WGT-11's rows: a naira bank transfer names no account to come from, and has the bank’s session ID
   await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "To", "Method", "Reference", "Session ID"]);
   await expect(detailRow(page, "To")).toContainText("Ilé Living");
   await expect(detailRow(page, "Method")).toContainText("Bank transfer");
@@ -198,7 +198,7 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await expect(body.locator(".info-card .info-row").first()).toHaveText(/Ilé Living\s*₦36,270\.00 NGN/);
   await expect(body.locator(".settings-row-title")).toHaveText(["Up to 14 days to resolve", "Refunds go to your balance"]);
   await page.locator("#disputeStart").click();
-  await expect(body.locator(".step-sub").first()).toHaveText("About your ₦36,270.00 NGN payment to Ilé Living.");
+  await expect(body.locator(".step-sub").first()).toHaveText("About your ₦36,270.00 payment to Ilé Living.");
   await expect(page.locator("#extReviewDispute")).toHaveText("Choose a reason to continue");
   await expect(body.locator(".ud-chip")).toHaveText(["Not received", "Not as described", "Charged twice", "Didn’t authorise", "Other"]);
   await chooseReason(page, body, "Charged twice");
@@ -226,10 +226,10 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await walletRow(page).first().click();
   await expect(page.locator("#disputeChip")).toHaveText("Open · under review");
   await expect(detailRow(page, "Status")).toContainText("Dispute open");
-  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 NGN held while we review.");
+  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 held while we review.");
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
 
-  // Checkout's account shows it open
+  // Checkout’s account shows it open
   await page.locator("#demoToCheckout").click();
   await page.getByLabel("Customer", { exact: true }).selectOption("returning");
   await page.locator("#payWithPoket").click();
@@ -238,7 +238,7 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await expect(widget.locator("[data-pay] .tx-sub").first()).toContainText("· Dispute open");
 });
 
-test("the 60-day window: 59 days ago, 1 more day; 61 days ago, closed with the reference's note", async ({ page }) => {
+test("the 60-day window: 59 days ago, 1 more day; 61 days ago, closed with the reference’s note", async ({ page }) => {
   await adaPays(page);
   await toWallet(page);
   // The new payment (the account lists it first): made 59, then 61 days ago
@@ -254,7 +254,7 @@ test("the 60-day window: 59 days ago, 1 more day; 61 days ago, closed with the r
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
   await expect(page.locator("#disputeClosed")).toHaveText("Disputes can be raised up to 60 days after payment. This payment was 61 days ago, so contact Ilé Living directly or reach Poket support.");
 
-  // Checkout's detail too
+  // Checkout’s detail too
   await page.locator("#demoToCheckout").click();
   await page.getByLabel("Customer", { exact: true }).selectOption("returning");
   await page.locator("#payWithPoket").click();
@@ -265,7 +265,7 @@ test("the 60-day window: 59 days ago, 1 more day; 61 days ago, closed with the r
   await expect(widget.locator("#pdClosed")).toContainText("This payment was 61 days ago");
 });
 
-test("no dispute option on deposits, top-ups, refunds, sends or conversions; the wallet's demo payment has one", async ({ page }) => {
+test("no dispute option on deposits, top-ups, refunds, sends or conversions; the wallet’s demo payment has one", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.locator("#tabActivity").click();
   for (const id of ["t1", "t3"]) { // a refund, a card top-up
@@ -279,7 +279,7 @@ test("no dispute option on deposits, top-ups, refunds, sends or conversions; the
   await expect(page.locator("#disputeWindow")).toHaveText("You can raise a dispute for 57 more days.");
   await page.locator("#backFromTxDetail").click();
 
-  // A send's status and a conversion's receipt: no dispute
+  // A send’s status and a conversion’s receipt: no dispute
   await page.locator("#tabHome").click();
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#actSend").click();
@@ -297,7 +297,7 @@ test("no dispute option on deposits, top-ups, refunds, sends or conversions; the
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
 });
 
-test("two disputes use up the account's disputes: the third says it can't be raised", async ({ page }) => {
+test("two disputes use up the account’s disputes: the third says it can’t be raised", async ({ page }) => {
   await page.goto("/demo/wallet");
   await expect(page.locator("#actSend")).toBeVisible();
   await page.waitForFunction(() => !!(window as any).__account?.getState().account);
@@ -321,12 +321,12 @@ test("two disputes use up the account's disputes: the third says it can't be rai
   await page.locator("#backFromTxDetail").click();
   await walletRow(page).click();
   await page.locator("#extRaiseDispute").click();
-  await expect(page.locator("#panelBody .step-title")).toHaveText("You can't raise a dispute right now");
+  await expect(page.locator("#panelBody .step-title")).toHaveText("You can’t raise a dispute right now");
   await expect(page.locator("#panelBody")).toContainText("Account restricted");
   await expect(page.locator("#disputeStart")).toHaveCount(0);
 });
 
-test("seeds: Ada's three Checkout payments; the dollar one from 76 days ago is outside the window", async ({ page }) => {
+test("seeds: Ada’s three Checkout payments; the dollar one from 76 days ago is outside the window", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.locator("#tabActivity").click();
   await page.locator('[data-payment="pay_mtk2291"]').click();
@@ -349,7 +349,7 @@ test("wallet: Merchant refunds part, then the rest, of a naira card payment: Par
   const before = await ngn();
   await page.locator("#tabActivity").click();
   await page.locator('[data-payment="pay_mtk2291"]').click();
-  await page.locator("#demoRefundPart").click(); // half of what's left: ₦32,550.00
+  await page.locator("#demoRefundPart").click(); // half of what’s left: ₦32,550.00
   await expect(detailRow(page, "Status")).toContainText("Partly refunded");
   await expect(detailRow(page, "Refunded")).toContainText("₦32,550.00 NGN");
   await expect(page.locator("#extRaiseDispute")).toBeVisible(); // part refunded: still disputable
@@ -360,9 +360,9 @@ test("wallet: Merchant refunds part, then the rest, of a naira card payment: Par
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
   await expect(page.locator("#demoRefundFull")).toBeDisabled();
   await expect(page.locator("#demoRefundPart")).toBeDisabled();
-  // Mama Tee's Kitchen isn't the demo's merchant (Ilé Living): its events don't reach this one
+  // Mama Tee’s Kitchen isn’t the demo’s merchant (Ilé Living): its events don’t reach this one
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toHaveCount(0);
-  expect(await ngn()).toBe(before); // a card refund doesn't touch the NGN balance
+  expect(await ngn()).toBe(before); // a card refund doesn’t touch the NGN balance
 
   await page.locator("#backFromTxDetail").click();
   const refunds = page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk'])");
@@ -397,8 +397,8 @@ test("wallet: a naira bank-transfer payment refunds to the NGN balance, with a n
   await expect(page.locator("#refundNote")).toHaveText("Added to your NGN balance.");
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif]").first()).toContainText("Refund received");
-  await expect(page.locator("#panelBody [data-notif]").first()).toContainText("₦36,270.00 NGN from Ilé Living added to your NGN balance.");
-  // It shows in the NGN balance's history too
+  await expect(page.locator("#panelBody [data-notif]").first()).toContainText("₦36,270.00 from Ilé Living added to your NGN balance.");
+  // It shows in the NGN balance’s history too
   await page.locator("#extBackHome").click();
   await page.locator("#tabHome").click();
   await page.locator('[data-wallettab="cash"]').click();
@@ -406,7 +406,7 @@ test("wallet: a naira bank-transfer payment refunds to the NGN balance, with a n
   await expect(page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk']) .tx-title")).toHaveText("Refund · Ilé Living");
 });
 
-test("Checkout: the DEMO pill's Merchant refunds on a payment's detail; Refunded; the refund row and receipt; the wallet credits a naira refund", async ({ page }) => {
+test("Checkout: the DEMO pill’s Merchant refunds on a payment’s detail; Refunded; the refund row and receipt; the wallet credits a naira refund", async ({ page }) => {
   await page.goto("/demo/ile-living");
   await page.getByLabel("Customer", { exact: true }).selectOption("returning");
   await page.locator("#payWithPoket").click();
@@ -423,7 +423,7 @@ test("Checkout: the DEMO pill's Merchant refunds on a payment's detail; Refunded
   await expect(widget.locator("#pdRefunded")).toHaveText("$65.00 to Visa ••• 4242");
   await expect(widget.locator("#pdClosed")).toHaveCount(0);
   await expect(page.locator("#demoBtn")).toHaveCount(0); // nothing left to refund
-  await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toHaveCount(0); // Adire Market's, not Ilé Living's
+  await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toHaveCount(0); // Adire Market’s, not Ilé Living’s
 
   // Part of the naira bank transfer: Partly refunded, to the NGN balance
   await widget.locator("#pdBack").click();
@@ -455,7 +455,7 @@ test("Checkout: the DEMO pill's Merchant refunds on a payment's detail; Refunded
   await page.locator("#demoToWallet").click();
   await expect(page.locator("#actSend")).toBeVisible();
   const ngn = await page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
-  expect(ngn).toBe(5000000 + 1813500); // the demo's ₦50,000.00 + the refund
+  expect(ngn).toBe(5000000 + 1813500); // the demo’s ₦50,000.00 + the refund
   await page.locator("#tabActivity").click();
   await expect(page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk']) .tx-title")).toHaveText(["Refund · Ilé Living", "Refund · Adire Market"]);
 });
@@ -471,7 +471,7 @@ test("Checkout: a card payment to Ilé Living refunded in full: Refunded, no dis
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.refunded" })).toContainText('"amount":2340,"currency":"USD","full":true,"refunded_to":"card"');
 });
 
-/** A dispute already raised on one of Ada's payments (wallet page). */
+/** A dispute already raised on one of Ada’s payments (wallet page). */
 async function disputed(page: Page, id: string) {
   await page.waitForFunction(() => !!(window as any).__ngn && !!(window as any).__account?.getState().account);
   await page.evaluate((pid) => (window as any).__account.getState().update((a: any) => ({ ...a,
@@ -480,7 +480,7 @@ async function disputed(page: Page, id: string) {
 const notes = (page: Page) => page.locator("#panelBody [data-notif]");
 const events = (page: Page, type: string) => page.getByTestId("events").locator("li", { hasText: type });
 
-test("resolve: refund. A naira bank transfer's dispute refunded to the NGN balance; the merchant and the user are told; it can't be reopened", async ({ page }) => {
+test("resolve: refund. A naira bank transfer’s dispute refunded to the NGN balance; the merchant and the user are told; it can’t be reopened", async ({ page }) => {
   await page.goto("/demo/wallet");
   await disputed(page, "pay_ilv10077");
   const ngn = () => page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
@@ -488,38 +488,38 @@ test("resolve: refund. A naira bank transfer's dispute refunded to the NGN balan
   await page.locator("#tabActivity").click();
   await page.locator('[data-payment="pay_ilv10077"]').click();
   await expect(detailRow(page, "Status")).toContainText("Dispute open");
-  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 NGN held while we review.");
-  await expect(page.locator("#demoRefundFull")).toHaveCount(0); // while a dispute is open, it's resolved instead
+  await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 held while we review.");
+  await expect(page.locator("#demoRefundFull")).toHaveCount(0); // while a dispute is open, it’s resolved instead
   await page.locator("#demoResolveRefund").click();
   await expect(detailRow(page, "Status")).toContainText("Refunded");
   await expect(page.locator("#disputeHeld")).toHaveCount(0);
-  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // can't be reopened
+  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // can’t be reopened
   await expect(page.locator("#demoResolveRefund")).toHaveCount(0);
   await expect.poll(ngn).toBe(before + 3627000);
   await expect(events(page, "payment.dispute_resolved")).toContainText('"poket_reference":"pay_ilv10077","outcome":"refund","amount":3627000,"currency":"NGN"');
   await expect(events(page, "payment.refunded")).toContainText('"refunded_to":"ngn_balance"');
   await page.locator("#openNotifHeader").click();
-  await expect(notes(page)).toHaveCount(1); // the resolution's, not a separate "Refund received"
-  await expect(notes(page).first()).toContainText("Dispute resolved in your favor");
-  await expect(notes(page).first()).toContainText("₦36,270.00 NGN was added to your NGN balance.");
+  await expect(notes(page)).toHaveCount(1); // the resolution’s, not a separate "Refund received"
+  await expect(notes(page).first()).toContainText("Dispute resolved");
+  await expect(notes(page).first()).toContainText("₦36,270.00 from Ilé Living added to your NGN balance.");
 });
 
-test("resolve: release. Closed, the merchant keeps it, with the reason line; can't be reopened; no event for another merchant's payment", async ({ page }) => {
+test("resolve: release. Closed, the merchant keeps it, with the reason line; can’t be reopened; no event for another merchant’s payment", async ({ page }) => {
   await page.goto("/demo/wallet");
   await disputed(page, "pay_mtk2291");
   await page.locator("#tabActivity").click();
   await page.locator('[data-payment="pay_mtk2291"]').click();
-  await expect(page.locator("#disputeHeld")).toHaveText("₦65,100.00 NGN held while we review.");
+  await expect(page.locator("#disputeHeld")).toHaveText("₦65,100.00 held while we review.");
   await page.locator("#demoResolveRelease").click();
   await expect(detailRow(page, "Status")).toContainText("Dispute closed");
   await expect(page.locator("#disputeReleased")).toHaveText("Dispute closed. Mama Tee’s Kitchen keeps the payment. Reason: [reason].");
   await expect(page.locator("#disputeHeld")).toHaveCount(0);
-  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // within the window, but resolved: can't be reopened
+  await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // within the window, but resolved: can’t be reopened
   await expect(page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk'])")).toHaveCount(0);
-  await expect(events(page, "payment.dispute_resolved")).toHaveCount(0); // Mama Tee’s Kitchen isn't the demo's merchant
+  await expect(events(page, "payment.dispute_resolved")).toHaveCount(0); // Mama Tee’s Kitchen isn’t the demo’s merchant
   await page.locator("#openNotifHeader").click();
   await expect(notes(page).first()).toContainText("Dispute closed");
-  await expect(notes(page).first()).toContainText("We couldn’t resolve your dispute with Mama Tee’s Kitchen in your favor.");
+  await expect(notes(page).first()).toContainText("Mama Tee’s Kitchen keeps your ₦65,100.00 payment.");
 });
 
 test("resolve: reversal. A naira bank transfer goes back to the bank account that paid, not the NGN balance", async ({ page }) => {
@@ -534,7 +534,7 @@ test("resolve: reversal. A naira bank transfer goes back to the bank account tha
   await expect(detailRow(page, "Reversed")).toContainText("₦36,270.00 NGN");
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
   await expect(events(page, "payment.dispute_resolved")).toContainText('"outcome":"reversal","amount":3627000');
-  await expect(events(page, "payment.refunded")).toHaveCount(0); // a reversal isn't a merchant refund
+  await expect(events(page, "payment.refunded")).toHaveCount(0); // a reversal isn’t a merchant refund
   await page.waitForTimeout(300);
   expect(await ngn()).toBe(before);
   await page.locator("#backFromTxDetail").click();
@@ -546,18 +546,18 @@ test("resolve: reversal. A naira bank transfer goes back to the bank account tha
   await expect(detailRow(page, "Session ID")).toContainText("[session ID]");
   await expect(page.locator("#refundNote")).toHaveText("Back to the bank account that paid in [refund time]");
   await page.locator("#openNotifHeader").click();
-  await expect(notes(page).first()).toContainText("Dispute resolved: payment reversed");
-  await expect(notes(page).first()).toContainText("₦36,270.00 NGN is on its way back to the bank account that paid.");
+  await expect(notes(page).first()).toContainText("Payment reversed");
+  await expect(notes(page).first()).toContainText("₦36,270.00 from Ilé Living is on its way back to the bank account that paid.");
 });
 
-test("Checkout: raise a dispute, then the DEMO pill's three resolutions; reversal back to the card; the wallet's notification", async ({ page }) => {
+test("Checkout: raise a dispute, then the DEMO pill’s three resolutions; reversal back to the card; the wallet’s notification", async ({ page }) => {
   const widget = await adaPays(page);
   await widget.locator("#doneView").click();
   await widget.locator("#pdDispute").click();
   await widget.locator("#dispStart").click();
   await chooseReason(page, widget, "Didn’t authorise");
   await expect(widget.locator(".infobox")).toContainText("If you don’t recognise this payment");
-  await widget.locator("#dispDescription").fill("I didn't make this payment.");
+  await widget.locator("#dispDescription").fill("I didn’t make this payment.");
   await widget.locator("#dispReview").click();
   await widget.locator("#dispSubmit").click();
   await expect(events(page, "payment.dispute_opened")).toContainText('"reason":"unauthorised"');
@@ -582,12 +582,12 @@ test("Checkout: raise a dispute, then the DEMO pill's three resolutions; reversa
   await expect(widget.locator("#rdReceipt .receipt-row", { hasText: "Reversed to" })).toContainText("Visa ••• 4242");
   await expect(widget.locator("#rdNote")).toHaveText("Back to Visa ••• 4242 in [refund time]");
 
-  // The user is told in the wallet (the account's notifications)
+  // The user is told in the wallet (the account’s notifications)
   await page.keyboard.press("Escape");
   await page.locator("#demoToWallet").click();
   await page.locator("#openNotifHeader").click();
-  await expect(notes(page).first()).toContainText("Dispute resolved: payment reversed");
-  await expect(notes(page).first()).toContainText("$23.40 USD is on its way back to Visa ••• 4242.");
+  await expect(notes(page).first()).toContainText("Payment reversed");
+  await expect(notes(page).first()).toContainText("$23.40 from Ilé Living is on its way back to Visa ••• 4242.");
 });
 
 test("Checkout: Resolve: release shows the reason line; Resolve: refund refunds to the card", async ({ page }) => {

@@ -61,7 +61,7 @@ test("Tier 0: bank transfer > amount > temporary account > transfer arrives > do
   await expect(body.locator(".step-title")).toHaveText("Transfer received");
   await expect(body.locator(".step-sub")).toHaveText("Adding ₦25,000.00 NGN to your balance.");
   await expect(body.locator(".step-title")).toHaveText("₦25,000.00 NGN added");
-  await expect(body.locator(".step-sub")).toHaveText("It's in your NGN balance.");
+  await expect(body.locator(".step-sub")).toHaveText("It’s in your NGN balance.");
   expect(await page.evaluate(() => (window as any).__ngn.getState().ngnBalance)).toBe(7500000); // eslint-disable-line @typescript-eslint/no-explicit-any
   await page.locator("#ngnDone").click();
   await page.locator('[data-wallettab="cash"]').click(); // back on the wallet home; NGN is under Cash
@@ -75,7 +75,7 @@ test("the temporary account expires after 30 minutes; 'Create a new one' keeps t
   await page.clock.fastForward("30:01");
   const body = page.locator("#panelBody");
   await expect(body.locator(".step-title")).toHaveText("This temporary account expired");
-  await expect(body.locator(".step-sub")).toHaveText("Create a new one to add naira. Don't send to the old account number.");
+  await expect(body.locator(".step-sub")).toHaveText("Create a new one to add naira. Don’t send to the old account number.");
   await page.locator("#ngnTempAgain").click();
   await expect(body.locator(".step-title")).toHaveText("Add naira");
   await expect(page.locator("#ngnAmt")).toHaveValue("₦5,000.00");

@@ -3,7 +3,7 @@ import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Send's amount screen: "You send" (the balance chip and Max), "They get" in the recipient's currency, inline
+ * Send’s amount screen: "You send" (the balance chip and Max), "They get" in the recipient’s currency, inline
  * conversion with the quote card. Demo balances: ₦50,000.00 NGN, $65.60 USD ($50.00 open, $15.60 card-funded), no
  * stablecoins.
  */
@@ -58,7 +58,7 @@ test("the chip only offers balances that can pay: no card-funded money for a Nig
   await expect(page.locator("#panelBody .step-title")).toHaveText("Send from");
   await expect(chipOptions(page).locator(".t1")).toHaveText(["US Dollar", "Nigerian Naira", "USDC · Base"]); // open USD converts inline
   await expect(chipOptions(page).locator(".t2")).toHaveText(["Available $50.00 USD", "Available ₦50,000.00 NGN", "Available 10.00 USDC"]);
-  // Not offered: card-funded USD (it can't become naira)
+  // Not offered: card-funded USD (it can’t become naira)
   await expect(page.locator('[data-payfrom="cash:USD:fiat"]')).toHaveCount(0);
   await expect(page.locator('[data-payfrom="cash:NGN:open"]')).toHaveClass(/\bsel\b/);
 });
@@ -91,7 +91,7 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   await page.clock.runFor(600);
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "You send", "Rate", "Network", "Fee", "Arrives", "Debited from balance"]);
-  await expect(rows.filter({ hasText: "Network" }).locator(".r-value")).toHaveText("Base"); // the paying coin's
+  await expect(rows.filter({ hasText: "Network" }).locator(".r-value")).toHaveText("Base"); // the paying coin’s
   await expect(page.locator("#confirmPayout")).toHaveText("Send 10.00 USDC");
   await expect(rows.filter({ hasText: "You send" }).locator(".r-value")).toHaveText("10.00 USDC");
   await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("10.00 USDC + [fee] USDC");
@@ -156,14 +156,14 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   await expect(page.locator("#panelBody")).toContainText("First payment to a new account sends after [hold]");
   await approve(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Jordan Blake after [hold]");
-  // Taken from open USD until it's paid, given back if it fails
+  // Taken from open USD until it’s paid, given back if it fails
   await expect.poll(() => usd(page)).toEqual({ usd: 5560, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Scheduled");
   await expect(page.locator("#panelBody .step-title")).toHaveText("$10.00 USD");
   await page.getByRole("button", { name: "Release first-payment hold" }).click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
-  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // the US bank's own arrival, not the naira one
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // the US bank’s own arrival, not the naira one
   await page.getByRole("button", { name: "Fail", exact: true }).click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
   await expect.poll(() => usd(page)).toEqual({ usd: 6560, fiat: 1560 });
@@ -173,7 +173,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await page.goto("/demo/wallet?send=card");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#cardNum").fill("4242424242424242");
-  await page.locator("#cardName").fill("Kemi Adeyemi"); // someone else's card
+  await page.locator("#cardName").fill("Kemi Adeyemi"); // someone else’s card
   await page.locator("#cardZip").fill("10001");
   await page.locator("#cardContinue").click();
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
@@ -196,7 +196,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await expect.poll(() => usd(page)).toEqual({ usd: 4060, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
-  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("Instantly"); // the card's own arrival
+  await expect(page.locator("#withdrawalStatusMsg")).toHaveText("Instantly"); // the card’s own arrival
 });
 
 test("USD to a Nigerian bank: converts inline at the quote; one record; the naira reserved", async ({ page }) => {
@@ -205,7 +205,7 @@ test("USD to a Nigerian bank: converts inline at the quote; one record; the nair
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await sendTo(page, "bank:lb2"); // Naira account, paid before
   await page.locator("#payFromChip").click();
-  await expect(page.locator('[data-payfrom="cash:USD:fiat"]')).toHaveCount(0); // card-funded money can't become naira
+  await expect(page.locator('[data-payfrom="cash:USD:fiat"]')).toHaveCount(0); // card-funded money can’t become naira
   await page.locator('[data-payfrom="cash:USD:open"]').click();
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
   await keys(page, "1000"); // under the demo step-up (₦20,000.00)
@@ -247,7 +247,7 @@ test("a balance screen preselects its balance when it can pay the recipient", as
   await expect(page.locator("#cvQuoteCard")).toBeVisible();
 });
 
-test("keypad: hidden until You send's amount is tapped; Done or a tap elsewhere hides it; Review sits under the amounts", async ({ page }) => {
+test("keypad: hidden until You send’s amount is tapped; Done or a tap elsewhere hides it; Review sits under the amounts", async ({ page }) => {
   await page.goto("/demo/wallet");
   await expect(page.locator("#actSend")).toBeVisible();
   await sendTo(page, "bank:r6");

@@ -58,7 +58,7 @@ export function AccountDetailsScreen() {
     a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     a.download = "poket-ngn-account-confirmation.html";
     a.click();
-    showNotice("Confirmation letter downloaded", `NGN account in ${name}'s name.`, 2600);
+    showNotice("Confirmation letter downloaded", `NGN account in ${name}’s name.`, 2600);
   };
 
   return (

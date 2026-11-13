@@ -30,7 +30,7 @@ export function AddMethodScreen() {
     rails = [
       ...(a?.ngnCard ? [{ id: "ngn-card", icon: CARD_TILE, title: "Card", sub: "Nigerian debit or credit card" }] : []),
       // WGT-13: while the naira partner is down, it's shown Paused and can't be chosen (naira cards still work)
-      ...(a?.ngnBank ? [{ id: "ngn-bank", icon: BANK_TILE, title: "Bank transfer", sub: "Pay into an account we show you", paused: partnerDown }] : []),
+      ...(a?.ngnBank ? [{ id: "ngn-bank", icon: BANK_TILE, title: "Bank transfer", sub: partnerDown ? "Paused for now. Pay by card instead." : "Pay into an account we show you", paused: partnerDown }] : []),
       ...(a?.conversion ? USD_RAILS.map((r) => ({ ...r, converted: true })) : []),
     ];
   }

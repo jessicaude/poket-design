@@ -13,7 +13,7 @@ export function TempExpiredScreen() {
       <div className="center-col" style={{ paddingTop: "20px" }}>
         <div className="check-circle" style={{ background: "var(--surface)", color: "var(--txt2)" }}><Raw html={WICON.info} /></div>
         <div className="step-title">This temporary account expired</div>
-        <p className="step-sub">Create a new one to add naira. Don&apos;t send to the old account number.</p>
+        <p className="step-sub">Create a new one to add naira. Don&rsquo;t send to the old account number.</p>
       </div>
       <button className="btn-primary" id="ngnTempAgain" onClick={tempAgain}>Create a new one</button>
     </>

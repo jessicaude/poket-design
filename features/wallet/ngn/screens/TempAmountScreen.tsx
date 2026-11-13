@@ -15,7 +15,7 @@ export function TempAmountScreen() {
     <>
       <VaBack />
       <div className="step-title">Add naira</div>
-      <p className="step-sub">We&apos;ll create a temporary account for this amount.</p>
+      <p className="step-sub">We&rsquo;ll create a temporary account for this amount.</p>
       <label className="field-label" htmlFor="ngnAmt">Amount</label>
       <input
         className="field-input mono" id="ngnAmt" inputMode="decimal" placeholder={"₦0.00"} value={text}

@@ -84,7 +84,7 @@ export function ReviewScreen() {
       )}
       <label style={{ display: "flex", alignItems: "flex-start", gap: "8px", margin: "2px 0 4px", cursor: "pointer" }}>
         <input type="checkbox" id="payoutAckCheck" style={{ marginTop: "3px" }} checked={ack} onChange={(e) => setAck(e.target.checked)} />
-        <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&apos;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
+        <span style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I&rsquo;ve reviewed the destination, fee, and {isSelf ? "arrival" : "delivery"} estimate above.</span>
       </label>
       <SpinButton id="confirmPayout" disabled={!ack || (s.converting && quoteExpired) || partnerPaused} delay={500} onClick={confirm}>{`Send ${cvFmt(payCents, src)}`}</SpinButton>
     </>

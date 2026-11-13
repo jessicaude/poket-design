@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * Demo bar "Single active device: Off / On" (to confirm: not in the PRD). On: binding a new device signs out the other
  * one, so Security lists only this device. The signed-out device (demo "Sign in on another device") is asked to sign
- * in again on its next tap; signed in again, it's a new device until it confirms itself.
+ * in again on its next tap; signed in again, it’s a new device until it confirms itself.
  */
 
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
@@ -14,7 +14,7 @@ async function start(page: Page, device: "known" | "new", single: "on" | "off") 
   await page.getByLabel("This device").selectOption(device);
   await page.getByLabel("Single active device").selectOption(single);
 }
-/** A ₦5,000.00 bank send, as far as review's Send. */
+/** A ₦5,000.00 bank send, as far as review’s Send. */
 async function toSend(page: Page) {
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
@@ -64,14 +64,14 @@ test("on, a known device: switching it on alone signs no one out", async ({ page
   await expect(await devices(page)).toHaveText(["This device", "Chrome · MacBook Air"]);
 });
 
-test("the other device's side: its next tap asks it to sign in again, and nothing else happens", async ({ page }) => {
+test("the other device’s side: its next tap asks it to sign in again, and nothing else happens", async ({ page }) => {
   await start(page, "known", "off");
   await expect(page.locator("#demoOtherDeviceBinds")).toHaveCount(0); // only with a single active device
   await page.getByLabel("Single active device").selectOption("on");
   await page.locator("#demoOtherDeviceBinds").click();
   await expect(page.locator("#demoOtherDeviceBinds")).toHaveCount(0);
 
-  // The screen as it was, until the next tap: that tap doesn't open Send
+  // The screen as it was, until the next tap: that tap doesn’t open Send
   await expect(page.locator("#actSend")).toBeVisible();
   await page.locator("#actSend").click();
   await expect(page.locator("#signedOut .step-title")).toHaveText("You’ve been signed out");

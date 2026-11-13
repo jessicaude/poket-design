@@ -39,7 +39,7 @@ test("bank picker: 12 banks, searchable; Back returns to the account step", asyn
   await expect(title(page)).toHaveText("Add a bank account");
 });
 
-test("matched: the name is the user's, so it's saved as their own account", async ({ page }) => {
+test("matched: the name is the user’s, so it’s saved as their own account", async ({ page }) => {
   await openAccountStep(page);
   await pickBank(page, "zen", "Zenith Bank");
   const save = page.locator("#ngnAcctSave");
@@ -54,7 +54,7 @@ test("matched: the name is the user's, so it's saved as their own account", asyn
   await expect(save).toHaveText("Add account");
   await save.click();
 
-  // Straight on to the amount; back in Send it's listed under Your accounts
+  // Straight on to the amount; back in Send it’s listed under Your accounts
   await expect(page.locator("#sendToTitle")).toHaveText("Send to Ada Osun"); // your own account: its whole name
   await page.locator("#backToPayoutRecipient2").click();
   const mine = page.locator("#panelBody .field-label", { hasText: "Your accounts" });
@@ -74,11 +74,11 @@ test("different name: shown, and it must be confirmed as a third-party payee", a
   await expect(name).not.toHaveText("");
   const payee = (await name.textContent())!;
   expect(payee).not.toBe("Ada Osun");
-  await expect(page.locator("#panelBody .alert.warn")).toHaveText(`This account isn't in your name. Only continue if you mean to pay ${payee}.`);
+  await expect(page.locator("#panelBody .alert.warn")).toHaveText(`This account isn’t in your name. Only continue if you mean to pay ${payee}.`);
   const save = page.locator("#ngnAcctSave");
   await expect(save).toHaveText("Add recipient");
   await expect(save).toBeDisabled();
-  await page.getByLabel(`I'm paying ${payee}, not my own account`).check();
+  await page.getByLabel(`I’m paying ${payee}, not my own account`).check();
   await save.click();
 
   // Straight on to the amount: the fee is the placeholder, not a number
@@ -94,7 +94,7 @@ test("not found: 'Check the bank and account number'; editing the number clears 
   await openAccountStep(page);
   await pickBank(page, "uba", "UBA");
   await page.locator("#ngnAcctInput").fill("1234500000");
-  await expect(page.locator("#panelBody .field-err")).toHaveText("Check the bank and account number");
+  await expect(page.locator("#panelBody .field-err")).toHaveText("We couldn’t find this account. Check the bank and account number.");
   await expect(page.locator("#ngnAcctInput")).toHaveAttribute("aria-invalid", "true");
   await expect(page.locator("#ngnAcctSave")).toBeDisabled();
   await page.locator("#ngnAcctInput").press("Backspace");
@@ -106,19 +106,19 @@ test("not found: 'Check the bank and account number'; editing the number clears 
 test("number first, then bank: the enquiry runs once both are in; changing bank re-checks", async ({ page }) => {
   await openAccountStep(page);
   await page.locator("#ngnAcctInput").fill("1234500000");
-  await expect(page.locator("#panelBody .field-hint")).toHaveText("Choose the bank to check the account name.");
+  await expect(page.locator("#panelBody .field-hint")).toHaveText("Choose the bank. We check the name on the account.");
   await pickBank(page, "wema", "Wema Bank");
-  await expect(page.locator("#panelBody .field-err")).toHaveText("Check the bank and account number");
+  await expect(page.locator("#panelBody .field-err")).toHaveText("We couldn’t find this account. Check the bank and account number.");
   await expect(page.locator("#ngnAcctInput")).toHaveValue("1234500000");
 });
 
-test("lookup unavailable: can't add the account; Try again once it's back", async ({ page }) => {
+test("lookup unavailable: can’t add the account; Try again once it’s back", async ({ page }) => {
   await openAccountStep(page);
   await page.getByLabel("Name enquiry").selectOption("down");
   await pickBank(page, "access", "Access Bank");
   await page.locator("#ngnAcctInput").fill("0123456789");
   const alert = page.locator("#panelBody .alert.warn");
-  await expect(alert).toHaveText("We can't check account names right now. Try again");
+  await expect(alert).toHaveText("We can’t check the name on the account right now. Try again");
   await expect(page.locator("#ngnAcctSave")).toBeDisabled();
   await page.getByLabel("Name enquiry").selectOption("up");
   await page.locator("#ngnEnquiryRetry").click();

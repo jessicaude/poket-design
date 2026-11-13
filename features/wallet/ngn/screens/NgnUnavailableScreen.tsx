@@ -13,7 +13,7 @@ export function NgnUnavailableScreen() {
       <VaBack />
       <div className="center-col" style={{ paddingTop: "20px" }}>
         <div className="check-circle" style={{ background: "var(--surface)", color: "var(--txt2)" }}><Raw html={WICON.info} /></div>
-        <div className="step-title">Your own NGN account isn&apos;t available</div>
+        <div className="step-title">Your own NGN account isn&rsquo;t available</div>
         <p className="step-sub">It needs a Nigerian ID (BVN or NIN), and your verified ID shows you live outside Nigeria.</p>
       </div>
       <button className="btn-primary" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a temporary account</button>

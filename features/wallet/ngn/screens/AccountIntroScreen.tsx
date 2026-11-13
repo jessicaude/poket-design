@@ -38,7 +38,7 @@ export function AccountIntroScreen() {
         <label htmlFor="vaAgree">
           Accept the{" "}
           <span className="consent-link" data-doc="va-terms" role="link" tabIndex={0} onClick={openTerms} onKeyDown={(e) => { if (e.key === "Enter") openTerms(e); }}>account terms</span>
-          {" "}of Poket&apos;s partner bank, {NGN_VA.bank}
+          {" "}of Poket&rsquo;s partner bank, {NGN_VA.bank}
         </label>
       </div>
       <button className="btn-primary" id="vaCreate" disabled={!agree} onClick={createDedicated}>Create account details</button>
