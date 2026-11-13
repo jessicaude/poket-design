@@ -254,3 +254,54 @@ test("one partner state for both widgets: set Down in the wallet, Checkout's bar
   await page.getByLabel("Order currency").selectOption("NGN");
   await expect(page.getByLabel("Naira partner")).toHaveValue("down");
 });
+
+test("recovery: the banner clears, transfers that arrived while down are credited with a notification each, Sending sends are Paid", async ({ page }) => {
+  await start(page);
+  const balance = () => page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
+  // A send to the Naira account (paid before): Sending at once
+  await toAmount(page, "bank:lb2", "500000");
+  await sendWithPin(page);
+  await page.locator("#viewPayoutTx").click();
+  const chip = page.locator("#withdrawalStatus");
+  await expect(chip).toHaveText("Sending");
+  const before = await balance();
+
+  await partner(page, "down");
+  await expect(page.locator("#demoQueuedArrival")).toHaveText("Transfer arrived while down");
+  await page.locator("#demoQueuedArrival").click();
+  await page.locator("#demoQueuedArrival").click();
+  await expect(page.locator("#demoQueuedArrival")).toHaveText("Transfer arrived while down (2)");
+  await page.waitForTimeout(500);
+  expect(await balance()).toBe(before); // nothing credited while down
+  await expect(page.locator("#openNotifHeader")).toBeHidden();
+  await expect(chip).toHaveText("Sending");
+
+  await partner(page, "up");
+  await expect(banner(page)).toHaveCount(0);
+  await expect(page.locator("#demoQueuedArrival")).toHaveCount(0);
+  await expect(chip).toHaveText("Paid");
+  await expect.poll(balance).toBe(before + 2 * 2500000); // ₦25,000.00 each
+  await page.locator("#openNotifHeader").click();
+  const notes = page.locator("#panelBody [data-notif] .settings-row-sub", { hasText: "This transfer was delayed." });
+  await expect(notes).toHaveText(["₦25,000.00 added to your NGN balance. This transfer was delayed.", "₦25,000.00 added to your NGN balance. This transfer was delayed."]);
+
+  // Down and up again with nothing queued: no new credit or notification
+  await partner(page, "down");
+  await partner(page, "up");
+  await page.waitForTimeout(300);
+  expect(await balance()).toBe(before + 2 * 2500000);
+  await expect(notes).toHaveCount(2);
+});
+
+test("while down, a temporary account's 'Transfer arrives' gives way to 'Transfer arrived while down'", async ({ page }) => {
+  await start(page, "/demo/wallet?ngn=deposit-method");
+  await page.locator("#dmBank").click();
+  await page.locator("#ngnAmt").fill("5000");
+  await page.locator("#ngnTempGo").click();
+  await expect(title(page)).toHaveText(/^Send exactly/);
+  await expect(page.getByRole("button", { name: "Transfer arrives", exact: true })).toBeVisible();
+  await partner(page, "down");
+  await expect(page.getByRole("button", { name: "Transfer arrives", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Let it expire" })).toBeVisible();
+  await expect(page.locator("#demoQueuedArrival")).toBeVisible();
+});

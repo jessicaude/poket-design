@@ -10,7 +10,7 @@ import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccountLock } from "@/store/lock";
-import { toNigerianBank, useNairaPartner } from "@/store/partner";
+import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 
 /**
@@ -23,7 +23,7 @@ export function NgnDemoBar() {
   const { ngnCoinsBlocked, setNgnCoinsBlocked } = useConvert();
   const { othersHoldNaira, setOthersHoldNaira } = useNairaRecipients();
   const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
-  const { down: partnerDown, setDown: setPartnerDown } = useNairaPartner();
+  const { down: partnerDown, setDown: setPartnerDown, queued, queueArrival } = useNairaPartner();
   const selfiePhone = usePayout((s) => s.selfiePhone);
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
@@ -130,6 +130,9 @@ export function NgnDemoBar() {
         : <button className="pbtn" id="demoSelfieOpen" onClick={() => usePayout.getState().selfieOpenPhone()}>Open on phone</button>)}
       {/* Single active device: another device is bound, which signs this one out (its next tap asks it to sign in) */}
       {singleDevice && !signedOut && <button className="pbtn" id="demoOtherDeviceBinds" onClick={otherDeviceBinds}>Sign in on another device</button>}
+      {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}
+      {partnerDown && <button className="pbtn" id="demoQueuedArrival" onClick={() => queueArrival(QUEUED_ARRIVAL_DEMO_KOBO)}>
+        Transfer arrived while down{queued.length ? ` (${queued.length})` : ""}</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}
@@ -151,7 +154,8 @@ export function NgnDemoBar() {
       )}
       {stage === "temp" && (
         <>
-          <button className="pbtn" onClick={() => transferArrives()}>Transfer arrives</button>
+          {/* While down, an arrival waits for the partner ("Transfer arrived while down" above), so not here */}
+          {!partnerDown && <button className="pbtn" onClick={() => transferArrives()}>Transfer arrives</button>}
           <button className="pbtn" onClick={expireTemp}>Let it expire</button>
         </>
       )}

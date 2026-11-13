@@ -351,6 +351,14 @@ WGT-10 is four parts, each with its rules below:
   now. Try again").
 - Sends to Nigerian banks already Sending stay Sending (the demo bar's Mark paid and Fail are disabled; a released
   first payment waits) until the partner is back.
+- Transfers into naira that arrive while down wait too: demo bar "Transfer arrived while down" (shown while down;
+  it counts them) queues a ₦25,000.00 credit (useNairaPartner.queued). A temporary account's "Transfer arrives" is
+  hidden while down.
+- Recovery (features/wallet/partnerRecovery.ts, on down → up): the banner and paused screens clear; each queued
+  credit is added to the NGN balance with its own notification, "Transfer received" / "₦X added to your NGN
+  balance. This transfer was delayed." (₦X without the code, as written in WGT-13); every send to a Nigerian bank
+  that's Sending moves on to Paid. Recovery runs once the wallet has loaded (WalletBody imports it), so a partner
+  brought back on Checkout's bar after visiting the wallet recovers too.
 - Checkout: naira bank transfer is marked "Paused" (.method.off, its .chip) on add-method and can't be chosen;
   naira and dollar cards still work.
 - Poket users, other banks, cards, Convert and the balance are unaffected. Back up, every screen is as before at once.

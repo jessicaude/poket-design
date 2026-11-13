@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { partnerUp, toNigerianBank } from "@/store/partner";
+import { toNigerianBank, useNairaPartner } from "@/store/partner";
 import { listWithdrawals, setWithdrawalStatus, type Withdrawal, type WithdrawalStatus } from "@/lib/mock-api";
 import { useNgn } from "../ngn/useNgn";
 import { cashAmount, setCashAmount, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
@@ -58,9 +58,9 @@ export const useWithdrawals = create<State>((set, get) => ({
   releaseHold: async (id) => {
     await get().move(id, "sending");
     await new Promise((r) => setTimeout(r, RELEASE_SEND_MS));
-    // WGT-13: a send to a Nigerian bank stays Sending while the naira partner is down, and is paid once it's back
+    // WGT-13: a send to a Nigerian bank stays Sending while the naira partner is down (partnerRecovery pays it)
     const w = get().list.find((x) => x.id === id);
-    if (w && toNigerianBank(w)) await partnerUp();
-    if (get().list.find((x) => x.id === id)?.status === "sending") await get().move(id, "paid");
+    if (w && toNigerianBank(w) && useNairaPartner.getState().down) return;
+    if (w?.status === "sending") await get().move(id, "paid");
   },
 }));
