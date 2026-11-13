@@ -23,7 +23,14 @@ export type Payment = { id: string; merchant: string; amount: number; currency: 
   /** The merchant's order reference, and how it was paid (for the receipt's Paid with). */
   order?: string; methodKind?: "card" | "bank"; brand?: BrandKey;
   /** The open dispute: its reason (one of DISPUTE_REASONS) and when it was raised. */
-  dispute?: { reason: string; at: string } };
+  dispute?: { reason: string; at: string };
+  /** The merchant's refunds, oldest first (lib/refunds.ts): all of it ("Refunded") or part ("Partly refunded"). */
+  refunds?: Refund[] };
+/**
+ * A merchant's refund of (part of) a payment, in the payment's currency. `to`: back to the card or bank that paid
+ * ("method"), or, for a naira bank transfer, into the NGN balance ("ngn"; to confirm: not in the PRD).
+ */
+export type Refund = { id: string; amount: number; at: string; to: "method" | "ngn" };
 export type Account = {
   email: string;
   first: string;

@@ -1,4 +1,7 @@
 "use client";
+import { useAccount } from "@/store/account";
+import { allRefunds } from "@/lib/refunds";
+import { RefundRow } from "../disputes/DisputeScreens";
 import { useNairaPartner } from "@/store/partner";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
@@ -25,8 +28,11 @@ export function NgnBalanceScreen() {
   const withdrawals = useWithdrawals((s) => s.list).filter((w) => (w.sourceKey ? w.sourceKey.startsWith("cash:NGN:") : w.currency === "NGN"));
   // Conversions from or to naira, newest first with the sends.
   const conversions = useConvert((s) => s.conversions).filter((c) => c.from.startsWith("cash:NGN:") || c.to.startsWith("cash:NGN:"));
+  // WGT-12: refunds of naira bank transfers came into this balance
+  const refunds = allRefunds(useAccount((s) => s.account?.payments) ?? []).filter(({ r }) => r.to === "ngn");
   const list = [
     ...withdrawals.map((w) => ({ at: w.createdAt, el: <WithdrawalRow key={w.id} w={w} /> })),
+    ...refunds.map(({ p, r }) => ({ at: new Date(r.at).getTime(), el: <RefundRow key={r.id} p={p} r={r} /> })),
     ...conversions.map((c) => ({ at: c.createdAt, el: <ConversionRow key={c.id} c={c} /> })),
   ].sort((a, b) => b.at - a.at);
   return (

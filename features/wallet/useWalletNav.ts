@@ -14,6 +14,7 @@ export type WalletScreen =
   | { name: "tx"; id: string }
   /** WGT-12: a Checkout payment's detail, and a dispute on a payment */
   | { name: "payment"; id: string }
+  | { name: "refund"; id: string }
   | { name: "dispute"; target: DisputeTarget }
   | { name: "settings" }
   | { name: "security" }

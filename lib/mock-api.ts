@@ -9,10 +9,20 @@ import { detectBrand, fundingOf } from "@/lib/card";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The reference's daysAgo(n): n days before now, as an ISO date. */
+const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+
 /** People who already have a Poket account (from the prototype's DIRECTORY). */
 export const DIRECTORY: Record<string, Account> = {
   "ada@osun.co": {
-    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1, payments: [],
+    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1,
+    // WGT-12: her Checkout payments, as the reference seeds them: a recent naira card payment, a naira bank transfer
+    // from 10 days ago and a dollar card payment from 76 days ago (outside the 60-day dispute window)
+    payments: [
+      { id: "pay_mtk2291", merchant: "Mama Tee’s Kitchen", amount: 6510000, currency: "NGN", method: "Verve ••• 6011", at: daysAgo(2), status: "paid", order: "MTK-2291", methodKind: "card", brand: "verve" },
+      { id: "pay_ilv10077", merchant: "Ilé Living", amount: 3627000, currency: "NGN", method: "Bank transfer", at: daysAgo(10), status: "paid", order: "ILV-10077", methodKind: "bank" },
+      { id: "pay_a9d2c7ke", merchant: "Adire Market", amount: 6500, currency: "USD", method: "Visa ••• 4242", at: daysAgo(76), status: "paid", order: "AM-5510", methodKind: "card", brand: "visa" },
+    ],
     methods: [
       { id: "pm_visa", kind: "card", brand: "visa", last4: "4242", name: "Visa ••• 4242", sub: "Debit · Expires 12/2028" },
       { id: "pm_bank", kind: "bank", last4: "6789", name: "Chase checking ••• 6789", sub: "Bank account · Pay by bank" },

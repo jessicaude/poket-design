@@ -19,7 +19,9 @@ import { ConversionReceiptScreen } from "./withdrawals/ConversionReceiptScreen";
 import { AccountBlockedScreen, AccountLockedScreen } from "./AccountLockedScreen";
 import { useSettings } from "./settings/useSettings";
 import { useAccountLock } from "@/store/lock";
-import { DisputeScreen, PaymentDetailScreen } from "./disputes/DisputeScreens";
+import { DisputeScreen, PaymentDetailScreen, RefundDetailScreen } from "./disputes/DisputeScreens";
+// WGT-12: refunds of naira bank transfers go into the NGN balance
+import "./refundCredits";
 // WGT-13: credits and sends that waited on the naira partner move on when it's back
 import "./partnerRecovery";
 
@@ -57,6 +59,7 @@ export function WalletBody() {
       {screen.name === "holding" && <HoldingDetailScreen h={screen.holding} />}
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
       {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
+      {screen.name === "refund" && <RefundDetailScreen id={screen.id} />}
       {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}
       {screen.name === "security" && <SecurityScreen />}

@@ -8,7 +8,8 @@ import {
   DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT, SUBSCRIPTION_REASON,
   addedCount, countDisputeStrike, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
-import { useAccount, type Payment } from "@/store/account";
+import { useAccount, type Payment, type Refund } from "@/store/account";
+import { allRefunds, isFullyRefunded, paymentStatus, refundDest, refundNote, refundedTotal } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
@@ -43,6 +44,48 @@ export function CheckoutPaymentRow({ p }: { p: Payment }) {
       <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">Merchant payment · {p.merchant}</div></div>
       <div className="tx-amt"><Grey>{"-" + amountText(p)}</Grey></div>
     </div>
+  );
+}
+
+/** txRow(t) for a merchant's refund: in, "Refund · {merchant}", "Merchant refund · {merchant}", the amount back. */
+export function RefundRow({ p, r }: { p: Payment; r: Refund }) {
+  const push = useWalletNav((s) => s.push);
+  return (
+    <div className="tx-row" data-txid={r.id} data-refund={r.id} role="button" tabIndex={0} onClick={() => push({ name: "refund", id: r.id })}>
+      <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
+      <div className="tx-main"><div className="tx-title">Refund · {p.merchant}</div><div className="tx-sub">Merchant refund · {p.merchant}</div></div>
+      <div className="tx-amt pos"><Grey>{"+" + fmtCurrency(r.amount, p.currency)}</Grey></div>
+    </div>
+  );
+}
+
+/** A refund's own receipt (tTxDetail): the amount back, where it went and when it arrives. */
+export function RefundDetailScreen({ id }: { id: string }) {
+  const back = useWalletNav((s) => s.back);
+  // Select the list (a stable value), then find the refund: a selector returning a new object would loop
+  const payments = useAccount((s) => s.account?.payments);
+  const found = payments && allRefunds(payments).find((x) => x.r.id === id);
+  if (!found) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
+  const { p, r } = found;
+  return (
+    <>
+      <BackRow id="backFromTxDetail" onClick={back} />
+      <div className="center-col" style={{ padding: "6px 8px 0" }}>
+        <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: p.currency === "NGN" ? WICON.ngFlag : WICON.usFlag }} />
+      </div>
+      <div className="step-title mono" id="refundAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{fmtCurrency(r.amount, p.currency)}</Grey></div>
+      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>Refund · {p.merchant}</p>
+      <div className="info-card" id="txDetail">
+        <DetailRow label="Status" value="Completed" />
+        <DetailRow label="Date" value={formatTxDate(new Date(r.at).getTime())} />
+        <DetailRow label="Currency" value={p.currency} />
+        <DetailRow label="Merchant" value={p.merchant} />
+        <DetailRow label="Refunded to" value={refundDest(p, r)} />
+        <DetailRow label="Context" value="Checkout" />
+        <ReferenceRow refText={r.id} />
+      </div>
+      <div className="alert info" id="refundNote" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{refundNote(p, r)}</span></div>
+    </>
   );
 }
 
@@ -91,15 +134,16 @@ export function PaymentDetailScreen({ id }: { id: string }) {
       <div className="step-title mono" id="paymentAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--n-900)" }}><Grey>{amountText(p)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{p.merchant}</p>
       <div className="info-card" id="txDetail">
-        <DetailRow label="Status" value="Completed" />
+        <DetailRow label="Status" value={paymentStatus(p).label} />
         <DetailRow label="Date" value={formatTxDate(at)} />
         <DetailRow label="Currency" value={p.currency} />
+        {refundedTotal(p) > 0 && <DetailRow label="Refunded" value={fmtCurrency(refundedTotal(p), p.currency)} />}
         <DetailRow label="Merchant" value={p.merchant} />
         <DetailRow label="Context" value="Checkout" />
         <ReferenceRow refText={p.id} />
         {p.status === "disputed" && <DisputeRow />}
       </div>
-      {p.status === "paid" && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
+      {p.status === "paid" && !isFullyRefunded(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
     </>
   );
 }

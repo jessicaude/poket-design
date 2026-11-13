@@ -27,7 +27,7 @@ export const demoTransferAmount = (amount: number, a: TransferAmount) =>
 export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transfer" | "details" | "vendor" | "verifying" | "id-review"
   | "id-retry" | "id-done" | "blocked" | "locked" | "processing" | "declined" | "done"
   /** WGT-12: Checkout's Poket account (Activity tab, a payment's detail, a dispute) */
-  | "activity" | "pay-detail" | "dispute";
+  | "activity" | "pay-detail" | "dispute" | "refund-detail";
 
 /** SCREENS['blocked'] reasons: the prototype's age and id_declined, plus a sanctions match (copy from tSanctionsDeclined). */
 export type BlockReason = "age" | "id_declined" | "sanctions";
@@ -95,6 +95,8 @@ type State = {
   /** WGT-12: the payment open in pay-detail (and its dispute), and where its Back goes (S.viewPay, S.navFrom). */
   viewPay: string | null;
   navFrom: "done" | "activity" | null;
+  /** The refund open in refund-detail. */
+  viewRefund: string | null;
   skipId: boolean;            // the order is under $500: the stepper shows Account and Payment only
   idv: Idv;
   blockReason: BlockReason | null;
@@ -112,6 +114,7 @@ type State = {
   openAccount: () => void;
   /** A payment's detail (pay-detail), from the done screen's View receipt or an Activity row. */
   viewPayment: (id: string, from: "done" | "activity") => void;
+  viewRefundDetail: (id: string) => void;
   addCard: (currency: OrderCurrency) => void;
   startTransfer: () => Promise<void>;
   transferArrives: (amount?: TransferAmount) => Promise<void>;
@@ -154,7 +157,7 @@ const afterSignIn = (a: Account, o: Order) => {
 let verifyTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useCheckout = create<State>((set, get) => ({
-  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null, viewPay: null, navFrom: null,
+  open: false, order: null, settings: null, transfer: { state: "creating", va: null }, cardCurrency: "USD", screen: "signup", onboarding: false, selected: null, failed: null, paid: null, quote: null, charging: null, toast: null, viewPay: null, navFrom: null, viewRefund: null,
   skipId: true, idv: NEW_IDV, blockReason: null,
 
   start: (order) => {
@@ -197,6 +200,7 @@ export const useCheckout = create<State>((set, get) => ({
   go: (screen) => set({ screen }),
   openAccount: () => set({ screen: "activity", onboarding: false }),
   viewPayment: (id, from) => set({ viewPay: id, navFrom: from, screen: "pay-detail", onboarding: false }),
+  viewRefundDetail: (id) => set({ viewRefund: id, screen: "refund-detail", onboarding: false }),
   addCard: (cardCurrency) => set({ cardCurrency, screen: "add-card" }),
 
   // Bank transfer: "Dynamic" creates a one-time virtual account ("Get a new account" calls this again); "Merchant pool"

@@ -1,5 +1,6 @@
 "use client";
-import { CheckoutPaymentRow, DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
+import { CheckoutPaymentRow, DisputeRow, RaiseDispute, RefundRow, useDemoDisputes } from "../disputes/DisputeScreens";
+import { allRefunds } from "@/lib/refunds";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import type { ReactNode } from "react";
 import { Raw } from "@/components/ui/Raw";
@@ -131,6 +132,7 @@ function useActivity(): Activity[] {
   return [
     ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, el: <DemoTxRow key={t.id} t={t} /> })),
     ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, el: <CheckoutPaymentRow key={p.id} p={p} /> })),
+    ...allRefunds(payments).map(({ p, r }) => ({ at: new Date(r.at).getTime(), key: r.id, el: <RefundRow key={r.id} p={p} r={r} /> })),
     ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, el: <WithdrawalRow key={w.id} w={w} /> })),
     ...conversions.map((c) => ({ at: c.createdAt, key: c.id, el: <ConversionRow key={c.id} c={c} /> })),
   ].sort((a, b) => b.at - a.at);

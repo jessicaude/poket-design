@@ -19,7 +19,9 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - A payment to a store can be disputed **up to 60 days** after it was made ("Raise a dispute" on its detail: "You can raise a dispute for N more days."; after that, contact the merchant or Poket support). Deposits, top-ups, refunds, sends and conversions can't be disputed.
 - The dispute flow is the reference's: what happens and what to have ready, then one form where only the reason is required (contact date, evidence and details are optional). A dispute raised in one widget shows open in both, and the merchant is told (payment.dispute_opened, with the reason).
 - Two disputes restrict the account from raising more ("You can't raise a dispute right now").
-- In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported. Resolving a dispute (refund or not) isn't built yet.
+- **Refunds:** a merchant can refund a payment in full or in part. The payment then reads "Refunded" or "Partly refunded", and each refund is its own "Refund · {merchant}" record with a receipt. Card payments go back to the card ("Back to Visa ••• 4242 in [refund time]"); naira bank-transfer payments go to the NGN balance (*to confirm: not in the PRD*). The merchant is told (payment.refunded). A fully refunded payment can't be disputed.
+- Ada's demo account is seeded with three Checkout payments, as the reference does: a recent naira card payment, a naira bank transfer from 10 days ago, and a dollar card payment from 76 days ago (outside the dispute window).
+- In the demo, Checkout's account has its Activity tab only; Home, Methods and messaging the merchant aren't ported. Resolving a dispute isn't built yet.
 
 ## Payout (Get paid)
 - No identity step up front. Sanctions screening and a payout account name match run on every payout, in the background.

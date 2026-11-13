@@ -1,5 +1,5 @@
 "use client";
-import { AccountActivityScreen, AccountDisputeScreen, AccountTabbar, PayDetailScreen } from "./screens/AccountScreens";
+import { AccountActivityScreen, AccountDisputeScreen, AccountTabbar, PayDetailScreen, RefundDetailScreen } from "./screens/AccountScreens";
 import { useEffect, type ComponentType } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CLOSE_ICON, POKET_WORDMARK } from "@/lib/icons";
@@ -38,6 +38,7 @@ const SCREENS: Record<Screen, { C: ComponentType; step: number | null; account?:
   activity: { C: AccountActivityScreen, step: null, account: true },
   "pay-detail": { C: PayDetailScreen, step: null, account: true },
   dispute: { C: AccountDisputeScreen, step: null, account: true },
+  "refund-detail": { C: RefundDetailScreen, step: null, account: true },
 };
 /** Under $500 there's no identity step, so the stepper shows two steps (Payment moves to position 1). */
 const STEPS_ID = ["Account", "Identity", "Payment"];

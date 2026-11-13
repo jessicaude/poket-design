@@ -366,6 +366,19 @@ WGT-10 is four parts, each with its rules below:
   paused. Try again later." are WGT-13's; the paused screens' titles are the steps' own.
 - Tests: e2e/partner-downtime.spec.ts.
 
+## Refunds of naira payments (WGT-12)
+- Ada's seeded Checkout payments (lib/mock-api.ts DIRECTORY, as the reference seeds them): Mama Tee's Kitchen
+  ₦65,100.00 by Verve card 2 days ago, Ilé Living ₦36,270.00 by bank transfer 10 days ago, Adire Market $65.00 by
+  Visa 76 days ago (outside the 60-day dispute window).
+- Demo "Merchant refunds" on a payment's detail (wallet demo bar: full / part; Checkout's DEMO pill: full, and part
+  as its second button). Part refunds half of what's left (whole units). lib/refunds.ts.
+- A naira card payment refunds to the card: "Back to Verve ••• 6011 in [refund time]" ([refund time] not decided).
+- A naira bank-transfer payment refunds to the NGN balance ("Added to your NGN balance."; a "Refund received"
+  notification; the refund row in the NGN balance's history). **To confirm: not in the PRD.** The wallet credits it
+  (features/wallet/refundCredits.ts), whichever widget the refund was made in.
+- payment.refunded: refunded_to "card", "bank" or "ngn_balance".
+- Tests: e2e/disputes.spec.ts.
+
 ## Checkout (WGT-06: pay at checkout with NGN rails)
 - Lives in features/checkout/: useCheckout.ts (flow, transfer and quote state), quote.ts (conversion quote and which
   methods can pay), screens/ (AddMethodScreen, AddCardScreen, BankTransferScreen, PayScreen, StatusScreens). Demo:

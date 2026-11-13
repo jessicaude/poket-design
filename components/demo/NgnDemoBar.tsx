@@ -10,6 +10,8 @@ import { useConvert } from "@/features/wallet/convert/useConvert";
 import { useNairaRecipients } from "@/features/wallet/send/nairaRecipients";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccountLock } from "@/store/lock";
+import { useAccount } from "@/store/account";
+import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 
@@ -44,6 +46,7 @@ export function NgnDemoBar() {
   const w = !payoutStage && screen?.name === "withdrawal" ? list.find((x) => x.id === screen.id) : undefined;
   // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
   const held = !!w && partnerDown && w.status === "sending" && toNigerianBank(w);
+  const payment = useAccount((s) => (!payoutStage && screen?.name === "payment" ? s.account?.payments.find((p) => p.id === screen.id) : undefined));
   const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
@@ -133,6 +136,13 @@ export function NgnDemoBar() {
       {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}
       {partnerDown && <button className="pbtn" id="demoQueuedArrival" onClick={() => queueArrival(QUEUED_ARRIVAL_DEMO_KOBO)}>
         Transfer arrived while down{queued.length ? ` (${queued.length})` : ""}</button>}
+      {/* WGT-12: on a Checkout payment's detail, the merchant refunds it (all that's left, or half of it) */}
+      {payment && (
+        <>
+          <button className="pbtn" id="demoRefundFull" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "full")}>Merchant refunds: full</button>
+          <button className="pbtn" id="demoRefundPart" disabled={!refundLeft(payment)} onClick={() => merchantRefunds(payment.id, "part")}>Merchant refunds: part</button>
+        </>
+      )}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}

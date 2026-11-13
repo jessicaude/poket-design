@@ -6,6 +6,7 @@
  */
 import { useAccount } from "@/store/account";
 import { useEvents } from "@/store/events";
+import { HOST_MERCHANT } from "./refunds";
 
 /** "Disputes can be raised up to 60 days after a payment." (poket-widgets DISPUTE_DAYS) */
 export const DISPUTE_DAYS = 60;
@@ -87,7 +88,8 @@ export function openDispute(paymentId: string, reason: string, widget: "checkout
     disputeStrikes: Math.min((a.disputeStrikes ?? 0) + 1, DISPUTE_STRIKE_LIMIT),
     payments: a.payments.map((p) => (p.id === paymentId ? { ...p, status: "disputed", dispute: { reason, at } } : p)),
   }));
-  useEvents.getState().emit("payment.dispute_opened", { widget, poket_reference: paymentId, reason: DISPUTE_REASON_CODE[reason] ?? "other" });
+  const p = useAccount.getState().account?.payments.find((x) => x.id === paymentId);
+  if (p?.merchant === HOST_MERCHANT) useEvents.getState().emit("payment.dispute_opened", { widget, poket_reference: paymentId, reason: DISPUTE_REASON_CODE[reason] ?? "other" });
 }
 /** A dispute on one of the wallet's own demo records (not a Checkout payment): only the strike counts. */
 export function countDisputeStrike() {

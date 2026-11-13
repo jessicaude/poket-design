@@ -3,7 +3,7 @@ import { test, expect, type Page } from "@playwright/test";
 /**
  * Wallet home (tWalletHome in reference/poket-unified.html). Demo balances: ₦50,000.00 NGN, $65.60 USD ($50.00 open,
  * $15.60 card-funded), no stablecoins, so the total is $97.86 USD (65.60 + 50,000 / 1,550). Recent activity: the
- * reference's three records.
+ * reference's three records, with Ada's seeded Checkout payments (WGT-12).
  */
 
 const body = (page: Page) => page.locator("#panelBody");
@@ -139,8 +139,9 @@ test("rows open their balance screens: USD (with account details card and histor
 
 test("Recent activity: the latest four, newest first; View all opens the Activity tab; a record's detail", async ({ page }) => {
   const recent = page.locator("#recentActivity .tx-row");
-  await expect(recent.locator(".tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242"]);
-  await expect(recent.locator(".tx-amt")).toHaveText(["+$4.50 USD", "-$7.20 USD", "+$50.00 USD"]);
+  // The reference's three records, with Ada's seeded Checkout payment from 2 days ago (WGT-12) among them
+  await expect(recent.locator(".tx-title")).toHaveText(["Refund · Kola Books", "Mama Tee’s Kitchen", "Sooyah Bistro", "Top-up · Visa ····4242"]);
+  await expect(recent.locator(".tx-amt")).toHaveText(["+$4.50 USD", "-₦65,100.00 NGN", "-$7.20 USD", "+$50.00 USD"]);
 
   // A conversion now tops the list (from NGN: the reference's balances, with no open USD, so Convert starts on NGN)
   await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
@@ -150,13 +151,13 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   await page.locator("#cvReview").click();
   await page.locator("#cvConfirm").click();
   await page.locator("#cvDone").click();
-  await expect(recent.locator(".tx-title")).toHaveText(["Converted NGN to USDC", "Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242"]);
+  await expect(recent.locator(".tx-title")).toHaveText(["Converted NGN to USDC", "Refund · Kola Books", "Mama Tee’s Kitchen", "Sooyah Bistro"]);
   await expect(page.locator("#totalBalance")).toHaveText("$47.86 USD"); // ₦10,000.00 → 6.45 USDC, no fee: the same total
 
   await page.locator("#viewAllTx").click();
   await expect(page.locator("#tabActivity")).toHaveClass(/\bon\b/);
   await expect(body(page).locator(".step-title")).toHaveText("Activity");
-  await expect(body(page).locator(".tx-row")).toHaveCount(4);
+  await expect(body(page).locator(".tx-row")).toHaveCount(7); // + Ada's three seeded Checkout payments
   await page.locator('[data-txid="t1"]').click();
   const rows = page.locator("#txDetail .info-row");
   await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "Currency", "Merchant", "Context", "Reference"]);

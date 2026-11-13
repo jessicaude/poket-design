@@ -7,7 +7,8 @@ import {
   addedCount, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { formatOrder } from "@/lib/money";
-import { useAccount, type Payment } from "@/store/account";
+import { useAccount, type Payment, type Refund } from "@/store/account";
+import { allRefunds, isFullyRefunded, paymentStatus, refundDest, refundNote, refundedTotal } from "@/lib/refunds";
 import { useCheckout } from "../useCheckout";
 import { MoneyU } from "./PayScreen";
 
@@ -80,23 +81,38 @@ function PayRow({ p, i }: { p: Payment; i: number }) {
   );
 }
 
-/** SCREENS['activity']: every payment, newest first, grouped by month. */
+/** refundRow(x): the refund mark, "Refund · {merchant}", date · To {where it went}, the amount back. */
+function RefundRowC({ p, r, i }: { p: Payment; r: Refund; i: number }) {
+  const view = useCheckout((s) => s.viewRefundDetail);
+  return (
+    <button type="button" className="tx-row stg" style={{ ["--i" as string]: i }} data-refund={r.id} onClick={() => view(r.id)}>
+      <span className="tx-ic in"><Raw html={ACCT_ICON.refund} /></span>
+      <span className="tx-main"><span className="tx-title">Refund · {p.merchant}</span><span className="tx-sub">{fmtDate(r.at)} · To {refundDest(p, r)}</span></span>
+      <span className="tx-amt pos">+{formatOrder(r.amount, p.currency)}</span>
+    </button>
+  );
+}
+
+/** SCREENS['activity']: payments and refunds as one list, newest first, grouped by month. */
 export function AccountActivityScreen() {
   const list = useAccount((s) => s.account?.payments) ?? [];
-  const sorted = [...list].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  const sorted = [
+    ...list.map((p) => ({ at: p.at, key: p.id, el: (i: number) => <PayRow p={p} i={i} /> })),
+    ...allRefunds(list).map(({ p, r }) => ({ at: r.at, key: r.id, el: (i: number) => <RefundRowC p={p} r={r} i={i} /> })),
+  ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   let last: string | null = null, i = 0;
   return (
     <>
       <h2 className="title">Activity</h2>
       {sorted.length ? (
         <div className="tx-list">
-          {sorted.map((p) => {
-            const g = dayGroup(p.at), head = g !== last;
+          {sorted.map((x) => {
+            const g = dayGroup(x.at), head = g !== last;
             last = g;
             return (
-              <div key={p.id} style={{ display: "contents" }}>
+              <div key={x.key} style={{ display: "contents" }}>
                 {head && <div className="tx-group stg" style={{ ["--i" as string]: i++ }}>{g}</div>}
-                <PayRow p={p} i={i++} />
+                {x.el(i++)}
               </div>
             );
           })}
@@ -111,8 +127,8 @@ export function PayDetailScreen() {
   const { viewPay, navFrom, go, showToast } = useCheckout();
   const p = useAccount((s) => s.account?.payments.find((x) => x.id === viewPay));
   if (!p) return <h2 className="title">Payment not found</h2>;
-  const w = disputeWindow(p.at), canDispute = p.status === "paid" && w.open;
-  const stat = p.status === "disputed" ? ["Dispute open", "warn"] : ["Completed", "ok"];
+  const w = disputeWindow(p.at), canDispute = p.status === "paid" && w.open && !isFullyRefunded(p);
+  const st = paymentStatus(p), stat = [st.label, st.tone];
   const row = (ic: string, label: string, value: React.ReactNode, cls = "") => (
     <div className="receipt-row"><span className="r-ic"><Raw html={ic} /></span><span className="r-label">{label}</span><span className={`r-value ${cls}`}>{value}</span></div>
   );
@@ -125,6 +141,7 @@ export function PayDetailScreen() {
         {row(ACCT_ICON.cal, "Date", <Raw html={receiptDate(p.at)} />, "nowrap")}
         {row(ACCT_ICON.card, "Paid with", <><Raw html={pmMini(p)} />{p.method}</>, "pm")}
         {p.order && row(ACCT_ICON.bag, "Order", p.order, "mono")}
+        {refundedTotal(p) > 0 && row(ACCT_ICON.check, "Refunded", <span id="pdRefunded">{formatOrder(refundedTotal(p), p.currency)} to {refundDest(p)}</span>)}
         {row(ACCT_ICON.card, "On your statement", descriptor(p.merchant))}
         {row(ACCT_ICON.hash, "Reference", <button type="button" className="ref-chip" id="pdCopy" onClick={() => { try { navigator.clipboard?.writeText(p.id).catch(() => {}); } catch { /* no clipboard */ } showToast("Reference copied"); }}>{p.id} <Raw html={ACCT_ICON.copy} /></button>)}
       </div>
@@ -135,8 +152,35 @@ export function PayDetailScreen() {
           <p className="hint center" id="pdWindow" style={{ margin: "8px 0 0" }}>You can raise a dispute for {w.left} more day{w.left === 1 ? "" : "s"}.</p>
         </>
       )}
-      {p.status === "paid" && !w.open && <div className="infobox" id="pdClosed">Disputes can be raised up to {DISPUTE_DAYS} days after payment. This payment was {w.age} days ago, so contact {p.merchant} directly or reach Poket support.</div>}
+      {p.status === "paid" && !w.open && !isFullyRefunded(p) && <div className="infobox" id="pdClosed">Disputes can be raised up to {DISPUTE_DAYS} days after payment. This payment was {w.age} days ago, so contact {p.merchant} directly or reach Poket support.</div>}
       <button className="btn outline" id="pdContact" style={{ width: "100%", marginTop: "10px" }} onClick={() => showToast("Messages aren’t ported yet")}><Raw html={ACCT_ICON.msg} /> Message {p.merchant}</button>
+    </>
+  );
+}
+
+/** A refund's own receipt: the amount back, where it went, the payment it refunds, and when it arrives. */
+export function RefundDetailScreen() {
+  const { viewRefund, go, showToast } = useCheckout();
+  // Select the list (a stable value), then find the refund: a selector returning a new object would loop
+  const payments = useAccount((s) => s.account?.payments);
+  const found = payments && allRefunds(payments).find((x) => x.r.id === viewRefund);
+  if (!found) return <h2 className="title">Refund not found</h2>;
+  const { p, r } = found;
+  const row = (ic: string, label: string, value: React.ReactNode, cls = "") => (
+    <div className="receipt-row"><span className="r-ic"><Raw html={ic} /></span><span className="r-label">{label}</span><span className={`r-value ${cls}`}>{value}</span></div>
+  );
+  return (
+    <>
+      <button className="link nav-back" id="rdBack" onClick={() => go("activity")}><Raw html={ICON.back} /> Activity</button>
+      <div className="tx-hero"><span className="tx-hero-logo"><Raw html={storeLogo(p.merchant, 48)} /></span><div className="tx-hero-amt" id="rdAmount"><MoneyU minor={r.amount} currency={p.currency} /></div><div className="tx-hero-sub">Refund · {p.merchant}</div></div>
+      <div className="receipt-card" id="rdReceipt">
+        {row(ACCT_ICON.check, "Status", "Refunded", "st")}
+        {row(ACCT_ICON.cal, "Date", <Raw html={receiptDate(r.at)} />, "nowrap")}
+        {row(ACCT_ICON.card, "Refunded to", <>{r.to === "method" && <Raw html={pmMini(p)} />}{refundDest(p, r)}</>, "pm")}
+        {p.order && row(ACCT_ICON.bag, "Order", p.order, "mono")}
+        {row(ACCT_ICON.hash, "Reference", <button type="button" className="ref-chip" id="rdCopy" onClick={() => { try { navigator.clipboard?.writeText(r.id).catch(() => {}); } catch { /* no clipboard */ } showToast("Reference copied"); }}>{r.id} <Raw html={ACCT_ICON.copy} /></button>)}
+      </div>
+      <div className="infobox" id="rdNote">{refundNote(p, r)}</div>
     </>
   );
 }
