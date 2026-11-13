@@ -396,6 +396,15 @@ WGT-10 is four parts, each with its rules below:
   ("This transfer was delayed."), naira from a Poket user, and a recovered recall ("Recall · {name}"). Demo bar:
   "Transfer to account details" (a ready account, partner up) and "Receive from a Poket user".
 - Tests: e2e/ngn-history.spec.ts.
+- Share receipt (NEW; the exploration's #shareRcpt) on every naira transaction's detail (sends from or to naira,
+  naira conversions, naira payments and their refunds, NGN credits; not dollar ones): a sheet with the receipt
+  (features/wallet/receipt/) and Share (navigator.share with the text; else copied, "Receipt copied"), Download PDF
+  and Download image (the receipt drawn on a canvas; the PDF is that image, with the text as its Subject). The
+  receipt: the brand (Poket, or white-label: the merchant's logo or initials and colour; demo control "Brand"), the
+  amount, the title, the status chip, Date and time, To or From, Account, Fee (₦[fee] where none is decided; Free
+  for money in), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
+  to Nigerian banks, deposits, recalls, checkout bank transfers and their reversals), "Payments by Poket". Not done, it says so first: Pending (scheduled, sending), Held for
+  review / a quick check, Failed, Reversed, Dispute open (held). Tests: e2e/receipts.spec.ts.
 
 ## Refunds of naira payments (WGT-12)
 - Ada's seeded Checkout payments (lib/mock-api.ts DIRECTORY, as the reference seeds them): Mama Tee's Kitchen

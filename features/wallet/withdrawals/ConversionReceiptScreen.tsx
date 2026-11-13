@@ -4,6 +4,8 @@ import { BackRow, Grey } from "../payout/parts";
 import { conversionTitle, useConvert } from "../convert/useConvert";
 import { useWalletNav } from "../useWalletNav";
 import { TxFields, conversionFields } from "../history/fields";
+import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { conversionReceipt } from "../receipt/receipt";
 
 /** A conversion's receipt: the reference's tTxDetail for a 'convert' transaction. */
 export function ConversionReceiptScreen({ id }: { id: string }) {
@@ -21,6 +23,7 @@ export function ConversionReceiptScreen({ id }: { id: string }) {
       <div className="info-card" id="cvReceipt">
         <TxFields f={conversionFields(c)} />
       </div>
+      <ShareReceiptButton receipt={conversionReceipt(c)} />
     </>
   );
 }

@@ -15,6 +15,7 @@ import { useAccount } from "@/store/account";
 import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
+import { DEMO_WHITE_LABEL, POKET_BRAND, useWalletBrand } from "@/features/wallet/brand";
 import { DEMO_ACCOUNT_TRANSFER_KOBO, DEMO_POKET_TRANSFER_KOBO, receiveNaira } from "@/features/wallet/history/credits";
 
 /**
@@ -29,6 +30,7 @@ export function NgnDemoBar() {
   const { instantDefaultOn, setInstantDefault, instantPending, applyPendingLimit, deviceKnown, setDeviceKnown, singleDevice, setSingleDevice, signedOut, otherDeviceBinds, selfieOutcome, flagUnusual, setDemo } = useSettings();
   const { down: partnerDown, setDown: setPartnerDown, queued, queueArrival } = useNairaPartner();
   const selfiePhone = usePayout((s) => s.selfiePhone);
+  const { brand, setBrand } = useWalletBrand();
   // The locked screen shows over any open money flow (WalletBody)
   const locked = useAccountLock((s) => s.until) !== null;
   // The bar wraps onto more rows when it doesn't fit: keep --bar (the page's offset) equal to its height, as DemoBar does
@@ -98,6 +100,12 @@ export function NgnDemoBar() {
         {/* WGT-10: a new device confirms itself with an email code the first time money moves */}
         <select aria-label="This device" value={deviceKnown ? "known" : "new"} onChange={(e) => setDeviceKnown(e.target.value === "known")}>
           <option value="known">This device: Known</option><option value="new">This device: New</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Brand</span>
+        {/* Branding (docs/decisions.md): Poket, or white-label with the hosting merchant's name and colours; receipts keep "Payments by Poket" */}
+        <select aria-label="Brand" value={brand.kind} onChange={(e) => setBrand(e.target.value === "merchant" ? DEMO_WHITE_LABEL : POKET_BRAND)}>
+          <option value="poket">Brand: Poket</option><option value="merchant">Brand: White-label (Ilé Living)</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Naira partner</span>

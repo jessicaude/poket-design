@@ -15,6 +15,8 @@ import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
 import { useWalletNav } from "../useWalletNav";
 import { TxFields, paymentFields, paymentStatusChip, refundFields } from "../history/fields";
+import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { paymentReceipt, refundReceipt } from "../receipt/receipt";
 
 /**
  * WGT-12 in the wallet: the demo user's Checkout payments in Activity (txRow, tTxDetail) and disputes (tDispute and
@@ -80,6 +82,7 @@ export function RefundDetailScreen({ id }: { id: string }) {
       <div className="info-card" id="txDetail">
         <TxFields f={refundFields(p, r)} />
       </div>
+      <ShareReceiptButton receipt={refundReceipt(p, r)} />
       <div className="alert info" id="refundNote" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{refundNote(p, r)}</span></div>
     </>
   );
@@ -132,6 +135,7 @@ export function PaymentDetailScreen({ id }: { id: string }) {
       <div className="info-card" id="txDetail">
         <TxFields f={paymentFields(p)}>{p.status === "disputed" && <DisputeRow />}</TxFields>
       </div>
+      <ShareReceiptButton receipt={paymentReceipt(p)} />
       {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
       {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{fmtCurrency(refundLeft(p), p.currency)} held while we review.</span></div>}
       {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}

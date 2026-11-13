@@ -16,7 +16,9 @@ import { useWalletNav } from "../useWalletNav";
 import { ConversionRow } from "../withdrawals/ConversionRow";
 import { WithdrawalRow } from "../withdrawals/parts";
 import { useNgnCredits } from "./credits";
-import { TxFields, creditFields } from "./fields";
+import { TxFields, creditFields, creditTitle } from "./fields";
+import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { creditReceipt } from "../receipt/receipt";
 
 /**
  * WGT-11, history: every transaction as the reference's activity row (txRow), newest first, grouped by day, with
@@ -102,12 +104,6 @@ export function History({ items, id, empty }: { items: HistoryItem[]; id: string
   );
 }
 
-/** A credit's row: "Top-up · Bank transfer", "From Chinedu Eze · Zenith Bank", "Recovered · To {name}"... (NEW copy). */
-export function creditTitle(c: NgnCredit, recipientName?: string) {
-  if (c.kind === "temp") return "Top-up · Bank transfer";
-  if (c.kind === "recall") return `Recall · ${recipientName ?? c.from}`;
-  return `From ${c.from.split(" · ")[0]}`;
-}
 const CREDIT_SUB: Record<NgnCredit["kind"], string> = {
   temp: "Temporary account", account: "NGN account details", delayed: "NGN account details · Delayed", poket: "Poket", recall: "Recovered",
 };
@@ -145,6 +141,7 @@ export function CreditDetailScreen({ id }: { id: string }) {
       <div className="step-title mono" id="creditAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{formatNaira(c.amount)}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{creditTitle(c, name)}</p>
       <div className="info-card" id="txDetail"><TxFields f={creditFields(c)} /></div>
+      <ShareReceiptButton receipt={creditReceipt(c, name)} />
       {c.kind === "delayed" && (
         <div className="alert info" id="creditDelayed" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>This transfer was delayed.</span></div>
       )}

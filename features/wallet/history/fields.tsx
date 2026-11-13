@@ -118,3 +118,10 @@ export function creditFields(c: NgnCredit): TxFieldsData {
     fee: c.kind === "recall" ? undefined : "Free", reference: c.ref, bankTransfer: c.kind !== "poket",
   };
 }
+
+/** A credit's row: "Top-up · Bank transfer", "From Chinedu Eze · Zenith Bank", "Recovered · To {name}"... (NEW copy). */
+export function creditTitle(c: NgnCredit, recipientName?: string) {
+  if (c.kind === "temp") return "Top-up · Bank transfer";
+  if (c.kind === "recall") return `Recall · ${recipientName ?? c.from}`;
+  return `From ${c.from.split(" · ")[0]}`;
+}

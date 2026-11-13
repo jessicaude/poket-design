@@ -1,6 +1,8 @@
 "use client";
 import { SendProblem } from "./ReportProblemScreen";
 import { TxFields, withdrawalFields } from "../history/fields";
+import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { withdrawalReceipt } from "../receipt/receipt";
 import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
@@ -33,6 +35,7 @@ export function WithdrawalStatusScreen({ id }: { id: string }) {
       <div className="info-card" id="txDetail" style={{ marginTop: message ? 0 : "14px" }}>
         <TxFields f={withdrawalFields(w)} />
       </div>
+      <ShareReceiptButton receipt={withdrawalReceipt(w)} />
       {/* A Paid send to a Nigerian bank: Report a problem (the wrong account: a recall request) */}
       {w.status === "paid" && toNigerianBank(w) && <SendProblem w={w} />}
     </>

@@ -1,4 +1,5 @@
 "use client";
+import { ReceiptSheet } from "./receipt/ReceiptSheet";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Raw } from "@/components/ui/Raw";
@@ -91,6 +92,8 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                           </button>
                         ))}
                     </div>
+                    {/* Share receipt: over the panel, under the toast */}
+                    <ReceiptSheet />
                     <ToastWrap />
                   </div>
                 </div>
