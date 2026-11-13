@@ -42,6 +42,9 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(body.locator(".cv-box-top").nth(1)).toHaveText("ToArrives ~15 sec");
   await expect(body.locator(".cv-meta")).toHaveText("1 USDC ≈ 1,550.00 NGNFee: ₦[fee]");
   await expect(page.locator("#cvReview")).toBeDisabled();
+  // Nothing typed yet: a grey 0.00 (docs/copy.md: no dash)
+  await expect(page.locator("#cvToAmt")).toHaveText("0.00");
+  await expect(page.locator("#cvToAmt")).toHaveClass(/\bmuted\b/);
 
   await keys(page, "1000000");
   await expect(page.locator("#cvFromAmt")).toHaveText("10,000.00");
@@ -88,7 +91,7 @@ test("card-funded cash: no target until chosen; naira and stablecoins greyed out
   await page.locator('[data-cvopt="cash:USD:fiat"]').click();
   await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("Choose a currency");
   await expect(page.locator("#cvPickTo .badge")).toHaveCount(0);
-  await expect(page.locator("#cvToAmt")).toHaveText("—");
+  await expect(page.locator("#cvToAmt")).toHaveText("0.00");
   await expect(page.locator(".cv-meta")).toHaveCount(0);
   await expect(page.locator("#cvHint")).toHaveText("");
   await page.locator("#cvMax").click();

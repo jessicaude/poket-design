@@ -254,7 +254,8 @@ export function parseNairaInput(text: string): Kobo {
  */
 export const NGN_VA = {
   supported: true,
-  rails: "NIP bank transfer",
+  // docs/copy.md: say "bank transfer", never "NIP"
+  rails: "bank transfer",
   arrives: "Usually within seconds",
   bank: "[Partner bank]",
   fields: (num: string): [string, string][] => [["Account number", num.slice(0, 10)], ["Bank", "[Partner bank]"]],

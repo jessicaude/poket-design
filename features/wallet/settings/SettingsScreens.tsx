@@ -53,7 +53,7 @@ export function SettingsScreen() {
   const { back, push } = useWalletNav();
   const tier = useNgn((s) => s.tier);
   const { instantOn, instantLimit, devices } = useSettings();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const { name, email } = useProfile();
   const own = listPayoutRecipients().filter((r) => r.isSelf);
   const cards = own.filter((r) => r.methodType === "card").length, banks = own.filter((r) => r.methodType === "bank").length;
   return (
@@ -61,8 +61,8 @@ export function SettingsScreen() {
       <BackRow id="backFromSettings" label="Wallet" onClick={back} />
       <div className="step-title">Settings</div>
       <div className="info-card">
-        <div className="info-row"><span>Name</span><span>{holderName() || "—"}</span></div>
-        <div className="info-row"><span>Email</span><span>{email}</span></div>
+        <div className="info-row"><span>Name</span><span>{name || NOT_ADDED}</span></div>
+        <div className="info-row"><span>Email</span><span>{email || NOT_ADDED}</span></div>
       </div>
       <div className="settings-list">
         <SettingsRow id="openCompliance" icon={WICON.tierIc} title="Compliance" sub={`${tierName(tier)} · limits, verification level`} onClick={() => push({ name: "compliance" })} />
@@ -77,11 +77,25 @@ export function SettingsScreen() {
   );
 }
 
+/** A missing name or email (docs/copy.md: words, not a dash). NEW copy. */
+export const NOT_ADDED = "Not added";
+/**
+ * The signed-in account's name and email, as they are (empty when missing). Before the demo has signed Ada in, the
+ * reference's demo person.
+ */
+function useProfile() {
+  const signedIn = useAccount((s) => !!s.account);
+  const first = useAccount((s) => s.account?.first ?? ""), last = useAccount((s) => s.account?.last ?? "");
+  const email = useAccount((s) => s.account?.email ?? "");
+  if (!signedIn) return { name: holderName(), email: "ada@osun.co" };
+  return { name: [first, last].filter(Boolean).join(" ").trim(), email: email.trim() };
+}
+
 /** tSecurity: passcode delivery (email or text) and signed-in devices. */
 export function SecurityScreen() {
   const back = useWalletNav((s) => s.back);
   const { channel, setChannel, devices, signOutDevice } = useSettings();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const { email } = useProfile();
   const phone = ""; // no phone number in the demo: Text message needs one first
   const row = (val: "email" | "text", title: string, sub: string, disabled: boolean) => (
     <div className={`select-row ${channel === val ? "sel" : ""}`} data-channel={val} role="radio" aria-checked={channel === val} aria-disabled={disabled || undefined}
@@ -95,7 +109,7 @@ export function SecurityScreen() {
       <BackRow id="extBackSettings" label="Settings" onClick={back} />
       <div className="step-title">Security</div>
       <div className="section-title">Passcode delivery</div>
-      {row("email", "Email", email || "—", false)}
+      {row("email", "Email", email || NOT_ADDED, false)}
       {row("text", "Text message", phone || "Add a phone number first", !phone)}
       <div className="section-title" style={{ marginTop: "18px" }}>Signed-in devices</div>
       {devices.length ? (

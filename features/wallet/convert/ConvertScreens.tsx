@@ -84,7 +84,8 @@ export function ConvertFormScreen() {
               : <><Raw html={cvBadgeHtml(q.to, 28)} /><span className="cv-pick-name">{cvShort(q.to)}</span></>}
             <Raw html={CV_CHEV} />
           </button>
-          <span className="cv-amt mono muted" id="cvToAmt">{q.type ? "≈ " + fmtPlain(q.receive) : "—"}</span>
+          {/* Grey 0.00 until there's an amount to convert (docs/copy.md: no dashes) */}
+          <span className="cv-amt mono muted" id="cvToAmt">{q.type && q.amt > 0 ? "≈ " + fmtPlain(q.receive) : "0.00"}</span>
         </div>
       </div>
       {q.type && <div className="cv-meta"><RateButton f={q.f} to={q.to} /><span><Grey>{`${cvFeeLabel(q)}: ${cvFeeText(q)}`}</Grey></span></div>}

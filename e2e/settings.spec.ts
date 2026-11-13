@@ -446,3 +446,12 @@ test("mock: today's total counts sends to Nigerian banks today, not failed or re
   const tomorrow = new Date(Date.now() + 86400000);
   expect(getInstantSentToday(tomorrow)).toBe(0);
 });
+
+test("a missing name or email reads Not added, on Settings and Security", async ({ page }) => {
+  await openSettings(page);
+  await page.evaluate(() => (window as any).__account.getState().update((a: any) => ({ ...a, first: "", last: "", email: "" }))); // eslint-disable-line @typescript-eslint/no-explicit-any
+  await expect(body(page).locator(".info-card .info-row")).toHaveText(["NameNot added", "EmailNot added"]);
+  await page.locator("#openSecurity").click();
+  await expect(body(page).locator('[data-channel="email"] .t2')).toHaveText("Not added");
+  await expect(body(page)).not.toContainText("—");
+});
