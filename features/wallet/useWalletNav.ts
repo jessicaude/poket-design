@@ -18,6 +18,9 @@ export type WalletScreen =
   | { name: "refund"; id: string }
   /** WGT-11: a credit to the NGN balance (a deposit, a transfer in, a recovered recall) */
   | { name: "credit"; id: string }
+  /** A deposit (card, bank transfer to account details, stablecoin) and a virtual card's transaction */
+  | { name: "deposit"; id: string }
+  | { name: "card-tx"; id: string }
   /** The NGN balance's statement: a period and a format, then a download */
   | { name: "statement"; cur?: CashCurrency }
   /** "Report a problem" on a Paid send to a Nigerian bank (and its recall request) */

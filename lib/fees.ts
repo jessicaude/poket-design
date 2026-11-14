@@ -47,3 +47,11 @@ export function externalSendFee(target: { k: "cash"; cur: FeeCurrency } | { k: "
   if (target.cur === "NGN") return SEND_FEE.NGN;
   return target.cur === "USD" ? SEND_FEE.USD : fromUsd(SEND_FEE.USD, target.cur);
 }
+
+/**
+ * A card top-up's fee (the reference's cardFundFee, *to confirm*: the decided deposit fee covers bank transfers only):
+ * 2.9% + 30¢ (₦465.00 for NGN, as the reference; else 30¢ at the demo rate), charged to the card on top of the amount.
+ */
+export const CARD_FUND_RATE = 0.029;
+export const cardFundFlat = (cur: FeeCurrency) => (cur === "NGN" ? Math.round(0.3 * 1550 * 100) : cur === "USD" ? 30 : fromUsd(30, cur));
+export const cardFundFee = (amount: number, cur: FeeCurrency) => Math.round(amount * CARD_FUND_RATE) + cardFundFlat(cur);

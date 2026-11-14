@@ -19,6 +19,10 @@ import { useNgnCredits } from "./credits";
 import { TxFields, creditFields, creditTitle } from "./fields";
 import { ShareReceiptButton } from "../receipt/ReceiptSheet";
 import { creditReceipt } from "../receipt/receipt";
+import { useDeposit } from "../deposit/useDeposit";
+import { DepositRow } from "../deposit/DepositRecords";
+import { useCards } from "../card/useCards";
+import { CardPurchaseRow } from "../card/CardScreen";
 
 /**
  * WGT-11, history: every transaction as the reference's activity row (txRow), newest first, grouped by day, with
@@ -50,6 +54,8 @@ export function useActivity(): HistoryItem[] {
   const credits = useNgnCredits((s) => s.list);
   // WGT-12: the demo user's Checkout payments (naira and dollar, card and bank transfer), kept on the account
   const payments = useAccount((s) => s.account?.payments) ?? [];
+  const deposits = useDeposit((s) => s.records);
+  const cardSpend = useCards((s) => s.purchases);
   return [
     // The reference's records are USD: a top-up only under card-funded USD (the reference's matching rule)
     ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
@@ -60,6 +66,8 @@ export function useActivity(): HistoryItem[] {
     ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, dir: "out" as const, keys: [w.sourceKey ?? `cash:${w.currency}:open`], el: <WithdrawalRow key={w.id} w={w} /> })),
     ...conversions.map((c) => ({ at: c.createdAt, key: c.id, dir: "convert" as const, keys: [c.from, c.to], el: <ConversionRow key={c.id} c={c} /> })),
     ...credits.map((c) => ({ at: c.at, key: c.id, dir: "in" as const, keys: ["cash:NGN:open"], el: <CreditRow key={c.id} c={c} /> })),
+    ...deposits.map((d) => ({ at: d.at, key: d.id, dir: "in" as const, keys: [d.key], el: <DepositRow key={d.id} r={d} /> })),
+    ...cardSpend.map((p) => ({ at: p.at, key: p.id, dir: "out" as const, keys: p.keys, el: <CardPurchaseRow key={p.id} p={p} /> })),
   ].sort((a, b) => b.at - a.at);
 }
 

@@ -24,7 +24,7 @@ test("every cash balance has the same screen: actions, history, Statement; accou
   await page.evaluate(() => (window as any).__ngn.getState().set({ ngnReserved: 500000 }));
   const cases: [string, string, boolean, boolean][] = [
     // currency, bucket, account card, on hold
-    ["NGN", "open", true, true], ["USD", "open", true, false], ["USD", "fiat", true, false], ["EUR", "open", true, false], ["GBP", "open", true, false], ["GHS", "open", false, false],
+    ["NGN", "open", true, true], ["USD", "open", true, false], ["USD", "fiat", true, false], ["EUR", "open", true, false], ["GBP", "open", true, false], ["GHS", "open", true, false],
   ];
   for (const [cur, bucket, card, hold] of cases) {
     await openCash(page, cur, bucket);

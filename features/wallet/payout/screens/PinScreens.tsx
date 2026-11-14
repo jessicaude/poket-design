@@ -15,7 +15,7 @@ import { usePayout } from "../usePayout";
  * Digit boxes as the checkout binds them: digits only, one per box, focus moves on, Backspace on an empty box
  * goes back, and when every box is filled `onComplete` runs after `delay` ms. Remount (key) to clear.
  */
-function DigitBoxes({ count, password, label, delay, onComplete, style }: {
+export function DigitBoxes({ count, password, label, delay, onComplete, style }: {
   count: number; password?: boolean; label: (i: number) => string; delay: number; onComplete: (v: string) => void; style?: React.CSSProperties;
 }) {
   const [vals, setVals] = useState<string[]>(() => Array(count).fill(""));

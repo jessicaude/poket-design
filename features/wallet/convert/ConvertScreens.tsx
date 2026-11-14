@@ -14,9 +14,9 @@ import {
 import { fmtCurrency } from "../payout/payoutMath";
 import { toBalanceName, useConvert } from "./useConvert";
 import { StepUpIntro } from "../StepUpIntro";
+import { useDeposit } from "../deposit/useDeposit";
 import { TIERS } from "../limits";
 import { useWalletNav } from "../useWalletNav";
-import { showNotPorted } from "../useWalletToast";
 import { useNgn } from "../ngn/useNgn";
 import { useHoldings } from "../useHoldings";
 
@@ -285,8 +285,8 @@ export function ConvertEmptyScreen() {
       <div className="center-col" style={{ paddingTop: "18px" }}>
         <p className="step-sub" id="cvEmpty" style={{ textAlign: "center" }}>You have no USD or USDC to convert yet</p>
       </div>
-      {/* USD and USDC deposits (tDepositSelect) aren’t ported: the wallet's "not in the prototype" notice. */}
-      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => showNotPorted("USD and USDC deposits aren’t ported yet.")}>Deposit</button>
+      {/* Deposit (tCardFund 'select'), with USD chosen */}
+      <button className="btn-primary" id="cvEmptyDeposit" onClick={() => { useConvert.getState().close(); useDeposit.getState().open(); }}>Deposit</button>
     </>
   );
 }

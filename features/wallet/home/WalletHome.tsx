@@ -10,9 +10,10 @@ import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useConvert } from "../convert/useConvert";
 import { useSend } from "../send/useSend";
+import { useDeposit } from "../deposit/useDeposit";
 import { fmtAsset } from "../convert/convertMath";
 import { useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
-import { showNotPorted, useWalletToast } from "../useWalletToast";
+import { useWalletToast } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
 import { OnHoldLink } from "../withdrawals/parts";
 import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
@@ -144,7 +145,7 @@ export function WalletHome() {
         <div className="bh-sub"><span className="badge-pill">{email}</span></div>
       </div>
       <div className="action-row">
-        <button className="action-btn" id="actDeposit" onClick={() => showNotPorted("Use Deposit on the Nigerian Naira balance.")}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
+        <button className="action-btn" id="actDeposit" onClick={() => useDeposit.getState().open()}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
         {/* Send replaces the reference's Transfer and Payout actions (docs/decisions.md). */}
         <button className="action-btn" id="actSend" onClick={() => useSend.getState().open()}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="actConvert" onClick={() => useConvert.getState().start()}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>

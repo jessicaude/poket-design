@@ -10,20 +10,19 @@ import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useSend } from "../send/useSend";
 import { useHoldings, type CashCurrency } from "../useHoldings";
-import { showNotPorted } from "../useWalletToast";
+import { useDeposit } from "../deposit/useDeposit";
+import { VA_SPEC, isVaCurrency } from "../deposit/vaSpec";
 import { useWalletNav } from "../useWalletNav";
 import { NgnAccountCard } from "../withdrawals/NgnBalanceScreen";
 import { OnHoldLink } from "../withdrawals/parts";
 import { CURRENCY_ICON, CURRENCY_NAME, cashRows, type CashRow } from "./homeData";
 import { FiatTag } from "./WalletHome";
 
-/** VA_SPEC's rails, for the "Get … account details" card (vaCardHtml) on USD, EUR and GBP. */
-const VA_RAILS: Partial<Record<CashCurrency, string>> = { USD: "ACH or wire", EUR: "SEPA or SEPA Instant", GBP: "Faster Payments or Bacs" };
 
 /**
  * Every cash balance's screen, one template (the reference's tHoldingDetail): the balance (with "₦X on hold" only
- * when something is), Deposit, Send and Convert, the account card where there are account details (NGN's own flow;
- * USD, EUR and GBP not ported yet), then Transaction history (filter, day groups) with Statement. Stablecoins keep
+ * when something is), Deposit, Send and Convert, the account card (vaCardHtml; NGN's own flow), then Transaction
+ * history (filter, day groups) with Statement. Stablecoins keep
  * HoldingDetailScreen.
  */
 export function CashBalanceScreen({ cur, bucket }: { cur: CashCurrency; bucket: CashRow["bucket"] }) {
@@ -37,7 +36,7 @@ export function CashBalanceScreen({ cur, bucket }: { cur: CashCurrency; bucket: 
   const balance = cashRows(false).find((r) => r.currency === cur && r.bucket === bucket)?.balance ?? 0;
   const onHold = cur === "NGN" && bucket === "open" ? reserved : 0;
   const items = useActivity().filter((x) => x.keys.includes(key));
-  const rails = VA_RAILS[cur];
+  const vas = useDeposit((s) => s.vas);
   return (
     <>
       {cur === "NGN" && <NairaPausedBanner />}
@@ -51,25 +50,41 @@ export function CashBalanceScreen({ cur, bucket }: { cur: CashCurrency; bucket: 
         {onHold > 0 && <OnHoldLink id="balanceOnHold" reserved={onHold} line />}
       </div>
       <div className="action-row" style={{ marginTop: "14px" }}>
-        <button className="action-btn" id="detailDeposit" onClick={() => (cur === "NGN" ? openNgn("deposit-method") : showNotPorted(`Depositing ${cur} isn’t ported yet.`))}>
+        <button className="action-btn" id="detailDeposit" onClick={() => (isVaCurrency(cur) ? useDeposit.getState().openFor(cur) : openNgn("deposit-method"))}>
           <span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
         {/* Send replaces Transfer and Payout (docs/decisions.md), with this balance as the source */}
         <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(key)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: key })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
       {cur === "NGN" && <NgnAccountCard />}
-      {rails && (
-        <div className="va-card va-empty" id="vaOpen" data-vacur={cur} role="button" tabIndex={0} onClick={() => showNotPorted(`${cur} account details aren’t ported yet.`)}>
-          <div className="va-ic"><Raw html={WICON.bank} /></div>
-          <div className="va-meta"><div className="t1">Get {cur} account details</div><div className="t2">Receive {cur} by {rails}. {depositFeeText(cur)}.</div></div>
-          <span className="va-chev">{"›"}</span>
-        </div>
-      )}
+      {isVaCurrency(cur) && <VaCard cur={cur} va={vas[cur]} />}
       <div className="section-title">Transaction history
         <span className="btn-ghost" id="balanceStatement" role="button" tabIndex={0} style={{ textTransform: "none", letterSpacing: 0 }}
           onClick={() => push({ name: "statement", cur })} onKeyDown={(e) => { if (e.key === "Enter") push({ name: "statement", cur }); }}>Statement</span>
       </div>
       <History id="balanceHistory" items={items} empty="No activity yet." />
     </>
+  );
+}
+
+/** vaCardHtml: "Get {cur} account details", or the account's status and first detail. Opens tVa. */
+function VaCard({ cur, va }: { cur: Exclude<CashCurrency, "NGN">; va: { status: "pending" | "ready"; num: string } | undefined }) {
+  const spec = VA_SPEC[cur];
+  const open = () => useDeposit.getState().openAccount(cur);
+  if (!va) return (
+    <div className="va-card va-empty" id="vaOpen" data-vacur={cur} role="button" tabIndex={0} onClick={open}>
+      <div className="va-ic"><Raw html={WICON.bank} /></div>
+      <div className="va-meta"><div className="t1">Get {cur} account details</div><div className="t2">Receive {cur} by {spec.rails}. {depositFeeText(cur)}.</div></div>
+      <span className="va-chev">{"›"}</span>
+    </div>
+  );
+  const first = va.status === "ready" ? spec.fields(va.num)[0] : null;
+  return (
+    <div className="va-card" id="vaOpen" data-vacur={cur} role="button" tabIndex={0} onClick={open}>
+      <div className="va-ic"><Raw html={WICON.bank} /></div>
+      <div className="va-meta"><div className="t1">{cur} account details <span className={`va-status ${va.status === "pending" ? "warn" : ""}`}>{va.status === "pending" ? "Setting up" : "Ready"}</span></div>
+        <div className="t2">{first ? <>{first[0]} <span className="mono">••{first[1].replace(/\s/g, "").slice(-4)}</span> · {spec.bank}</> : "Usually ready within 1-2 business days"}</div></div>
+      <span className="va-chev">{"›"}</span>
+    </div>
   );
 }

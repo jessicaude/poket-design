@@ -2,6 +2,8 @@
 import { ReceiptSheet } from "./receipt/ReceiptSheet";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDeposit } from "./deposit/useDeposit";
+import { useCards } from "./card/useCards";
 import { Raw } from "@/components/ui/Raw";
 import { BELL_ICON, SETTINGS_ICON, TAB_ICON, WALLET_LOCKUP, WICON } from "@/lib/icons";
 import { WalletBody } from "./WalletBody";
@@ -45,7 +47,8 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
   // The panel is a fixed size and only its body scrolls: a new screen starts at the top (not where the last one was)
   const bodyRef = useRef<HTMLDivElement>(null);
   const navTop = useWalletNav((s) => s.stack.length + ":" + JSON.stringify(s.stack[s.stack.length - 1] ?? null));
-  const flows = [useSend((s) => s.stage), useConvert((s) => s.stage), usePayout((s) => s.stage), useNgn((s) => s.stage)].join("|");
+  const flows = [useSend((s) => s.stage), useConvert((s) => s.stage), usePayout((s) => s.stage), useNgn((s) => s.stage),
+    useDeposit((s) => `${s.stage}:${s.vaStage}`), useCards((s) => `${s.creating}:${s.stepUp}:${s.cards.length}`)].join("|");
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [navTop, flows, tab]);
   const notifs = useNotifications((s) => s.list);
   const unread = notifs.some((n) => !n.read);

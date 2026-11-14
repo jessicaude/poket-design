@@ -60,7 +60,7 @@ test("mock: notifications are sent only through the catalogue, and every entry i
   expect(Object.keys(NOTIFICATIONS).filter((k) => !used.has(k))).toEqual([]);
   // Every placeholder must be given
   expect(() => fillBody("transferReceived", { amount: "₦1.00" })).toThrow(/missing \{sender\}/);
-  expect(fillBody("transferReceived", { amount: "₦1.00", sender: "Amara Okafor" })).toBe("₦1.00 from Amara Okafor added to your NGN balance.");
+  expect(fillBody("transferReceived", { amount: "₦1.00", sender: "Amara Okafor", currency: "NGN" })).toBe("₦1.00 from Amara Okafor added to your NGN balance.");
 });
 
 async function wallet(page: Page) {

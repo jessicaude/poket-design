@@ -16,6 +16,7 @@ import { merchantRefunds, refundLeft } from "@/lib/refunds";
 import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/store/partner";
 import { useSend } from "@/features/wallet/send/useSend";
 import { DEMO_WHITE_LABEL, POKET_BRAND, useWalletBrand } from "@/features/wallet/brand";
+import { useDeposit } from "@/features/wallet/deposit/useDeposit";
 import { DEMO_ACCOUNT_TRANSFER_KOBO, DEMO_POKET_TRANSFER_KOBO, receiveNaira } from "@/features/wallet/history/credits";
 
 /**
@@ -43,7 +44,11 @@ export function NgnDemoBar() {
     return () => { ro.disconnect(); document.documentElement.style.removeProperty("--bar"); };
   }, []);
   const sendStage = useSend((s) => s.stage), payStage = usePayout((s) => s.stage), cvStage = useConvert((s) => s.stage);
-  const flowOpen = !!sendStage || !!payStage || !!cvStage || !!stage;
+  const dep = useDeposit();
+  const flowOpen = !!sendStage || !!payStage || !!cvStage || !!stage || !!dep.stage;
+  // Deposit's account details (USD, EUR, GBP, GHS): the partner bank approves a pending one; a transfer arrives
+  const vaCur = dep.stage === "va" && dep.vaStage === "details" && dep.choice?.k === "cash" && dep.choice.cur !== "NGN" ? dep.choice.cur : null;
+  const va = vaCur ? dep.vas[vaCur] : undefined;
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const { list, move, releaseHold, setRecall } = useWithdrawals();
   const payoutStage = usePayout((s) => s.stage);
@@ -165,6 +170,8 @@ export function NgnDemoBar() {
       {/* WGT-11: naira coming in, each with its own record. A transfer to the account details needs a ready account and the partner up (while down, "Transfer arrived while down") */}
       {!flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
       {!flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a Poket user</button>}
+      {vaCur && va?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => dep.vaApprove(vaCur)}>Account approved</button>}
+      {vaCur && va?.status === "ready" && <button className="pbtn" id="demoVaTransfer" onClick={() => dep.vaReceive(vaCur)}>Transfer to {vaCur} account details</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}
       {/* WGT-09: on Instant transfers with a raised limit waiting */}

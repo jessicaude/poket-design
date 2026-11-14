@@ -95,9 +95,9 @@ test("convert: the fee before and after an amount; too small for the fee says so
   await expect(page.locator("#cvToAmt")).toHaveText("≈ 5.14");
 });
 
-test("the EUR and GBP account cards say their deposit fee (to confirm)", async ({ page }) => {
+test("the EUR, GBP and GHS account cards say their deposit fee (to confirm)", async ({ page }) => {
   await wallet(page);
-  for (const [cur, text] of [["EUR", "Receive EUR by SEPA or SEPA Instant. 0.40% fee, up to €3.70."], ["GBP", "Receive GBP by Faster Payments or Bacs. 0.40% fee, up to £3.15."]]) {
+  for (const [cur, text] of [["EUR", "Receive EUR by SEPA or SEPA Instant. 0.40% fee, up to €3.70."], ["GBP", "Receive GBP by Faster Payments or Bacs. 0.40% fee, up to £3.15."], ["GHS", "Receive GHS by GhIPSS bank transfer. 0.40% fee, up to GH₵62.00."]]) {
     await page.locator(`[data-holdcur="${cur}"][data-holdbucket="open"] .tx-title`).click();
     await expect(page.locator("#vaOpen .t2")).toHaveText(text);
     await page.locator("#backFromDetail").click();

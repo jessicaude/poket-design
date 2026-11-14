@@ -128,7 +128,7 @@ export function SecurityScreen() {
 }
 
 /** tierLimitsCardHtml(tier): the tier's per-transaction, daily and monthly limits (USD). */
-function TierLimitsCard({ tier }: { tier: 1 | 2 | 3 }) {
+export function TierLimitsCard({ tier }: { tier: 1 | 2 | 3 }) {
   const t = TIERS[tier];
   return (
     <div className="info-card" style={{ padding: 0, overflow: "hidden" }}>

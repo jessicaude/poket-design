@@ -4,6 +4,9 @@ import { WICON } from "@/lib/icons";
 import { TIERS, tierName } from "./limits";
 import { BackRow, Grey } from "./payout/parts";
 
+/** What each tier takes, in a line (the step-up and the Card tab's "What you need"). */
+export const STEP_LINE: Record<1 | 2 | 3, string> = { 1: "Scan your ID and take a selfie", 2: "Add proof of address", 3: "Add a source of funds declaration" };
+
 /**
  * Step-up (the reference's tStepupIntro, shortened): why, as a warning ("Over your Tier 0 limit of ₦[limit] per
  * transaction."), "Verify your identity", one line on what it takes, then Continue. `limit` is the current tier's
@@ -22,7 +25,7 @@ export function StepUpIntro({ current, target, limit, per = "transaction", reaso
           <span>{reason ?? <>Over your {tierName(current).split(":")[0]} limit of <Grey>{limit ?? ""}</Grey> per {per}.</>}</span></div>
       )}
       <div className="step-title">Verify your identity</div>
-      <p className="step-sub" id="stepupLine">{t === 1 ? "Scan your ID and take a selfie" : t === 2 ? "Add proof of address" : "Add a source of funds declaration"} to reach {TIERS[t].name.split(":")[0]}.</p>
+      <p className="step-sub" id="stepupLine">{STEP_LINE[t]} to reach {TIERS[t].name.split(":")[0]}.</p>
       <button className="btn-primary" id="stepupIntroContinue" onClick={onContinue}>Continue</button>
     </>
   );

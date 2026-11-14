@@ -12,6 +12,9 @@ import { useWithdrawals } from "@/features/wallet/payout/useWithdrawals";
 import { useWalletNav } from "@/features/wallet/useWalletNav";
 import { isConvertStage, useConvert } from "@/features/wallet/convert/useConvert";
 import { useHoldings } from "@/features/wallet/useHoldings";
+import { useDeposit } from "@/features/wallet/deposit/useDeposit";
+import { useCards } from "@/features/wallet/card/useCards";
+import { useNgnLedger } from "@/features/wallet/history/ledger";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccount } from "@/store/account";
@@ -24,13 +27,13 @@ import { DEMO_USER_EMAIL, findAccount } from "@/lib/mock-api";
  * ?send=ngn-account opens a new Nigerian bank account).
  */
 export function WalletDemo({ css }: { css: string }) {
-  // The tab bar: Wallet (home) and Activity; Card isn't ported, so it keeps the home.
+  // The tab bar: Wallet (home), Card and Activity
   const tab = useWalletHome((s) => s.tab);
   const setTab = (t: "home" | "card" | "activity") => { useWalletNav.getState().home(); useWalletHome.getState().set({ tab: t }); };
   const open = useNgn((s) => s.open);
   // The header gear: Settings (the reference's go('settings')), in place of any open flow
   const openSettings = () => {
-    useSend.getState().close(); usePayout.getState().close(); useConvert.getState().close(); useNgn.getState().close();
+    useSend.getState().close(); usePayout.getState().close(); useConvert.getState().close(); useNgn.getState().close(); useDeposit.getState().close();
     useWalletNav.getState().home(); useWalletNav.getState().push({ name: "settings" });
   };
   useEffect(() => {
@@ -38,7 +41,7 @@ export function WalletDemo({ css }: { css: string }) {
     // WGT-12: the wallet is the demo user's (Ada Osun): her account, with any Checkout payments she made
     const ada = findAccount(DEMO_USER_EMAIL);
     if (ada && useAccount.getState().account?.email !== ada.email) useAccount.getState().signIn(structuredClone(ada));
-    Object.assign(window, { __account: useAccount, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents });
+    Object.assign(window, { __account: useAccount, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents, __deposit: useDeposit, __cards: useCards, __ledger: useNgnLedger });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);

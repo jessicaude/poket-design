@@ -27,11 +27,11 @@ test("balance card: total in USD, the eye hides it, the email chip", async ({ pa
   await expect(page.locator("#totalBalance")).toHaveText("$97.86 USD");
 });
 
-test("actions: Send and Convert open their flows; Deposit isn’t ported", async ({ page }) => {
+test("actions: Deposit, Send and Convert open their flows", async ({ page }) => {
   await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Send", "Convert"]); // Send replaces Transfer and Payout
   await page.locator("#actDeposit").click();
-  await expect(page.locator("#toastEl .notice-title")).toHaveText("Not in the prototype yet");
-  await expect(page.locator("#toastEl .notice-body")).toHaveText("Use Deposit on the Nigerian Naira balance.");
+  await expect(body(page).locator(".step-title").first()).toHaveText("Deposit");
+  await page.locator("#backHome").click();
   await page.locator("#actConvert").click();
   await expect(body(page).locator(".step-title").first()).toHaveText("Convert");
   await page.locator("#backHome").click();
