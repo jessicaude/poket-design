@@ -63,7 +63,7 @@ test("a match leads to the account terms, then the NGN account details", async (
   // intro: account terms
   await expect(title(page)).toHaveText("Get NGN account details");
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "Free to receive"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "0.40% fee, up to ₦5,000.00"]);
   await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket’s partner bank, [Partner bank]");
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
@@ -168,7 +168,7 @@ test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and te
   await ngnBalance(page);
   const card = page.locator("#vaOpen");
   await expect(card).toHaveClass(/\bva-empty\b/);
-  await expect(card).toHaveText("Get NGN account detailsReceive NGN by bank transfer. Free to receive.›");
+  await expect(card).toHaveText("Get NGN account detailsReceive NGN by bank transfer. 0.40% fee, up to ₦5,000.00.›");
   // It sits between the actions and the history, as in the reference’s tHoldingDetail
   const order = await page.locator("#panelBody").evaluate((b) => [...b.querySelectorAll(".action-row, #vaOpen, .section-title")].map((e) => e.id || e.className));
   expect(order).toEqual(["action-row", "vaOpen", "section-title"]);

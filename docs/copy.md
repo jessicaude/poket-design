@@ -12,8 +12,8 @@
   payment. We’ll let you know." Quick check: chip "Held for a quick check", line
   "First payment to a new recipient. Usually under 15 minutes."
 - Money: ₦ with two decimals; running text drops the code ("₦5,000.00"); amount rows and cards keep
-  the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders: ₦[fee],
-  ₦[limit], [hold], [time], [handling].
+  the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders:
+  ₦[limit], [hold], [time], [handling]. Fees are decided: show the amount, or "Free".
 - Never name a partner bank: "[Partner bank]".
 - Notifications: title says what happened in 2 to 4 words, past tense ("Transfer received");
   body is one sentence with the amount and who ("₦25,000.00 added to your NGN balance.").

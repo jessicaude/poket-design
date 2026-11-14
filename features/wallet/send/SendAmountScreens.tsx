@@ -7,7 +7,7 @@ import { useNgn } from "../ngn/useNgn";
 import { useHoldings } from "../useHoldings";
 import { useConvert } from "../convert/useConvert";
 import {
-  cvAvail, cvBadgeHtml, cvFeeLabel, cvFeeText, cvFmt, cvName, cvParse, cvQuote, cvRateText, cvShort, type Side,
+  cvAvail, cvBadgeHtml, cvFmt, cvName, cvParse, cvQuote, cvRateText, cvShort, type Side,
 } from "../convert/convertMath";
 import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
 import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountReviewScreens";
@@ -58,7 +58,7 @@ export function SendAmountScreen() {
   const src = cvParse(payFrom), target = targetKeyFor(r, payFrom), tgt = cvParse(target);
   const converting = !sameAsTarget(payFrom, asSendRecipient(r));
   const summary = sendSummary(r, payFrom, payCents, cents, jitter);
-  const q = converting ? cvQuote(payFrom, target, payCents, jitter) : null;
+  const q = converting ? cvQuote(payFrom, target, payCents, jitter, r.methodType === "poket") : null;
   const avail = cvAvail(src);
   const opened = useSend.getState().source;
   // Opened from a naira balance for a recipient naira can't pay (a bank outside Nigeria, a debit card): say why
@@ -168,13 +168,17 @@ export function SendAmountScreen() {
         <>
           <div className="receipt-card" id="cvQuoteCard" style={{ marginTop: "10px" }}>
             <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Rate</span><span className="r-value mono"><Grey>{cvRateText(q.f, q.to, jitter, false)}</Grey></span></div>
-            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">{cvFeeLabel(q)}</span><span className="r-value mono"><Grey>{cvFeeText(q)}</Grey></span></div>
+            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fee</span><span className="r-value mono" id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
           </div>
           <div className={`cv-timer ${quoteExpired ? "expired" : ""}`} id="cvTimer">
             {quoteExpired ? "Rate expired. Refresh to get a new rate." : <>Rate held for <span className="mono" id="cvTimerLeft">0:{String(secs).padStart(2, "0")}</span></>}
           </div>
           {quoteExpired && <SpinButton id="cvRefresh" className="btn-secondary" style={{ width: "100%", marginBottom: "10px" }} delay={400} onClick={refreshQuote}>Refresh rate</SpinButton>}
         </>
+      )}
+      {!q && (
+        // The send's fee (lib/fees.ts), on top of the amount: one line, as Convert's
+        <div className="cv-meta" id="sendFeeLine"><span>Fee</span><span id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
       )}
       {summary.firstPayment && <FirstPaymentNotice />}
       <SpinButton id="payoutReview" style={{ marginTop: "12px" }} disabled={!ready} delay={500} onClick={() => usePayout.getState().toReview()}>Review</SpinButton>

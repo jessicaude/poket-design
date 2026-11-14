@@ -194,8 +194,8 @@ export const useNgn = create<State>((set, get) => {
       set({ stage: "tempArrived" });
       const { amount, ref } = await simulateTransferArrives();
       // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
-      creditNgn({ kind: "temp", amount, from: holderName(), ref });
-      notify("topUpReceived", { amount: formatNairaShort(amount) });
+      const c = creditNgn({ kind: "temp", amount, from: holderName(), ref });
+      notify("topUpReceived", { amount: formatNairaShort(c.amount) });
       set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 

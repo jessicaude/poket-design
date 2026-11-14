@@ -56,7 +56,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await page.locator("#payoutReview").click();
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
   await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Arrives", "Debited from balance"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦12,500.00 NGN", "₦[fee]", "Usually within seconds", "₦12,500.00 NGN + ₦[fee]"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦12,500.00 NGN", "₦25.00 NGN", "Usually within seconds", "₦12,525.00 NGN"]);
   await expect(body.locator(".status-pill")).toHaveCount(0); // no Standard / Instant for NGN
   await expect(body.locator(".fine-print")).toHaveCount(0);
   await expect(page.locator("#confirmPayout")).toBeDisabled();
@@ -84,7 +84,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await page.locator("#payoutDone").click();
   // NGN fees aren’t decided, so only the amount comes off the balance
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
-  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦37,500.00 NGN");
+  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦37,475.00 NGN");
 });
 
 test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode", async ({ page }) => {
@@ -94,7 +94,7 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   await page.locator("#payoutReview").click();
   const body = page.locator("#panelBody");
   await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦5,000.00 NGN", "₦[fee]", "After [hold]", "₦5,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦5,000.00 NGN", "₦25.00 NGN", "After [hold]", "₦5,025.00 NGN"]); // first payment to Ngozi Eze
   await expect(body).toContainText("I’ve reviewed the destination, fee, and delivery estimate above.");
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -152,7 +152,7 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   const body = page.locator("#panelBody");
   await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]"); // first payment to Ngozi Eze
   await page.locator("#payoutMaxAmt").click();
-  await expect(body.locator("#theyGet")).toHaveText("50,000.00");
+  await expect(body.locator("#theyGet")).toHaveText("49,975.00"); // Max: the balance less the ₦25.00 fee
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN"); // You send: the NGN balance
   await expect(page.locator("#youSendBox .cv-box-top")).toContainText("Available ₦50,000.00 NGN");
   await expect(body.locator(".info-card")).toHaveCount(0); // no exchange rate or "Recipient gets"
@@ -160,10 +160,10 @@ test("NGN: only Nigerian bank accounts, no conversion, no speed choice; Max is t
   await expect(body.locator(".step-sub").first()).toHaveText("to Ngozi Eze");
   await expect(body.locator(".status-pill")).toHaveCount(0);
   await expect(body.locator(".receipt-row .r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦50,000.00 NGN", "₦[fee]", "After [hold]", "₦50,000.00 NGN + ₦[fee]"]); // first payment to Ngozi Eze
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["GTBank · •••• 6789", "₦49,975.00 NGN", "₦25.00 NGN", "After [hold]", "₦50,000.00 NGN"]); // first payment to Ngozi Eze: Max leaves room for the fee
 
   await page.locator("#backToPayoutAmount").click();
-  await expect(body.locator("#theyGet")).toHaveText("50,000.00");
+  await expect(body.locator("#theyGet")).toHaveText("49,975.00"); // Max: less the ₦25.00 fee
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send"); // back to Send’s recipients
 });

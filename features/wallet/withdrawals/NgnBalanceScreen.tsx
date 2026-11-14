@@ -1,4 +1,5 @@
 "use client";
+import { depositFeeText } from "@/lib/fees";
 import { useNairaPartner } from "@/store/partner";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
@@ -85,7 +86,7 @@ function NgnAccountCard() {
         <div className="va-ic"><Raw html={WICON.bank} /></div>
         <div className="va-meta">
           <div className="t1">Get NGN account details</div>
-          <div className="t2">{tier < 1 ? "Verify your identity to get account details" : `Receive NGN by ${NGN_VA.rails}. Free to receive.`}</div>
+          <div className="t2">{tier < 1 ? "Verify your identity to get account details" : `Receive NGN by ${NGN_VA.rails}. ${depositFeeText("NGN")}.`}</div>
         </div>
         <span className="va-chev">›</span>
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { depositFeeText } from "@/lib/fees";
 import { useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
@@ -16,7 +17,7 @@ export function AccountIntroScreen() {
     [WICON.user, "Name on account", holderName()],
     [WICON.bank, "Receive by", NGN_VA.rails],
     [WICON.info, "Arrives", NGN_VA.arrives.split(" · ")[0]],
-    [WICON.percent, "Fees", "Free to receive"],
+    [WICON.percent, "Fees", depositFeeText("NGN")],
   ];
   const openTerms = (e: React.SyntheticEvent) => {
     e.preventDefault(); e.stopPropagation();

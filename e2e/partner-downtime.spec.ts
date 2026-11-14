@@ -280,16 +280,16 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await expect(banner(page)).toHaveCount(0);
   await expect(page.locator("#demoQueuedArrival")).toHaveCount(0);
   await expect(chip).toHaveText("Paid");
-  await expect.poll(balance).toBe(before + 2 * 2500000); // ₦25,000.00 each
+  await expect.poll(balance).toBe(before + 2 * 2490000); // ₦25,000.00 each, less the ₦100.00 deposit fee
   await page.locator("#openNotifHeader").click();
   const notes = page.locator("#panelBody [data-notif] .settings-row-sub", { hasText: "after a delay." });
-  await expect(notes).toHaveText(["₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay.", "₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay."]);
+  await expect(notes).toHaveText(["₦24,900.00 from Chinedu Eze added to your NGN balance, after a delay.", "₦24,900.00 from Chinedu Eze added to your NGN balance, after a delay."]);
 
   // Down and up again with nothing queued: no new credit or notification
   await partner(page, "down");
   await partner(page, "up");
   await page.waitForTimeout(300);
-  expect(await balance()).toBe(before + 2 * 2500000);
+  expect(await balance()).toBe(before + 2 * 2490000);
   await expect(notes).toHaveCount(2);
 });
 

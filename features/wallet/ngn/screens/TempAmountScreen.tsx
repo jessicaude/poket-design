@@ -1,4 +1,5 @@
 "use client";
+import { depositFee } from "@/lib/fees";
 import { useState } from "react";
 import { formatNaira } from "@/lib/money";
 import { NGN_MIN_TOPUP, parseNairaInput, useNgn } from "../useNgn";
@@ -25,6 +26,13 @@ export function TempAmountScreen() {
       <p className="step-sub" style={{ fontSize: "11.5px", marginTop: "-6px" }}>
         {tier < 1 ? "Tier 0: up to ₦[limit] per top-up and ₦[limit] in total" : "Up to ₦[limit] per top-up"}
       </p>
+      {tempCents > 0 && (
+        // The deposit fee comes out of what arrives (lib/fees.ts)
+        <div className="receipt-card" id="ngnTempFee" style={{ marginTop: "4px" }}>
+          <div className="receipt-row"><span className="r-label">Fee</span><span className="r-value mono">{formatNaira(depositFee(tempCents, "NGN"))}</span></div>
+          <div className="receipt-row"><span className="r-label">You get</span><span className="r-value mono">{formatNaira(tempCents - depositFee(tempCents, "NGN"))}</span></div>
+        </div>
+      )}
       <button className="btn-primary" id="ngnTempGo" disabled={!ok} onClick={() => createTemp(tempCents)}>Create temporary account</button>
     </>
   );

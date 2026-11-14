@@ -15,12 +15,17 @@ export const useNgnCredits = create<{ list: NgnCredit[]; refresh: () => void }>(
   refresh: () => set({ list: listNgnCredits() }),
 }));
 
-/** Credit the NGN balance and record it. `description`: the statement's line (default: the record's title). */
+/**
+ * Credit the NGN balance and record it. `amount` is what arrived: a deposit's fee comes out of it, as its own line on
+ * the statement ("Fee · Top-up · Bank transfer", same reference). `description`: the statement's line (default: the
+ * record's title).
+ */
 export function creditNgn(p: { kind: NgnCreditKind; amount: Kobo; from: string; ref?: string; withdrawalId?: string; description?: string }): NgnCredit {
   const { description, ...rec } = p;
   const c = recordNgnCredit(rec);
   const line = description ?? (c.kind === "temp" ? "Top-up · Bank transfer" : c.kind === "recall" ? `Recall · ${c.from}` : `From ${c.from.split(" · ")[0]}`);
-  attribute({ description: line, reference: c.ref }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + c.amount })));
+  attribute({ description: line, reference: c.ref }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + c.amount + c.fee })));
+  if (c.fee) attribute({ description: `Fee · ${line}`, reference: c.ref }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance - c.fee })));
   useNgnCredits.getState().refresh();
   return c;
 }
@@ -36,6 +41,6 @@ export const DEMO_POKET_TRANSFER_KOBO: Kobo = 1000000;
 export function receiveNaira(kind: "account" | "poket", amount: Kobo) {
   const from = kind === "account" ? DEMO_ACCOUNT_SENDER : DEMO_POKET_SENDER;
   const c = creditNgn({ kind, amount, from });
-  notify("transferReceived", { amount: formatNairaShort(amount), sender: from.split(" · ")[0] });
+  notify("transferReceived", { amount: formatNairaShort(c.amount), sender: from.split(" · ")[0] }); // what was added
   return c;
 }

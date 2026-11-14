@@ -133,7 +133,8 @@ test("mock: Ada’s seeded history: about three months, every kind, ending at th
   const back = seed.filter((e) => e.status === "Returned");
   expect(back.map((e) => e.delta)).toEqual([-800000, 800000]);
   expect(back[0].reference).toBe(back[1].reference);
-  expect(new Set(seed.map((e) => e.reference)).size).toBe(seed.length - 1);
+  // One reference per record: a fee's line, and a returned send's money back, share their transaction's
+  expect(new Set(seed.map((e) => e.reference)).size).toBe(h.credits.length + h.sends.length + h.conversions.length + 1);
   // Every period has transactions, and adds up
   const who = { holder: "Ada Osun", account: null };
   for (const p of ["this_month", "last_month", "last_3_months"] as const) {
@@ -145,17 +146,24 @@ test("mock: Ada’s seeded history: about three months, every kind, ending at th
   // Early in a month there’s still one this month
   const first = new Date(2026, 10, 1, 8, 0);
   const early = api.buildAdaHistory(first).lines.map((l, i) => ({ id: String(i), ...l }));
-  expect(st.buildStatement(early, 5000000, st.periodRange("this_month", first), who).rows).toHaveLength(1);
+  expect(st.buildStatement(early, 5000000, st.periodRange("this_month", first), who).rows).toHaveLength(2); // the top-up and its fee
 
   // Each line is a real record with the same reference and time: credits, sends (Tobi Bello’s failed), the
   // conversion, the payment’s refund into the NGN balance
   const byRef = (r: string) => seed.filter((e) => e.reference === r);
-  for (const c of h.credits) expect(byRef(c.ref).map((e) => [e.at, e.delta])).toEqual([[c.at, c.amount]]);
+  // A deposit: what arrived, then its fee (0.40%, capped); the record keeps what was added
+  for (const c of h.credits) expect(byRef(c.ref).map((e) => [e.at, e.delta])).toEqual(c.fee ? [[c.at, c.amount + c.fee], [c.at, -c.fee]] : [[c.at, c.amount]]);
+  expect(h.credits.map((c) => c.fee)).toEqual([16000, 10000, 4733]); // 0.40% of ₦40,000.00, ₦25,000.00 and ₦11,832.33
   expect(h.sends.map((w) => [w.recipientName, w.status])).toEqual([["Naira account", "paid"], ["Amara Okafor", "paid"], ["Tobi Bello", "failed"]]);
   for (const w of h.sends) expect(byRef(w.ref)[0]).toMatchObject({ at: w.createdAt, delta: -w.amount, withdrawalId: w.id });
   expect(byRef(h.sends[2].ref).map((e) => e.description)).toEqual(["To Tobi Bello", "Returned · To Tobi Bello"]);
   const cv = h.conversions[0];
-  expect(byRef(cv.ref)).toEqual([expect.objectContaining({ at: cv.createdAt, delta: -cv.amount, description: "Converted NGN to USD" })]);
+  // The conversion, and its fee (₦2,000.00 + 0.40%) charged in naira
+  expect(cv.fee).toBe(204000);
+  expect(byRef(cv.ref)).toEqual([
+    expect.objectContaining({ at: cv.createdAt, delta: -(cv.amount - cv.fee), description: "Converted NGN to USD" }),
+    expect.objectContaining({ at: cv.createdAt, delta: -cv.fee, description: "Fee · Converted NGN to USD" }),
+  ]);
   const pay = h.payments[0], refund = pay.refunds![0];
   expect(pay).toMatchObject({ merchant: "Mama Tee’s Kitchen", currency: "NGN", methodKind: "bank" });
   expect(new Date(pay.at).getTime()).toBeLessThan(new Date(refund.at).getTime());
@@ -248,9 +256,12 @@ test("This month as CSV: seeded and new lines, their status, running balances; i
   const tx = rows.slice(2, -1);
   // This month’s seeded top-up first, then today’s
   expect(tx.map((r) => [r[1], r[3], r[4]])).toEqual([
-    ["Top-up · Bank transfer", "Completed", "11500.00"], ["From Amara Okafor", "Completed", "10000.00"], ["To Naira account", "Pending", "-5000.00"],
+    ["Top-up · Bank transfer", "Completed", "11832.33"], ["Fee · Top-up · Bank transfer", "Completed", "-47.33"],
+    ["From Amara Okafor", "Completed", "10000.00"],
+    ["To Naira account", "Pending", "-5000.00"], ["Fee · To Naira account", "Pending", "-25.00"], // the send's fee: its own line
   ]);
-  expect(tx[2][2]).toBe(ref);
+  expect(tx[3][2]).toBe(ref);
+  expect(tx[4][2]).toBe(ref);
   for (const r of tx) expect(r[0]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   await expect(page.locator("#toastEl")).toHaveText("Statement downloaded");
 
@@ -260,7 +271,7 @@ test("This month as CSV: seeded and new lines, their status, running balances; i
   await page.getByRole("button", { name: "Hold for review" }).click();
   await page.locator("#backFromTxDetail").click();
   await page.locator("#ngnStatement").click();
-  expect(csvRows((await download(page, "csv")).body).slice(2, -1).map((r) => r[3])).toEqual(["Completed", "Completed", "Held"]);
+  expect(csvRows((await download(page, "csv")).body).slice(2, -1).map((r) => r[3])).toEqual(["Completed", "Completed", "Completed", "Held", "Held"]);
   await page.locator("#backFromStatement").click();
   await page.locator('#ngnHistory [data-txid^="wd_"]:not([data-txid*="seed"])').click();
   await page.getByRole("button", { name: "Fail" }).click();
@@ -268,8 +279,9 @@ test("This month as CSV: seeded and new lines, their status, running balances; i
   await page.locator("#ngnStatement").click();
   const failed = csvRows((await download(page, "csv")).body);
   expect(failed.slice(2, -1).map((r) => [r[1], r[2], r[3]])).toEqual([
-    ["Top-up · Bank transfer", expect.stringMatching(/^TXN-\d{6}$/), "Completed"], ["From Amara Okafor", expect.stringMatching(/^TXN-\d{6}$/), "Completed"],
-    ["To Naira account", ref, "Returned"], ["Returned · To Naira account", ref, "Returned"],
+    ["Top-up · Bank transfer", expect.stringMatching(/^TXN-\d{6}$/), "Completed"], ["Fee · Top-up · Bank transfer", expect.stringMatching(/^TXN-\d{6}$/), "Completed"],
+    ["From Amara Okafor", expect.stringMatching(/^TXN-\d{6}$/), "Completed"],
+    ["To Naira account", ref, "Returned"], ["Fee · To Naira account", ref, "Returned"], ["Returned · To Naira account", ref, "Returned"],
   ]);
   expect(addsUp(failed).closing).toBe(await ngn(page));
 });
@@ -280,8 +292,8 @@ test("every period has transactions in the demo; Last month, Last 3 months and t
   await page.locator('[data-period="last_month"]').click();
   const last = csvRows((await download(page, "csv")).body);
   const l = addsUp(last);
-  expect(last.slice(2, -1).map((r) => r[1])).toEqual(["To Amara Okafor", "Converted NGN to USD", "Refund · Mama Tee’s Kitchen", "To Tobi Bello", "Returned · To Tobi Bello"]);
-  expect(last.slice(2, -1).map((r) => r[3])).toEqual(["Completed", "Completed", "Completed", "Returned", "Returned"]);
+  expect(last.slice(2, -1).map((r) => r[1])).toEqual(["To Amara Okafor", "Converted NGN to USD", "Fee · Converted NGN to USD", "Refund · Mama Tee’s Kitchen", "To Tobi Bello", "Returned · To Tobi Bello"]);
+  expect(last.slice(2, -1).map((r) => r[3])).toEqual(["Completed", "Completed", "Completed", "Completed", "Returned", "Returned"]);
   // This month opens where last month closed
   await page.locator('[data-period="this_month"]').click();
   expect(addsUp(csvRows((await download(page, "csv")).body)).opening).toBe(l.closing);
@@ -318,16 +330,16 @@ test("PDF: account holder, NGN account details, period, balances, totals, and ea
   expect(after("Bank")).toBe("[Partner bank]");
   expect(after("Period")).toMatch(/^[A-Z][a-z]{2} 1, \d{4} to [A-Z][a-z]{2} \d{1,2}, \d{4}$/);
   const money = (label: string) => Math.round(Number(after(label).replace(/^NGN /, "").replace(/,/g, "")) * 100);
-  expect(money("Opening balance")).toBe(3850000); // after last month’s seeded history
-  expect(money("Money in")).toBe(1150000 + 2500000 + 1000000);
-  expect(money("Money out")).toBe(0);
+  expect(money("Opening balance")).toBe(3821500); // after last month’s seeded history
+  expect(money("Money in")).toBe(1183233 + 2500000 + 1000000); // what arrived
+  expect(money("Money out")).toBe(4733 + 10000); // the two deposits’ fees
   expect(money("Closing balance")).toBe(money("Opening balance") + money("Money in") - money("Money out"));
   expect(money("Closing balance")).toBe(await ngn(page));
   // The table: each line’s date, description, reference, status, amount and running balance, in order
   const row = (desc: string) => t.slice(t.indexOf(desc) - 1, t.indexOf(desc) + 5);
   expect(t).toEqual(expect.arrayContaining(["Date", "Description", "Reference", "Status", "Amount (NGN)", "Balance (NGN)", "Payments by Poket"]));
   expect(row("From Chinedu Eze")).toEqual([expect.stringMatching(/^[A-Z][a-z]{2} \d{1,2}, \d{4}$/), "From Chinedu Eze", expect.stringMatching(/^TXN-\d{6}$/), "Completed", "+25,000.00", "75,000.00"]);
-  expect(row("From Amara Okafor").slice(3)).toEqual(["Completed", "+10,000.00", "85,000.00"]);
+  expect(row("From Amara Okafor").slice(3)).toEqual(["Completed", "+10,000.00", "84,900.00"]); // after the transfer’s ₦100.00 fee
 });
 
 test("a period with no transactions still downloads, saying so; no account details without an account", async ({ page }) => {
@@ -387,7 +399,7 @@ test("Ada’s seeded history is in the wallet too: each record opens its receipt
   const today = new Date(), iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   await page.locator("#statementFrom").fill(iso(new Date(today.getFullYear() - 1, today.getMonth(), today.getDate() + 1)));
   const lines = csvRows((await download(page, "csv")).body).slice(2, -1);
-  expect(lines).toHaveLength(9);
+  expect(lines).toHaveLength(14); // 9 transactions, 4 fee lines and a send’s money back
   await page.locator("#backFromStatement").click();
 
   // The NGN balance’s history: the 8 seeded records (Tobi Bello’s send is one record for its 2 statement lines)

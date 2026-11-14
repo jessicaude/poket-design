@@ -1,4 +1,4 @@
-import { DEMO_NGN_PER_USD } from "@/lib/money";
+import { DEMO_USD_PER } from "@/lib/fees";
 import { create } from "zustand";
 import { useNgn } from "../ngn/useNgn";
 import { CASH_CURRENCIES, cashBuckets, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
@@ -9,7 +9,7 @@ import { CASH_CURRENCIES, cashBuckets, useHoldings, type CashCurrency, type Coin
  */
 
 /** The reference's fxToUSD. */
-export const FX_TO_USD: Record<CashCurrency, number> = { USD: 1, NGN: 1 / DEMO_NGN_PER_USD, EUR: 1.08, GBP: 1.27, GHS: 1 / 15.5 };
+export const FX_TO_USD: Record<CashCurrency, number> = DEMO_USD_PER; // the demo rates (lib/fees.ts)
 export const CURRENCY_NAME: Record<CashCurrency, string> = { USD: "US Dollar", NGN: "Nigerian Naira", EUR: "Euro", GBP: "British Pound", GHS: "Ghanaian Cedi" };
 export const CURRENCY_ICON: Record<CashCurrency, "usFlag" | "ngFlag" | "eurFlag" | "gbFlag" | "ghFlag"> = { USD: "usFlag", NGN: "ngFlag", EUR: "eurFlag", GBP: "gbFlag", GHS: "ghFlag" };
 export const ASSET_NAME: Record<CoinAsset, string> = { USDC: "USD Coin", USDT: "Tether" };

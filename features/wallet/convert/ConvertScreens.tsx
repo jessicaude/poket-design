@@ -8,7 +8,7 @@ import { cashAmount, cashBuckets } from "../useHoldings";
 import {
   CV_QUOTE_SECONDS, LIMIT_PLACEHOLDER, MIN_PLACEHOLDER, NETWORK, belowMinimum, cvAvail, cvBadgeHtml, cvBlockReason, cvFeeLabel, cvFeeText, cvFmt, cvKey, cvName,
   cvOptions, cvParse, cvQuote, cvRateText, cvShort, cvType, cvUnit, cvUsdPer, fmtAsset, fmtPlain, involvesNgn, isNgnToStablecoin,
-  overNgnLimit, type Side,
+  overNgnLimit, underFee, type Side,
 } from "./convertMath";
 import { fmtCurrency } from "../payout/payoutMath";
 import { toBalanceName, useConvert } from "./useConvert";
@@ -50,11 +50,14 @@ export function ConvertFormScreen() {
   const q = cvQuote(from, to, cents, jitter);
   const over = q.amt > q.avail;
   const belowMin = !q.noTarget && belowMinimum(q);
+  // The fee comes out of the amount: an amount no bigger than it converts to nothing
+  const tooSmall = !q.noTarget && underFee(q);
   const overLimit = overNgnLimit(q);
   const coinsBlocked = !q.noTarget && ngnCoinsBlocked && isNgnToStablecoin(q.f, q.to);
   const hint = q.noTarget ? ""
     : !q.type ? "Choose a different balance to convert to."
     : over ? `That’s more than your ${withoutCode(cvFmt(q.avail, q.f))}. Enter a smaller amount.`
+    : tooSmall ? `That’s no more than the ${withoutCode(cvFeeText(q))} fee. Enter a larger amount.`
     : belowMin ? `The minimum is ${involvesNgn(q.f, q.to) ? MIN_PLACEHOLDER : q.f.k === "cash" ? fmtCurrency(Math.ceil(100 / cvUsdPer(q.f)), q.f.cur) : fmtAsset(100, q.f.asset)}. Enter a larger amount.`
     : overLimit ? `That’s over your ${LIMIT_PLACEHOLDER} limit per conversion. Enter a smaller amount.`
     : "";
@@ -97,7 +100,7 @@ export function ConvertFormScreen() {
         </div>
       ) : <div className={`cv-hint ${hint ? "err" : ""}`} id="cvHint"><Grey>{hint}</Grey></div>}
       <Keypad dataKey="cvkey" onKey={key} />
-      <SpinButton id="cvReview" style={{ marginTop: "8px" }} disabled={!(q.type && q.amt > 0 && !over && !belowMin && !overLimit && !coinsBlocked)} delay={400} onClick={review}>Review</SpinButton>
+      <SpinButton id="cvReview" style={{ marginTop: "8px" }} disabled={!(q.type && q.amt > 0 && !over && !tooSmall && !belowMin && !overLimit && !coinsBlocked)} delay={400} onClick={review}>Review</SpinButton>
     </>
   );
 }

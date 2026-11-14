@@ -115,7 +115,7 @@ test("rows open their balance screens: USD (with account details card and histor
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
   await page.locator("#backToPayoutRecipient2").click();
   await page.locator("#backFromSend").click();
-  await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. Free to receive.›");
+  await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. 0.40% fee, up to $4.00.›");
   await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242", "Converted NGN to USD"]); // + Ada’s seeded conversion to USD
   await page.locator("#detailConvert").click();
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USDFIAT-ONLY");
@@ -145,7 +145,7 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   const recent = page.locator("#recentActivity .tx-row");
   // The reference’s records, with Ada’s seeded Checkout payment from 2 days ago (WGT-12) and her NGN top-up from a day ago among them
   await expect(recent.locator(".tx-title")).toHaveText(["Refund · Kola Books", "Top-up · Bank transfer", "Mama Tee’s Kitchen", "Sooyah Bistro"]);
-  await expect(recent.locator(".tx-amt")).toHaveText(["+$4.50 USD", "+₦11,500.00 NGN", "-₦65,100.00 NGN", "-$7.20 USD"]);
+  await expect(recent.locator(".tx-amt")).toHaveText(["+$4.50 USD", "+₦11,785.00 NGN", "-₦65,100.00 NGN", "-$7.20 USD"]); // the top-up, less its deposit fee
 
   // A conversion now tops the list (from NGN: the reference’s balances, with no open USD, so Convert starts on NGN)
   await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
@@ -156,7 +156,7 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   await page.locator("#cvConfirm").click();
   await page.locator("#cvDone").click();
   await expect(recent.locator(".tx-title")).toHaveText(["Converted NGN to USDC", "Refund · Kola Books", "Top-up · Bank transfer", "Mama Tee’s Kitchen"]);
-  await expect(page.locator("#totalBalance")).toHaveText("$47.86 USD"); // ₦10,000.00 → 6.45 USDC, no fee: the same total
+  await expect(page.locator("#totalBalance")).toHaveText("$46.55 USD"); // ₦10,000.00 → 5.14 USDC: the ₦2,040.00 fee leaves the total
 
   await page.locator("#viewAllTx").click();
   await expect(page.locator("#tabActivity")).toHaveClass(/\bon\b/);

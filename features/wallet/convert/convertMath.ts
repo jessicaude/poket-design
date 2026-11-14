@@ -1,5 +1,6 @@
 import { WICON } from "@/lib/icons";
-import { DEMO_NGN_PER_USD } from "@/lib/money";
+import { withoutCode } from "@/lib/money";
+import { DEMO_USD_PER, convertFeeSpec } from "@/lib/fees";
 import { fmtCurrency } from "../payout/payoutMath";
 import {
   CASH_CURRENCIES, COIN_ASSETS, NETWORKS, bucketBalance, useHoldings,
@@ -11,8 +12,8 @@ import {
  * cvUsdPer, cvAvail, cvBadge, cvType, cvBlockedPair, cvCounts, cvRate, cvQuote and cvRateText. Pairs: cash → cash (FX),
  * cash → stablecoin (onramp), stablecoin → cash (offramp), stablecoin → stablecoin (swap, or bridge to another network).
  * Card-funded (FIAT-ONLY) cash can only be converted to cash other than NGN, and the tag carries over.
- * NGN rules (ngn.mdc) on top of the reference: NGN fees are ₦[fee] (left out of the maths), card-funded money can't
- * become naira, and naira conversions have a ₦[limit] cap.
+ * On top of the reference: Poket's conversion fee for every source (lib/fees.ts, in place of the reference's
+ * CV_FEES), card-funded money can't become naira, and naira conversions have a ₦[limit] cap (ngn.mdc).
  */
 
 /** Cash buckets: open and card-funded (FIAT-ONLY). */
@@ -23,16 +24,9 @@ export type Side = CashSide | CoinSide;
 export type CvType = "fx" | "onramp" | "offramp" | "swap" | "bridge";
 
 export const CV_QUOTE_SECONDS = 30;
-export const CV_FEES: Record<CvType, { pct: number; flat?: number; label: string }> = {
-  fx: { pct: 0.01, label: "Exchange fee (1%)" },
-  onramp: { pct: 0.005, label: "Processing fee (0.5%)" },
-  offramp: { pct: 0.005, label: "Processing fee (0.5%)" },
-  swap: { pct: 0.001, label: "Swap fee (0.1%)" },
-  bridge: { pct: 0, flat: 10, label: "Network fee" },
-};
 
 /** The reference's fxToUSD (USD per unit) and currencyInfo icons. */
-const FX_TO_USD: Record<CashCurrency, number> = { USD: 1, NGN: 1 / DEMO_NGN_PER_USD, EUR: 1.08, GBP: 1.27, GHS: 1 / 15.5 };
+const FX_TO_USD: Record<CashCurrency, number> = DEMO_USD_PER;
 const CURRENCY: Record<CashCurrency, { name: string; icon: keyof typeof WICON }> = {
   USD: { name: "US Dollar", icon: "usFlag" },
   NGN: { name: "Nigerian Naira", icon: "ngFlag" },
@@ -90,15 +84,14 @@ export const isNgnToStablecoin = (f: Side, to: Side) => f.k === "cash" && f.cur 
 
 /** NGN rules apply to any conversion from or to naira. */
 export const involvesNgn = (f: Side, to: Side) => (f.k === "cash" && f.cur === "NGN") || (to.k === "cash" && to.cur === "NGN");
-/** ₦[fee] in the unit the fee is paid in: "₦[fee]", "$[fee]", or the coin equivalent "[fee] USDC". */
-export function feePlaceholder(f: Side): string {
-  if (f.k === "coin") return `[fee] ${f.asset}`;
-  return { USD: "$", NGN: "\u20a6", EUR: "\u20ac", GBP: "\u00a3", GHS: "GH\u20b5" }[f.cur] + "[fee]";
-}
-/** The fee as shown: ₦[fee] (or equivalent) for naira conversions, else the reference's amount. */
-export const cvFeeText = (q: Quote) => (involvesNgn(q.f, q.to) ? feePlaceholder(q.f) : cvFmt(q.fee, q.f));
-/** The fee's label: "Fee" for naira conversions (no percentage while undecided), else the reference's. */
-export const cvFeeLabel = (q: Quote) => (involvesNgn(q.f, q.to) ? "Fee" : q.spec.label);
+/** The fee as shown, in the source: "₦2,040.00 NGN", "$2.04 USD", "2.04 USDC"; before an amount, how it's worked out ("₦2,000.00 + 0.40%"). */
+export const cvFeeText = (q: Quote) => (q.amt === 0 && q.spec.flat && q.spec.pct
+  ? `${withoutCode(cvFmt(q.spec.flat, q.f))} + ${(q.spec.pct * 100).toFixed(2)}%`
+  : q.fee === 0 ? "Free" : cvFmt(q.fee, q.f));
+/** The fee's label: "Fee" for the decided fee (lib/fees.ts), else the reference's ("Exchange fee (1%)"). */
+export const cvFeeLabel = (q: Quote) => q.spec.label;
+/** The amount is no more than the fee: nothing would arrive. */
+export const underFee = (q: Quote) => q.amt > 0 && !!q.type && q.amt <= q.fee;
 
 /**
  * Per-conversion naira limit: ₦[limit] on screen. NGN_CONVERT_LIMIT_DEMO_KOBO (₦40,000.00) is a demo value only,
@@ -125,13 +118,14 @@ export const cvRate = (f: Side, to: Side, jitter = 1) => (cvUsdPer(f) / cvUsdPer
 
 /** `noTarget`: no To chosen yet (a card-funded source shows "Choose a currency"); `to` then repeats `f`. */
 export type Quote = { noTarget?: boolean; f: Side; to: Side; type: CvType | null; amt: number; fee: number; receive: number; usd: number; spec: { pct: number; flat?: number; label: string }; avail: number };
-export function cvQuote(from: string, toKey: string, cents: number, jitter: number): Quote {
+/** `free`: no fee (a send to a Poket user that converts on receipt: free end to end). */
+export function cvQuote(from: string, toKey: string, cents: number, jitter: number, free = false): Quote {
   if (!toKey) { const f = cvParse(from); return { noTarget: true, f, to: f, type: null, amt: cents || 0, fee: 0, receive: 0, usd: Math.round((cents || 0) * cvUsdPer(f)), spec: { pct: 0, label: "" }, avail: cvAvail(f) }; }
   const f = cvParse(from), to = cvParse(toKey), type = cvType(f, to);
   const amt = cents || 0;
-  const spec = type ? CV_FEES[type] : { pct: 0, label: "" };
-  // NGN fees aren't decided: ₦[fee] on screen, 0 in the maths (as for NGN payouts).
-  const fee = type && !involvesNgn(f, to) ? Math.min(amt, Math.round(amt * spec.pct) + (spec.flat || 0)) : 0;
+  // The fee for the source (lib/fees.ts), out of the amount, in the source; none for a free send's conversion
+  const spec: Quote["spec"] = !type || free ? { pct: 0, label: "Fee" } : { ...convertFeeSpec(f), label: "Fee" };
+  const fee = type ? Math.min(amt, Math.round(amt * spec.pct) + (spec.flat || 0)) : 0;
   const receive = type ? Math.max(0, Math.round((amt - fee) * cvRate(f, to, jitter))) : 0;
   const usd = Math.round(amt * cvUsdPer(f));
   return { f, to, type, amt, fee, receive, usd, spec, avail: cvAvail(f) };

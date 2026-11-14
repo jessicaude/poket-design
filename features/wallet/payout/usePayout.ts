@@ -211,13 +211,16 @@ export const usePayout = create<State>((set, get) => {
     if (!r || !payFrom) return;
     if (!(r.methodType === "bank" && r.currency === "NGN")) return executeSend();
     const s = sendSummary(r, payFrom, payCents, cents, jitter);
-    const total = cents + s.feeTarget; // NGN fees aren't decided: 0 in the maths (ngn.mdc)
+    const total = cents + s.feeTarget; // the amount, and the send's fee on top (lib/fees.ts)
     set({ stage: "processing" });
     const conversion = conversionDetails();
     // The NGN balance's ledger: the naira bought for the send, and the send itself, get its reference once it exists
     const cvIds = attribute({ description: `Converted to NGN · To ${r.name}`, reference: "" }, convertPayFrom);
     const rsv = await reservePayout({ currency, amount: total });
-    const sendIds = attribute({ description: `To ${r.name}`, reference: "" }, () => moveReserved(total, total));
+    const sendIds = [
+      ...attribute({ description: `To ${r.name}`, reference: "" }, () => moveReserved(cents, cents)),
+      ...(s.feeTarget ? attribute({ description: `Fee · To ${r.name}`, reference: "" }, () => moveReserved(s.feeTarget, s.feeTarget)) : []),
+    ];
     try {
       // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
       const w = await createPayout({
@@ -241,7 +244,7 @@ export const usePayout = create<State>((set, get) => {
   const recompute = () => {
     const { payFrom, payCents, recipient: r, jitter } = get();
     if (!payFrom || !r) return;
-    set({ cents: sameAsTarget(payFrom, asSendRecipient(r)) ? payCents : cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter).receive });
+    set({ cents: sameAsTarget(payFrom, asSendRecipient(r)) ? payCents : cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter, r.methodType === "poket").receive });
   };
   const newQuote = () => {
     const { payFrom, recipient: r } = get();
@@ -292,7 +295,7 @@ export const usePayout = create<State>((set, get) => {
   const conversionDetails = () => {
     const { payFrom, payCents, recipient: r, cents, jitter } = get();
     if (!payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return undefined;
-    const q = cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter);
+    const q = cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter, r.methodType === "poket"); // a Poket user: free
     return { paidText: cvFmt(payCents, q.f), receivedText: cvFmt(cents, q.to), rateText: cvRateText(q.f, q.to, jitter, false), feeText: cvFeeText(q) };
   };
   /** Add to (or, negative, take from) a balance by its cvKey: cash (keeping FIAT-ONLY in step) or a coin. */
@@ -311,10 +314,13 @@ export const usePayout = create<State>((set, get) => {
    * quote (the source is debited, the NGN balance credited), then the send reserves naira as usual.
    */
   const convertPayFrom = () => {
-    const { payFrom, payCents, recipient: r, cents } = get();
+    const { payFrom, payCents, recipient: r, cents, jitter } = get();
     if (!payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return;
-    adjustBalance(payFrom, -payCents);
-    setCashAmount(r.currency as CashCurrency, cashAmount(r.currency as CashCurrency) + cents);
+    // The source pays everything (the amount and the send's fee, in its own units); the naira it buys covers the
+    // amount and the fee, so the NGN balance itself doesn't change
+    const s = sendSummary(r, payFrom, payCents, cents, jitter);
+    adjustBalance(payFrom, -s.sourceTotal);
+    setCashAmount(r.currency as CashCurrency, cashAmount(r.currency as CashCurrency) + cents + s.feeTarget);
   };
 
   /**
@@ -330,7 +336,13 @@ export const usePayout = create<State>((set, get) => {
     set({ stage: "processing" });
     const conversion = conversionDetails();
     const rsv = await reservePayout({ currency: r.currency, amount: s.sourceTotal });
-    const sendIds = attribute({ description: `To ${r.name}`, reference: "" }, () => { if (fromNgn) moveReserved(s.sourceTotal, s.sourceTotal); else adjustBalance(payFrom, -s.sourceTotal); });
+    // The amount and its fee (in the source), as separate lines on the NGN balance's statement
+    const feeSource = s.sourceTotal - payCents;
+    const take = (n: number) => { if (fromNgn) moveReserved(n, n); else adjustBalance(payFrom, -n); };
+    const sendIds = [
+      ...attribute({ description: `To ${r.name}`, reference: "" }, () => take(payCents)),
+      ...(feeSource ? attribute({ description: `Fee · To ${r.name}`, reference: "" }, () => take(feeSource)) : []),
+    ];
     try {
       // A Poket user: your record is in your paying balance's currency; what they receive (USD when naira converts on
       // receipt, WGT-07) is its targetKey, and only their side is credited in it
@@ -418,7 +430,7 @@ export const usePayout = create<State>((set, get) => {
       recompute();
     },
     max: () => {
-      // The whole balance, less a decided fee (a wallet's); undecided fees (₦[fee], $[fee]) count as 0
+      // The whole balance, less the send's fee
       const { payFrom, recipient: r, jitter } = get();
       if (!payFrom || !r) return;
       const avail = cvAvail(cvParse(payFrom));

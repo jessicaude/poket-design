@@ -1,4 +1,5 @@
 "use client";
+import { depositFeeText } from "@/lib/fees";
 import { DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
 import { History, useActivity } from "../history/History";
 import { NairaPausedBanner } from "../NairaPausedBanner";
@@ -258,7 +259,7 @@ export function HoldingDetailScreen({ h }: { h: Holding }) {
       {vaRails && h.k === "cash" && (
         <div className="va-card va-empty" id="vaOpen" data-vacur={h.cur} role="button" tabIndex={0} onClick={() => showNotPorted(`${h.cur} account details aren’t ported yet.`)}>
           <div className="va-ic"><Raw html={WICON.bank} /></div>
-          <div className="va-meta"><div className="t1">Get {h.cur} account details</div><div className="t2">Receive {h.cur} by {vaRails}. Free to receive.</div></div>
+          <div className="va-meta"><div className="t1">Get {h.cur} account details</div><div className="t2">Receive {h.cur} by {vaRails}. {depositFeeText(h.cur)}.</div></div>
           <span className="va-chev">{"›"}</span>
         </div>
       )}

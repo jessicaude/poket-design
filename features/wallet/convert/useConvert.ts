@@ -92,7 +92,9 @@ export const useConvert = create<State>((set, get) => {
     // The NGN balance's ledger: a conversion from or to naira is one line each way
     attribute({ description: conversionTitle(conv), reference: conv.ref }, () => {
       if (f.k === "cash") {
-        setCashAmount(f.cur, cashAmount(f.cur) - q.amt);
+        // The fee is charged in the source, out of the amount: its own line on the NGN balance's statement
+        setCashAmount(f.cur, cashAmount(f.cur) - (q.amt - q.fee));
+        if (q.fee) attribute({ description: `Fee · ${conversionTitle(conv)}`, reference: conv.ref }, () => setCashAmount(f.cur, cashAmount(f.cur) - q.fee));
         if (f.bucket === "fiat") useHoldings.setState((s) => ({ fiatOnly: { ...s.fiatOnly, [f.cur]: Math.max(0, (s.fiatOnly[f.cur] || 0) - q.amt) } }));
       } else {
         const c = useHoldings.getState().coins;

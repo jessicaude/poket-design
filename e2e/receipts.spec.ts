@@ -61,7 +61,7 @@ test("a paid send’s receipt: amount, status, date and time, to, account, fee �
   await expect(rcRow(page, "Date and time")).toHaveText(/^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/);
   await expect(rcRow(page, "To")).toHaveText("Naira account");
   await expect(rcRow(page, "Account")).not.toBeEmpty();
-  await expect(rcRow(page, "Fee")).toHaveText("₦[fee]");
+  await expect(rcRow(page, "Fee")).toHaveText("₦25.00 NGN");
   await expect(rcRow(page, "Reference")).toHaveText(ref);
   await expect(page.locator("#receiptFooter")).toHaveText("Payments by Poket");
   await expect(sheet(page).locator("button")).toContainText(["Share", "Download PDF", "Download image"]);
@@ -208,7 +208,7 @@ test("every naira transaction has Share receipt; dollar ones don’t; a dispute�
   await expect(page.locator("#receiptTitle")).toHaveText("Refund · Ilé Living");
   await expect(rcRow(page, "From")).toHaveText("Ilé Living");
   await expect(rcRow(page, "Account")).toHaveText("NGN balance");
-  await expect(rcRow(page, "Fee")).toHaveText("₦[fee]");
+  await expect(rcRow(page, "Fee")).toHaveText("Free"); // a refund: no fee
   await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   // A disputed naira payment: held, said on the receipt

@@ -113,9 +113,9 @@ test("what the wallet shows matches the catalogue: top-up, transfers in, delayed
   expect(shown.map((n) => n.body)).toEqual([
     "₦5,000.00 to Naira account came back to your NGN balance.",
     "₦36,270.00 from Ilé Living added to your NGN balance.",
-    "₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay.",
+    "₦24,900.00 from Chinedu Eze added to your NGN balance, after a delay.",
     "₦10,000.00 from Amara Okafor added to your NGN balance.",
-    "₦25,000.00 from Chinedu Eze added to your NGN balance.",
-    "₦10,000.00 added to your NGN balance.",
+    "₦24,900.00 from Chinedu Eze added to your NGN balance.",
+    "₦9,960.00 added to your NGN balance.",
   ]);
 });

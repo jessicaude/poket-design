@@ -28,10 +28,10 @@ test("notifications follow the pattern: a short past-tense title, one sentence w
   const titles = await page.locator("#panelBody .settings-row-title > span:first-child").allTextContents();
   const bodies = await page.locator("#panelBody .settings-row-sub").allTextContents();
   expect(bodies).toEqual([
-    "₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay.",
+    "₦24,900.00 from Chinedu Eze added to your NGN balance, after a delay.",
     "₦10,000.00 from Amara Okafor added to your NGN balance.",
-    "₦25,000.00 from Chinedu Eze added to your NGN balance.",
-    "₦10,000.00 added to your NGN balance.", // the top-up: from your own bank
+    "₦24,900.00 from Chinedu Eze added to your NGN balance.",
+    "₦9,960.00 added to your NGN balance.", // the top-up: from your own bank
   ]);
   for (const t of titles) {
     expect(t.split(" ").length).toBeGreaterThanOrEqual(2);

@@ -59,9 +59,17 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 - Where virtual accounts are supported, the NGN balance shows "Get NGN account details" until the user has a dedicated account (BVN or NIN, then terms), then the account's details. At Tier 0 it asks the user to verify their identity first (it doesn't offer a top-up; top-ups stay under Deposit). A rejected account shows "Not approved" with Try again.
 - Sending to external wallets needs Tier 2.
 - Send replaces the wallet's Transfer and Payout actions (not the Payout (Get paid) widget). Sending is recipient-first: pick a saved recipient or add one (bank account, debit card, Poket user, stablecoin wallet), then the amount (you send, they get). Withdrawing to your own bank is sending to yourself.
-- Send to a debit card: Visa or Mastercard debit only (credit cards can't receive payouts), paid only from USD, arrives instantly. Fee not decided ($[fee]).
-- US bank sends have one speed: 1 to 3 business days, fee not decided ($[fee]). No Instant or Wire choice (and no wire address). Naira keeps its one speed.
+- Send to a debit card: Visa or Mastercard debit only (credit cards can't receive payouts), paid only from USD, arrives instantly. Fee $6.00.
+- US bank sends have one speed: 1 to 3 business days, fee $6.00. No Instant or Wire choice (and no wire address). Naira keeps its one speed.
 - Naira to Poket users (WGT-07): if the recipient can hold naira, they get naira. If they can't (no BVN or NIN, or not eligible), the naira converts to **USD on receipt**, and the sender sees it before sending ("{First name} can't hold naira. They'll get USD.", what they get and the quote, held 30 seconds). Existing rules still apply: card-funded money can't become stablecoins, and the naira-to-stablecoins block applies (the conversion is only ever to USD).
+
+## Fees
+- **Deposit** (a bank transfer to a temporary account or the account details): 0.40%, capped at $4.00 for USD and ₦5,000.00 for NGN. It comes out of what arrives.
+- **Convert:** from USD or a stablecoin, $2.00 (2.00 in the coin) + 0.40%; from NGN, ₦2,000.00 + 0.40%. Charged in the source, out of the amount converted.
+- **Send to an external account** (bank, debit card, stablecoin wallet): $6.00 for USD, 6.00 in the coin for stablecoins, ₦25.00 for NGN, on top of the amount. **To a Poket (CentryOS) user:** free, end to end: naira that converts to USD on receipt (a recipient who can't hold naira) pays no conversion fee.
+- **EUR, GBP and GHS** (*to confirm*): the dollar fees converted at the demo rates: conversions $2.00 + 0.40% (€1.85, £1.57, GH₵31.00 + 0.40%), sends to external accounts $6.00 (€5.56, £4.72, GH₵93.00; UK bank sends included), deposits 0.40% capped at $4.00 (€3.70, £3.15; the EUR and GBP account cards say so).
+- Fees count in every total, Max and balance. They show on the amount screen, review, receipt and statement (each fee is its own statement line, with its transaction's reference).
+- **Checkout** is unchanged: the payer pays no fee; the merchant covers conversion fees.
 
 ## Merchants
 - A merchant without a logo shows its **initials** on a colour derived from its name, in the same rounded square as a logo.

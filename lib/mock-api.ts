@@ -5,6 +5,7 @@
 import type { Account, Payment, PaymentMethod } from "@/store/account";
 import type { CardOutcome } from "@/store/demo";
 import { DEMO_NGN_PER_USD, formatNaira, type Kobo } from "@/lib/money";
+import { CONVERT_FLAT, CONVERT_RATE, SEND_FEE, depositFee } from "@/lib/fees";
 import { detectBrand, fundingOf } from "@/lib/card";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -188,7 +189,8 @@ export async function simulateTransferArrives(): Promise<{ amount: Kobo; ref: st
  * Refunds into the NGN balance are the merchant's refund records (store/account.ts), not these.
  */
 export type NgnCreditKind = "temp" | "account" | "delayed" | "poket" | "recall";
-export type NgnCredit = { id: string; ref: string; kind: NgnCreditKind; amount: Kobo; at: number;
+/** `amount` is what was added to the balance; a deposit's `fee` (0.40%, capped: lib/fees.ts) came out of what arrived. */
+export type NgnCredit = { id: string; ref: string; kind: NgnCreditKind; amount: Kobo; fee: Kobo; at: number;
   /** Who sent it, as the bank or Poket reports it; for a recall, the account it came back from. */
   from: string;
   /** A recall: the send it recovered. */
@@ -198,10 +200,16 @@ const ngnCredits: NgnCredit[] = [];
 export const DEMO_ACCOUNT_SENDER = "Chinedu Eze · Zenith Bank";
 /** The demo's Poket user who sends naira (demo "Receive from a Poket user"). */
 export const DEMO_POKET_SENDER = "Amara Okafor";
-/** Record a credit to the NGN balance (the caller adds it to the balance). A temporary account keeps its own reference. */
+/** Deposits pay the deposit fee; naira from a Poket user and a recovered recall don't. */
+export const isDeposit = (kind: NgnCreditKind) => kind === "temp" || kind === "account" || kind === "delayed";
+/**
+ * Record a credit to the NGN balance (the caller adds it to the balance). `amount` is what arrived; a deposit's fee
+ * comes out of it. A temporary account keeps its own reference.
+ */
 export function recordNgnCredit(p: { kind: NgnCreditKind; amount: Kobo; from: string; ref?: string; withdrawalId?: string }): NgnCredit {
   if (!Number.isInteger(p.amount) || p.amount <= 0) throw new Error("amount must be positive integer kobo");
-  const c: NgnCredit = { id: "cr_" + Math.random().toString(36).slice(2, 10), ref: p.ref ?? genRef(), kind: p.kind, amount: p.amount, at: Date.now(), from: p.from,
+  const fee = isDeposit(p.kind) ? depositFee(p.amount, "NGN") : 0;
+  const c: NgnCredit = { id: "cr_" + Math.random().toString(36).slice(2, 10), ref: p.ref ?? genRef(), kind: p.kind, amount: p.amount - fee, fee, at: Date.now(), from: p.from,
     ...(p.withdrawalId ? { withdrawalId: p.withdrawalId } : {}) };
   ngnCredits.unshift(c);
   return { ...c };
@@ -795,7 +803,10 @@ export const DEMO_NGN_START: Kobo = 5000000;
 export type HistoryLine = { at: number; delta: Kobo; balance: Kobo; description: string; reference: string; status?: "Completed" | "Returned"; withdrawalId?: string };
 export type AdaHistory = { lines: HistoryLine[]; credits: NgnCredit[]; sends: Withdrawal[]; conversions: Conversion[]; payments: Payment[] };
 
-/** The seed, for `now` (pure but for references). */
+/**
+ * The seed, for `now` (pure but for references). Fees as decided (lib/fees.ts): deposits pay 0.40% (capped) out of
+ * what arrives, the bank send ₦25.00, the conversion ₦2,000.00 + 0.40%; each fee is its own statement line.
+ */
 export function buildAdaHistory(now: Date, start: Kobo = DEMO_NGN_START, ref: () => string = genRef): AdaHistory {
   const at = (m: number, d: number) => new Date(now.getFullYear(), now.getMonth() - m, d, 10, 15).getTime();
   // This month's: a day ago, or halfway into the month if it's only just begun
@@ -803,43 +814,56 @@ export function buildAdaHistory(now: Date, start: Kobo = DEMO_NGN_START, ref: ()
   const thisMonth = now.getTime() - monthStart > 2 * 86400000 ? now.getTime() - 86400000 : monthStart + Math.floor((now.getTime() - monthStart) / 2);
   const h: AdaHistory = { lines: [], credits: [], sends: [], conversions: [], payments: [] };
   const line = (t: number, delta: Kobo, description: string, reference: string, extra: Partial<HistoryLine> = {}) => { h.lines.push({ at: t, delta, balance: 0, description, reference, ...extra }); };
-  const credit = (kind: NgnCreditKind, amount: Kobo, from: string, t: number) => {
-    const c: NgnCredit = { id: `cr_seed${h.credits.length + 1}`, ref: ref(), kind, amount, at: t, from };
+  /** A credit: `arrived` is what came in; a deposit's fee comes out of it. */
+  const credit = (kind: NgnCreditKind, arrived: Kobo, from: string, t: number) => {
+    const fee = isDeposit(kind) ? depositFee(arrived, "NGN") : 0;
+    const c: NgnCredit = { id: `cr_seed${h.credits.length + 1}`, ref: ref(), kind, amount: arrived - fee, fee, at: t, from };
     h.credits.push(c);
-    line(t, amount, kind === "temp" ? "Top-up · Bank transfer" : `From ${from.split(" · ")[0]}`, c.ref);
+    const title = kind === "temp" ? "Top-up · Bank transfer" : `From ${from.split(" · ")[0]}`;
+    line(t, arrived, title, c.ref);
+    if (fee) line(t, -fee, `Fee · ${title}`, c.ref);
   };
   const send = (w: Pick<Withdrawal, "kind" | "recipientId" | "recipientName" | "recipientSub" | "amount" | "status">, t: number) => {
-    const sent: Withdrawal = { id: `wd_seed${h.sends.length + 1}`, ref: ref(), currency: "NGN", fee: 0, createdAt: t, amountText: formatNaira(w.amount), feeText: "₦[fee]",
-      sourceKey: "cash:NGN:open", sourceTotal: w.amount, reservedIn: "ngn", eta: "Usually within seconds", ...w };
+    const fee = w.kind === "bank" ? SEND_FEE.NGN : 0;
+    const sent: Withdrawal = { id: `wd_seed${h.sends.length + 1}`, ref: ref(), currency: "NGN", fee, createdAt: t, amountText: formatNaira(w.amount), feeText: fee ? formatNaira(fee) : "Free",
+      sourceKey: "cash:NGN:open", sourceTotal: w.amount + fee, reservedIn: "ngn", eta: "Usually within seconds", ...w };
     h.sends.push(sent);
     const failed = w.status === "failed";
-    line(t, -w.amount, `To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, ...(failed ? { status: "Returned" as const } : {}) });
-    // A failed send's money comes back the next day
-    if (failed) line(t + 86400000, w.amount, `Returned · To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, status: "Returned" });
+    const st = failed ? { status: "Returned" as const } : {};
+    line(t, -w.amount, `To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, ...st });
+    if (fee) line(t, -fee, `Fee · To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, ...st });
+    // A failed send's money (and fee) comes back the next day
+    if (failed) line(t + 86400000, w.amount + fee, `Returned · To ${w.recipientName}`, sent.ref, { withdrawalId: sent.id, status: "Returned" });
   };
 
   credit("temp", 4000000, "Ada Osun", at(3, 20));
   send({ kind: "bank", recipientId: "lb2", recipientName: "Naira account", recipientSub: "GTBank · •••• 6789", amount: 1500000, status: "paid" }, at(2, 4));
   credit("account", 2500000, DEMO_ACCOUNT_SENDER, at(2, 18));
   send({ kind: "poket", recipientId: "pd1", recipientName: "Amara Okafor", recipientSub: "@amara", amount: 500000, status: "paid" }, at(1, 3));
-  // ₦10,000.00 to USD
-  const cvAmt = 1000000, usd = Math.floor(cvAmt / DEMO_NGN_PER_USD), cvRef = ref();
-  h.conversions.push({ id: "cv_seed1", ref: cvRef, from: "cash:NGN:open", to: "cash:USD:open", amount: cvAmt, fee: 0, receive: usd, createdAt: at(1, 12),
-    rateText: `1 USD ≈ ${DEMO_NGN_PER_USD.toLocaleString("en-US", { minimumFractionDigits: 2 })} NGN`, feeLabel: "Fee", feeText: "₦[fee]",
+  // ₦10,000.00 to USD: the fee (₦2,000.00 + 0.40%) out of the amount, in naira
+  const cvAmt = 1000000, cvFee = CONVERT_FLAT.NGN + Math.round(cvAmt * CONVERT_RATE), usd = Math.round((cvAmt - cvFee) / DEMO_NGN_PER_USD), cvRef = ref();
+  h.conversions.push({ id: "cv_seed1", ref: cvRef, from: "cash:NGN:open", to: "cash:USD:open", amount: cvAmt, fee: cvFee, receive: usd, createdAt: at(1, 12),
+    rateText: `1 USD ≈ ${DEMO_NGN_PER_USD.toLocaleString("en-US", { minimumFractionDigits: 2 })} NGN`, feeLabel: "Fee", feeText: formatNaira(cvFee),
     paidText: formatNaira(cvAmt), receivedText: `$${(usd / 100).toFixed(2)} USD` });
-  line(at(1, 12), -cvAmt, "Converted NGN to USD", cvRef);
+  line(at(1, 12), -(cvAmt - cvFee), "Converted NGN to USD", cvRef);
+  line(at(1, 12), -cvFee, "Fee · Converted NGN to USD", cvRef);
   // A naira bank transfer to Mama Tee's Kitchen (not from the balance), half refunded into the NGN balance
   const refund = { id: "rf_seedmtk", amount: 350000, at: new Date(at(1, 21)).toISOString(), to: "ngn" as const, inBalance: true as const };
   h.payments.push({ id: "pay_mtk2140", merchant: "Mama Tee’s Kitchen", amount: 700000, currency: "NGN", method: "Bank transfer", at: new Date(at(1, 19)).toISOString(), status: "paid",
     order: "MTK-2140", methodKind: "bank", refunds: [refund] });
   line(at(1, 21), refund.amount, "Refund · Mama Tee’s Kitchen", refund.id);
   send({ kind: "poket", recipientId: "pu1", recipientName: "Tobi Bello", recipientSub: "tobi@lagos.ng", amount: 800000, status: "failed" }, at(1, 26));
-  const net = h.lines.reduce((t, l) => t + l.delta, 0);
-  credit("temp", start - net, "Ada Osun", thisMonth);
+  // This month's top-up brings the balance to the start, after its own fee: the smallest arrival that nets it
+  const needed = start - h.lines.reduce((t, l) => t + l.delta, 0);
+  let arrived = Math.ceil(needed / (1 - 0.004));
+  while (arrived - depositFee(arrived, "NGN") > needed) arrived--;
+  while (arrived - depositFee(arrived, "NGN") < needed) arrived++;
+  credit("temp", arrived, "Ada Osun", thisMonth);
 
   h.lines.sort((a, b) => a.at - b.at);
   let balance = 0;
   for (const l of h.lines) { balance += l.delta; l.balance = balance; }
+  if (balance !== start) throw new Error(`seed ends at ${balance}, not ${start}`);
   return h;
 }
 

@@ -17,16 +17,17 @@ const asSend = (id: string) => asSendRecipient(recipient(id));
 test("NGN fees are undecided: shown as ₦[fee], left out of the maths; other banks keep their fees", () => {
   // Naira account (lb2) has been paid before
   const ngn = sendSummary(recipient("lb2"), "cash:NGN:open", 1250000, 1250000, 1);
-  expect(ngn).toMatchObject({ feeTarget: 0, feeText: "₦[fee]", sourceTotal: 1250000, totalText: "₦12,500.00 NGN + ₦[fee]", arrival: "Usually within seconds" });
-  expect(fmtFee(0, "NGN")).toBe("₦[fee]");
+  expect(ngn).toMatchObject({ feeTarget: 2500, feeText: "₦25.00 NGN", sourceTotal: 1252500, totalText: "₦12,525.00 NGN", arrival: "Usually within seconds" });
+  expect(fmtFee(0, "NGN")).toBe("Free");
+  expect(fmtFee(2500, "NGN")).toBe("₦25.00 NGN");
   expect(fmtFee(50, "USD")).toBe("$0.50 USD");
   expect(fmtCurrency(3026, "USD")).toBe("$30.26 USD");
   // A US bank: one speed, 1 to 3 business days; the fee is undecided ($[fee], 0 in the maths)
   const us = sendSummary({ ...recipient("r4"), paidBefore: true }, "cash:USD:open", 1000, 1000, 1);
-  expect(us).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "1 to 3 business days" });
+  expect(us).toMatchObject({ feeTarget: 600, feeText: "$6.00 USD", sourceTotal: 1600, totalText: "$16.00 USD", arrival: "1 to 3 business days" });
   // A debit card: $[fee], undecided (0 in the maths), instant
   const card = { id: "dc1", isSelf: false, name: "Ada", currency: "USD" as const, methodType: "card" as const, bankName: "Visa", accountNumber: "4242" };
-  expect(sendSummary(card, "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 0, feeText: "$[fee]", sourceTotal: 1000, totalText: "$10.00 USD + $[fee]", arrival: "Instantly", firstPayment: false });
+  expect(sendSummary(card, "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 600, feeText: "$6.00 USD", sourceTotal: 1600, totalText: "$16.00 USD", arrival: "Instantly", firstPayment: false });
 });
 
 test("step-up is judged on the USD value leaving the source; converting totals include every decided fee", async () => {
@@ -34,11 +35,11 @@ test("step-up is judged on the USD value leaving the source; converting totals i
   const wallet = { id: "sw1", isSelf: false, name: "Ledger", currency: "USD" as const, methodType: "wallet" as const, walletAddress: "0x3Fa9cE21b7D04a5e9C6b1d82F7e0A4c39bD58e12", asset: "USDC" as const, network: "Base" as const };
   // ₦25,000 to a USDC wallet: ₦27,325 leaves (with 1.50 USDC = ₦2,325), about $17.63
   const fromNgn = sendSummary(wallet, "cash:NGN:open", 2500000, 1613, 1);
-  expect(fromNgn).toMatchObject({ sourceTotal: 2732500, totalText: "₦27,325.00 NGN + ₦[fee]" });
-  expect(Math.round(fromNgn.usdOut)).toBe(1763);
+  expect(fromNgn).toMatchObject({ sourceTotal: 3430000, totalText: "₦34,300.00 NGN" });
+  expect(Math.round(fromNgn.usdOut)).toBe(2213); // 10.00 USDC and the 6.00 USDC fee, in naira, as USD
   expect(needsStepUp(fromNgn.usdOut)).toBe(true);
   // The demo limit is ₦20,000.00 in USD: exactly that isn’t over it, a kobo more is
-  expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000000, 2000000, 1).usdOut)).toBe(false);
+  expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 1997500, 1997500, 1).usdOut)).toBe(false); // ₦19,975.00 and the ₦25.00 fee: ₦20,000.00 leaves
   expect(needsStepUp(sendSummary(recipient("lb2"), "cash:NGN:open", 2000100, 2000100, 1).usdOut)).toBe(true);
   // Sending’s message is the send’s own arrival, without the first-payment hold
   expect(sendSummary(recipient("r6"), "cash:NGN:open", 100, 100, 1)).toMatchObject({ arrival: "After [hold]", eta: "Usually within seconds" });
@@ -92,8 +93,8 @@ test("Max: the whole balance (the NGN fee is undecided)", () => {
   p().sendTo(recipient("r6"));
   expect(p().payFrom).toBe("cash:NGN:open");
   p().max();
-  expect(p().payCents).toBe(5000000);
-  expect(p().cents).toBe(5000000);
+  expect(p().payCents).toBe(4997500); // less the ₦25.00 fee
+  expect(p().cents).toBe(4997500);
 });
 
 test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
@@ -118,8 +119,8 @@ test("store: the PIN reserves the amount; a first payment to an account is Sched
   expect(p().stage).toBe("done");
   expect(p().lastRef).toMatch(/^TXN-\d{6}$/);
   expect(p().sent?.status).toBe("scheduled"); // Ngozi Eze has never been paid
-  expect(useNgn.getState().ngnBalance).toBe(5000000 - 500000);
-  expect(useNgn.getState().ngnReserved).toBe(500000);
+  expect(useNgn.getState().ngnBalance).toBe(5000000 - 502500); // the amount and its ₦25.00 fee
+  expect(useNgn.getState().ngnReserved).toBe(502500);
   expect(p().recipients.find((r) => r.id === "r6")?.paidBefore).toBe(true);
 });
 

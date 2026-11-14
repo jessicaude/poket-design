@@ -1,15 +1,17 @@
 import type { PayoutRecipient } from "@/lib/mock-api";
-import { cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType, cvUsdPer, feePlaceholder, involvesNgn } from "../convert/convertMath";
+import { SEND_FEE, externalSendFee } from "@/lib/fees";
+import { cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType, cvUsdPer } from "../convert/convertMath";
 import { NGN_VA } from "../ngn/useNgn";
-import { FEE_PLACEHOLDER, HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
+import { HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
 import { targetKeyFor } from "./sources";
 
 /**
  * One summary of a send, for any kind of recipient, read by the amount, review, done and status screens.
- * Fees and arrival: NGN banks follow ngn.mdc (₦[fee], "Usually within seconds", the first-payment hold); US banks have
- * one speed, "1 to 3 business days", fee $[fee] (undecided); UK banks are free, within minutes; debit cards
- * arrive instantly, fee $[fee] (undecided); Poket users are free and arrive instantly; stablecoin wallets cost 1.50 in
- * the coin (the explore prototype's feeFor) and take about a minute.
+ * Fees (lib/fees.ts), in the target, on top of the amount: ₦25.00 to a Nigerian bank; $6.00 to a US bank or a debit
+ * card; 6.00 in the coin to a stablecoin wallet; EUR, GBP and GHS banks $6.00 at the demo rate (to confirm); free to
+ * a Poket user, end to end. A send that converts also pays the conversion fee, out of the amount. Arrival: NGN banks "Usually within seconds" (with the
+ * first-payment hold); US banks "1 to 3 business days"; UK banks within minutes; debit cards and Poket users
+ * instantly; stablecoin wallets about a minute.
  */
 export type SendSummary = {
   kind: "bank" | "card" | "poket" | "wallet";
@@ -37,8 +39,6 @@ export type SendSummary = {
   tag?: "FIAT-ONLY";
 };
 
-/** A debit card's or US bank's fee: not decided, so a placeholder (counts as 0 in the maths, like ₦[fee]). */
-export const CARD_FEE_PLACEHOLDER = "$[fee]";
 /** US bank sends have one speed (no Instant or Wire choice). */
 export const US_BANK_ETA = "1 to 3 business days";
 
@@ -52,21 +52,20 @@ export function sendSummary(r: PayoutRecipient, payFrom: string, payCents: numbe
   const usBank = kind === "bank" && r.currency === "USD";
 
   // The send's own fee, in the target's units
-  const feeTarget = kind === "wallet" ? 150 : 0;
-  const sendFeeText = ngnBank ? FEE_PLACEHOLDER
-    : kind === "card" || usBank ? CARD_FEE_PLACEHOLDER
-    : feeTarget === 0 ? "Free"
+  // A bank or wallet: the target's fee ($6.00, 6.00 in the coin, ₦25.00; EUR, GBP and GHS at the demo rate); a card: $6.00
+  const feeTarget = kind === "poket" ? 0 : kind === "card" ? SEND_FEE.USD : externalSendFee(tgt);
+  const sendFeeText = feeTarget === 0 ? "Free"
     : tgt.k === "coin" ? cvFmt(feeTarget, tgt) : fmtCurrency(feeTarget, tgt.k === "cash" ? tgt.cur : "USD");
-  const q = converting ? cvQuote(payFrom, targetKey, payCents, jitter) : null;
-  const feeText = q ? `${cvFeeText(q)} + ${sendFeeText}` : sendFeeText;
+  // A Poket user is free end to end: naira that converts to USD on receipt pays no conversion fee either
+  const q = converting ? cvQuote(payFrom, targetKey, payCents, jitter, kind === "poket") : null;
+  // A send that converts: the conversion's fee (in the source), then the send's (in the target), when it has one
+  const feeText = q && q.fee ? (feeTarget ? `${cvFeeText(q)} + ${sendFeeText}` : cvFeeText(q)) : sendFeeText;
 
   // In the source's units: the fee converts at the quote's USD values
   const feeSource = converting ? Math.round((feeTarget * cvUsdPer(tgt)) / cvUsdPer(src)) : feeTarget;
   const sourceTotal = payCents + feeSource;
-  const undecided = ngnBank || kind === "card" || usBank || (q !== null && involvesNgn(q.f, q.to));
-  const placeholder = converting ? feePlaceholder(src) : kind === "card" || usBank ? CARD_FEE_PLACEHOLDER : FEE_PLACEHOLDER;
-  // Every decided fee is in the total, in the source currency; an undecided one is added as its placeholder
-  const totalText = undecided ? `${cvFmt(sourceTotal, src)} + ${placeholder}` : cvFmt(sourceTotal, src);
+  // Every fee is in the total, in the source currency
+  const totalText = cvFmt(sourceTotal, src);
 
   const eta = ngnBank ? NGN_VA.arrives
     : usBank ? US_BANK_ETA
