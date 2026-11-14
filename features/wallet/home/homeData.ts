@@ -1,4 +1,4 @@
-import { DEMO_NGN_PER_USD } from "@/lib/money";
+import { DEMO_USD_PER } from "@/lib/fees";
 import { create } from "zustand";
 import { useNgn } from "../ngn/useNgn";
 import { CASH_CURRENCIES, cashBuckets, useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
@@ -9,7 +9,7 @@ import { CASH_CURRENCIES, cashBuckets, useHoldings, type CashCurrency, type Coin
  */
 
 /** The reference's fxToUSD. */
-export const FX_TO_USD: Record<CashCurrency, number> = { USD: 1, NGN: 1 / DEMO_NGN_PER_USD, EUR: 1.08, GBP: 1.27, GHS: 1 / 15.5 };
+export const FX_TO_USD: Record<CashCurrency, number> = DEMO_USD_PER; // the demo rates (lib/fees.ts)
 export const CURRENCY_NAME: Record<CashCurrency, string> = { USD: "US Dollar", NGN: "Nigerian Naira", EUR: "Euro", GBP: "British Pound", GHS: "Ghanaian Cedi" };
 export const CURRENCY_ICON: Record<CashCurrency, "usFlag" | "ngFlag" | "eurFlag" | "gbFlag" | "ghFlag"> = { USD: "usFlag", NGN: "ngFlag", EUR: "eurFlag", GBP: "gbFlag", GHS: "ghFlag" };
 export const ASSET_NAME: Record<CoinAsset, string> = { USDC: "USD Coin", USDT: "Tether" };
@@ -26,7 +26,8 @@ type HomeState = {
   set: (p: Partial<Omit<HomeState, "set">>) => void;
 };
 export const useWalletHome = create<HomeState>((set) => ({
-  walletTab: "assets", masked: false, hideZero: false, settingsOpen: false, tab: "home",
+  // Cash first and selected by default (NEW: the reference opens on Stablecoins)
+  walletTab: "cash", masked: false, hideZero: false, settingsOpen: false, tab: "home",
   set: (p) => set(p),
 }));
 
@@ -78,13 +79,13 @@ export function totalBalanceUsd(): number {
  * The reference's demo wallet records (resetScenario 'autopull'): checkout activity that shows in the wallet.
  * Amounts are USD cents; `type` is the wallet's (refund, payment, deposit).
  */
-export type DemoTx = { id: string; type: "refund" | "payment" | "deposit"; title: string; sub: string; amount: number; positive: boolean; ts: number; ref: string; details: [string, string][] };
+export type DemoTx = { id: string; type: "refund" | "payment" | "deposit"; title: string; sub?: string; amount: number; positive: boolean; ts: number; ref: string; details: [string, string][] };
 const now = Date.now();
 export const DEMO_TXNS: DemoTx[] = [
-  { id: "t1", type: "refund", title: "Refund · Kola Books", sub: "Merchant refund · Kola Books", amount: 450, positive: true, ts: now - 1000 * 60 * 60 * 22, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t1", type: "refund", title: "Refund · Kola Books", amount: 450, positive: true, ts: now - 1000 * 60 * 60 * 22, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Merchant", "Kola Books"], ["Context", "Checkout"]] },
-  { id: "t2", type: "payment", title: "Sooyah Bistro", sub: "Merchant payment · Sooyah Bistro", amount: 720, positive: false, ts: now - 1000 * 60 * 60 * 24 * 3, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t2", type: "payment", title: "Sooyah Bistro", amount: 720, positive: false, ts: now - 1000 * 60 * 60 * 24 * 3, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Merchant", "Sooyah Bistro"], ["Context", "Checkout"]] },
-  { id: "t3", type: "deposit", title: "Top-up · Visa ····4242", sub: "Card top-up", amount: 5000, positive: true, ts: now - 1000 * 60 * 60 * 24 * 4, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+  { id: "t3", type: "deposit", title: "Top-up · Visa ····4242", amount: 5000, positive: true, ts: now - 1000 * 60 * 60 * 24 * 4, ref: "TXN-" + Math.floor(100000 + Math.random() * 900000),
     details: [["Currency", "USD"], ["Funding tag", "FIAT-ONLY"]] },
 ];

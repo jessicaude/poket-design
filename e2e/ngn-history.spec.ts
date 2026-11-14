@@ -29,7 +29,7 @@ function inOrder(ls: string[]) {
 async function openNgnBalance(page: Page) {
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
 }
 
 test("Activity: rows grouped by day; All, Money in, Money out", async ({ page }) => {
@@ -89,14 +89,14 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await expect(page.locator("#demoAccountTransfer")).toHaveCount(0);
   await page.locator("#demoQueuedArrival").click();
   await page.getByLabel("Naira partner").selectOption("up");
-  await expect.poll(() => ngn(page)).toBe(before + 1000000 + 2500000 + 1000000 + 2500000);
+  await expect.poll(() => ngn(page)).toBe(before + 996000 + 2490000 + 1000000 + 2490000); // deposits less their 0.40% fee; from a Poket user, free
 
   await openNgnBalance(page);
-  const h = page.locator("#ngnHistory");
+  const h = page.locator("#balanceHistory");
   await expect(h.locator('[data-credit]:not([data-txid*="seed"])')).toHaveCount(4);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-title')).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "Poket", "NGN account details", "Temporary account"]);
-  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦25,000.00 NGN", "+₦10,000.00 NGN", "+₦25,000.00 NGN", "+₦10,000.00 NGN"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦24,900.00 NGN", "+₦10,000.00 NGN", "+₦24,900.00 NGN", "+₦9,960.00 NGN"]); // deposits less their fee
   await expect(h.locator("[data-histday]").first()).toHaveText("Today");
   await h.locator('[data-histfilter="out"]').click();
   // Money out: Ada’s seeded sends, none of the credits
@@ -106,13 +106,14 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await h.locator('[data-histfilter="in"]').click();
 
   const refs = new Set<string>();
-  const expectations: [string, string, string, boolean][] = [
-    ["delayed", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true],
-    ["poket", "Amara Okafor", "Poket", false],
-    ["account", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true],
-    ["temp", "Ada Osun", "Bank transfer · Temporary account", true],
+  // Deposits pay 0.40% (capped at ₦5,000.00); naira from a Poket user is free
+  const expectations: [string, string, string, boolean, string][] = [
+    ["delayed", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
+    ["poket", "Amara Okafor", "Poket", false, "Free"],
+    ["account", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
+    ["temp", "Ada Osun", "Bank transfer · Temporary account", true, "₦40.00 NGN"],
   ];
-  for (const [kind, from, method, bank] of expectations) {
+  for (const [kind, from, method, bank, fee] of expectations) {
     await h.locator(`[data-credit="${kind}"]:not([data-txid*="seed"])`).click();
     const ls = await labels(page);
     inOrder(ls);
@@ -122,7 +123,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
     await expect(row("From")).toHaveText(from);
     await expect(row("To")).toHaveText("NGN balance");
     await expect(row("Method")).toHaveText(method);
-    await expect(row("Fee")).toHaveText("Free");
+    await expect(row("Fee")).toHaveText(fee);
     if (bank) await expect(row("Session ID")).toHaveText("[session ID]");
     await expect(page.locator("#creditDelayed")).toHaveCount(kind === "delayed" ? 1 : 0);
     const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
@@ -136,14 +137,14 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   // A notification for each transfer in
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif]").filter({ hasText: "₦10,000.00 from Amara Okafor added to your NGN balance." })).toHaveCount(1);
-  await expect(page.locator("#panelBody [data-notif]").filter({ hasText: "₦25,000.00 from Chinedu Eze added to your NGN balance." })).toHaveCount(1);
+  await expect(page.locator("#panelBody [data-notif]").filter({ hasText: "₦24,900.00 from Chinedu Eze added to your NGN balance." })).toHaveCount(1);
 });
 
 test("the NGN balance’s history: what moved the balance, not card payments", async ({ page }) => {
   await wallet(page);
   await page.locator("#demoPoketTransfer").click();
   await openNgnBalance(page);
-  const h = page.locator("#ngnHistory");
+  const h = page.locator("#balanceHistory");
   // Ada’s 8 seeded records that moved it (the refund into it, not the payment it refunds), and today’s
   await expect(h.locator(".tx-row")).toHaveCount(9);
   await expect(h.locator('.tx-row:not([data-txid*="seed"])')).toHaveCount(1);

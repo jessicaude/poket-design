@@ -111,11 +111,11 @@ export const CREDIT_METHOD: Record<NgnCredit["kind"], string> = {
   temp: "Bank transfer · Temporary account", account: "Bank transfer · NGN account details",
   delayed: "Bank transfer · NGN account details", poket: "Poket", recall: "Bank transfer · Recall",
 };
-/** Naira into the NGN balance: free to receive (a recall has no fee line). */
+/** Naira into the NGN balance: a deposit's fee (0.40%, capped), free from a Poket user; a recall has no fee line. */
 export function creditFields(c: NgnCredit): TxFieldsData {
   return {
     status: COMPLETED, at: c.at, from: c.from, to: "NGN balance", method: CREDIT_METHOD[c.kind],
-    fee: c.kind === "recall" ? undefined : "Free", reference: c.ref, bankTransfer: c.kind !== "poket",
+    fee: c.kind === "recall" ? undefined : c.fee ? fmtCurrency(c.fee, "NGN") : "Free", reference: c.ref, bankTransfer: c.kind !== "poket",
   };
 }
 

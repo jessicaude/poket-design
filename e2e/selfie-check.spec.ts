@@ -81,7 +81,7 @@ test("the 3rd failure holds the send for review (no PIN) and the account shows t
   // Held for review: reserved, not sent, never asked for the PIN
   await expect(page.locator("#heldForReview")).toHaveText("Held for review");
   await expect(page.locator("#heldForReviewNote")).toHaveText("We’re checking this payment. We’ll let you know.");
-  expect(await ngn(page)).toMatchObject({ balance: 5000000 - 2500000, reserved: 2500000, attempts: 3 });
+  expect(await ngn(page)).toMatchObject({ balance: 5000000 - 2502500, reserved: 2502500, attempts: 3 }); // with the ₦25.00 fee
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Held for review");
   await page.locator("#backFromTxDetail").click();

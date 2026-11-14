@@ -99,3 +99,14 @@
 .rc-downloads{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
 .rc-downloads .btn-secondary{margin:0}
 .rc-card .alert.err{background:var(--err-50);color:var(--err-600)}
+
+/* Fixed size (NEW): the wallet panel is always the same height, min(720px, the viewport minus the demo bar minus
+   48px), 400px wide (.panel-slot). The header and the tab bar stay put; only the body between them scrolls, so a
+   short screen doesn't shrink the panel. (The modal shell keeps its own sizing above.) */
+:host(:not(.as-modal)) .stage{padding:24px 20px;box-sizing:border-box}
+:host(:not(.as-modal)) .panel{display:flex;flex-direction:column;height:min(720px, calc(100vh - var(--pk-bar, 0px) - 48px))}
+:host(:not(.as-modal)) .panel-head,:host(:not(.as-modal)) .tabbar{flex:none}
+:host(:not(.as-modal)) .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+
+/* Convert's review header: the coin's network badge sits on top of its badge (which is raised over the arrow), as on the home rows */
+.convert-visual .badge-network{z-index:2}

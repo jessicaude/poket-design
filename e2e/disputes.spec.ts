@@ -173,7 +173,7 @@ test("wallet: Ada’s Checkout payments (dollar card, naira converted, naira ban
   const rows = walletRow(page);
   // The two new payments, newest first, then Ada’s three seeded ones
   await expect(rows.locator(".tx-title")).toHaveText(["Ilé Living", "Ilé Living", "Mama Tee’s Kitchen", "Ilé Living", "Mama Tee’s Kitchen", "Adire Market"]);
-  await expect(rows.locator(".tx-sub").first()).toHaveText("Merchant payment · Ilé Living");
+  await expect(rows.locator(".tx-sub").first()).toHaveText("Visa ••• 4242"); // how it was paid (not "Merchant payment · Ilé Living")
   await expect(rows.locator(".tx-amt")).toHaveText(["-$23.40 USD", "-₦36,270.00 NGN", "-₦65,100.00 NGN", "-₦36,270.00 NGN", "-₦7,000.00 NGN", "-$65.00 USD"]);
   await rows.nth(1).click();
   await expect(page.locator("#paymentAmount")).toHaveText("₦36,270.00 NGN");
@@ -367,7 +367,7 @@ test("wallet: Merchant refunds part, then the rest, of a naira card payment: Par
   await page.locator("#backFromTxDetail").click();
   const refunds = page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk'])");
   await expect(refunds.locator(".tx-title")).toHaveText(["Refund · Mama Tee’s Kitchen", "Refund · Mama Tee’s Kitchen"]);
-  await expect(refunds.locator(".tx-sub").first()).toHaveText("Merchant refund · Mama Tee’s Kitchen");
+  await expect(refunds.locator(".tx-sub").first()).toHaveText("To Verve ••• 6011"); // where it went
   await expect(refunds.locator(".tx-amt")).toHaveText(["+₦32,550.00 NGN", "+₦32,550.00 NGN"]);
   await refunds.first().click();
   await expect(page.locator("#refundAmount")).toHaveText("₦32,550.00 NGN");
@@ -540,7 +540,7 @@ test("resolve: reversal. A naira bank transfer goes back to the bank account tha
   await page.locator("#backFromTxDetail").click();
   const row = page.locator("#panelBody [data-refund]:not([data-refund='rf_seedmtk'])");
   await expect(row.locator(".tx-title")).toHaveText("Reversal · Ilé Living");
-  await expect(row.locator(".tx-sub")).toHaveText("Merchant reversal · Ilé Living");
+  await expect(row.locator(".tx-sub")).toHaveText("To the bank account that paid");
   await row.click();
   await expect(detailRow(page, "To")).toContainText("the bank account that paid");
   await expect(detailRow(page, "Session ID")).toContainText("[session ID]");

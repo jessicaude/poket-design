@@ -1,4 +1,5 @@
 "use client";
+import { depositFee } from "@/lib/fees";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { Naira } from "../Naira";
@@ -11,7 +12,7 @@ export function TempDoneScreen() {
     <>
       <div className="center-col" style={{ paddingTop: "30px" }}>
         <div className="check-circle"><Raw html={WICON.check} /></div>
-        <div className="step-title">{temp && <Naira kobo={temp.amount} />} added</div>
+        <div className="step-title">{temp && <Naira kobo={temp.amount - depositFee(temp.amount, "NGN")} />} added</div>
         <p className="step-sub">It&rsquo;s in your NGN balance.</p>
       </div>
       <button className="btn-primary" id="ngnDone" onClick={close}>Done</button>

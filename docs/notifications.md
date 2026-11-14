@@ -10,7 +10,7 @@ sentence with the amount and who. Placeholders:
 - {sender}, {merchant}, {recipient}: who it came from or went to.
 - {method}: the card that paid ("Visa ••• 4242"). {destination}: where a reversal goes (the card, or "the bank
   account that paid").
-- {currency}: the balance the money returned to ("NGN", "USD").
+- {currency}: the balance the money went to or returned to ("NGN", "USD").
 
 The code sends them only through features/wallet/notificationCatalogue.ts, and e2e/notifications.spec.ts checks that
 this table and the catalogue match.
@@ -20,7 +20,7 @@ this table and the catalogue match.
 | Key | Trigger | Title | Body |
 |---|---|---|---|
 | `topUpReceived` | A temporary-account top-up arrives (Deposit, bank transfer) | Transfer received | {amount} added to your NGN balance. |
-| `transferReceived` | A bank transfer to the NGN account details, or naira from a Poket user, arrives | Transfer received | {amount} from {sender} added to your NGN balance. |
+| `transferReceived` | A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a Poket user, arrives | Transfer received | {amount} from {sender} added to your {currency} balance. |
 | `delayedTransferReceived` | The naira partner is back: each transfer that arrived while it was down is credited | Transfer received | {amount} from {sender} added to your NGN balance, after a delay. |
 | `refundReceived` | A merchant refunds a naira bank-transfer payment into the NGN balance (not from a dispute) | Refund received | {amount} from {merchant} added to your NGN balance. |
 | `disputeRefundedToBalance` | A dispute is resolved by refund, into the NGN balance (a naira bank transfer) | Dispute resolved | {amount} from {merchant} added to your NGN balance. |

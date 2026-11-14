@@ -114,13 +114,13 @@ test("number first, then bank: the enquiry runs once both are in; changing bank 
 
 test("lookup unavailable: can’t add the account; Try again once it’s back", async ({ page }) => {
   await openAccountStep(page);
-  await page.getByLabel("Name enquiry").selectOption("down");
+  await page.getByLabel("Name check").selectOption("down");
   await pickBank(page, "access", "Access Bank");
   await page.locator("#ngnAcctInput").fill("0123456789");
   const alert = page.locator("#panelBody .alert.warn");
   await expect(alert).toHaveText("We can’t check the name on the account right now. Try again");
   await expect(page.locator("#ngnAcctSave")).toBeDisabled();
-  await page.getByLabel("Name enquiry").selectOption("up");
+  await page.getByLabel("Name check").selectOption("up");
   await page.locator("#ngnEnquiryRetry").click();
   await expect(page.locator("#ngnAcctName")).toHaveText("Ada Osun");
   await expect(alert).toHaveCount(0);

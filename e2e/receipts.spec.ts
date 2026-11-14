@@ -61,7 +61,7 @@ test("a paid send’s receipt: amount, status, date and time, to, account, fee �
   await expect(rcRow(page, "Date and time")).toHaveText(/^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/);
   await expect(rcRow(page, "To")).toHaveText("Naira account");
   await expect(rcRow(page, "Account")).not.toBeEmpty();
-  await expect(rcRow(page, "Fee")).toHaveText("₦[fee]");
+  await expect(rcRow(page, "Fee")).toHaveText("₦25.00 NGN");
   await expect(rcRow(page, "Reference")).toHaveText(ref);
   await expect(page.locator("#receiptFooter")).toHaveText("Payments by Poket");
   await expect(sheet(page).locator("button")).toContainText(["Share", "Download PDF", "Download image"]);
@@ -100,7 +100,7 @@ test("Share: the native share sheet where there is one; else the text summary is
   await page.locator("#demoPoketTransfer").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  await page.locator('#ngnHistory [data-credit="poket"]').click();
+  await page.locator('#balanceHistory [data-credit="poket"]').click();
   const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
   await openSheet(page);
   await expect(page.locator("#receiptTitle")).toHaveText("From Amara Okafor");
@@ -208,7 +208,7 @@ test("every naira transaction has Share receipt; dollar ones don’t; a dispute�
   await expect(page.locator("#receiptTitle")).toHaveText("Refund · Ilé Living");
   await expect(rcRow(page, "From")).toHaveText("Ilé Living");
   await expect(rcRow(page, "Account")).toHaveText("NGN balance");
-  await expect(rcRow(page, "Fee")).toHaveText("₦[fee]");
+  await expect(rcRow(page, "Fee")).toHaveText("Free"); // a refund: no fee
   await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   // A disputed naira payment: held, said on the receipt
@@ -236,7 +236,7 @@ test("a deposit’s receipt has the Session ID after the Reference: in the text,
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   /** A credit’s receipt: its text (copied), its PDF’s Subject and its image’s height. */
   async function files(kind: "account" | "poket") {
-    await page.locator(`#ngnHistory [data-credit="${kind}"]:not([data-txid*="seed"])`).click();
+    await page.locator(`#balanceHistory [data-credit="${kind}"]:not([data-txid*="seed"])`).click();
     const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
     await openSheet(page);
     const labels = await page.locator("#receiptCard .rc-row > span:first-child").allTextContents();

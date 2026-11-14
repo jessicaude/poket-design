@@ -63,7 +63,7 @@ test("a match leads to the account terms, then the NGN account details", async (
   // intro: account terms
   await expect(title(page)).toHaveText("Get NGN account details");
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "Free to receive"]);
+  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "0.40% fee, up to ₦5,000.00"]);
   await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket’s partner bank, [Partner bank]");
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
@@ -161,14 +161,14 @@ async function ngnBalance(page: Page, tier = "1") {
   await page.getByLabel("Tier").selectOption(tier);
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"] .tx-title').click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
 }
 
 test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and terms; then the card shows the account", async ({ page }) => {
   await ngnBalance(page);
   const card = page.locator("#vaOpen");
   await expect(card).toHaveClass(/\bva-empty\b/);
-  await expect(card).toHaveText("Get NGN account detailsReceive NGN by bank transfer. Free to receive.›");
+  await expect(card).toHaveText("Get NGN account detailsReceive NGN by bank transfer. 0.40% fee, up to ₦5,000.00.›");
   // It sits between the actions and the history, as in the reference’s tHoldingDetail
   const order = await page.locator("#panelBody").evaluate((b) => [...b.querySelectorAll(".action-row, #vaOpen, .section-title")].map((e) => e.id || e.className));
   expect(order).toEqual(["action-row", "vaOpen", "section-title"]);
@@ -186,7 +186,7 @@ test("NGN balance: 'Get NGN account details' opens the choice, BVN or NIN and te
 
   // Back on the balance screen: the card now shows the account
   await page.locator("#vaBack").click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
   await expect(card).not.toHaveClass(/\bva-empty\b/);
   await expect(card.locator(".t1")).toHaveText("NGN account details Ready");
   await expect(card.locator(".t2")).toHaveText(`Account number ••${num.slice(-4)} · [Partner bank]`);
@@ -216,7 +216,7 @@ test("NGN balance: a rejected account shows Not approved, and Try again restarts
   await expect(card.locator(".t2")).toHaveText("We couldn’t open your account. Try again or contact support.");
   await expect(page.locator("#vaRetry")).toHaveText("Try again");
   await card.locator(".t2").click(); // the card itself doesn’t open anything
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
   await page.locator("#vaRetry").click();
   await expect(title(page)).toHaveText("Bank transfer"); // the choice, then BVN or NIN and terms again
   await toIdEntry(page, "NIN");
@@ -227,19 +227,19 @@ test("NGN balance at Tier 0: verify first (the step-up), then the account choice
   const card = page.locator("#vaOpen");
   await expect(card).toHaveText("Get NGN account detailsVerify your identity to get account details›");
   await card.click();
-  await expect(title(page)).toHaveText("Additional verification needed");
+  await expect(title(page)).toHaveText("Verify your identity");
   await expect(page.locator("#panelBody .alert")).toHaveText("Account details are in your verified name, so we need to confirm who you are.");
   await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the temporary top-up
   // Cancel: back to the balance, still Tier 0
   await page.locator("#stepupCancel").click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
   // Deposit still tops up by temporary account at Tier 0
   await page.locator("#detailDeposit").click();
   await page.locator("#dmBank").click();
   await expect(title(page)).toHaveText("Add naira");
   // Continue stands in for verification: Tier 1, then the account choice
   await page.evaluate(() => (window as any).__ngn.getState().close()); // eslint-disable-line @typescript-eslint/no-explicit-any
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
   await card.click();
   await page.locator("#stepupIntroContinue").click();
   await expect(title(page)).toHaveText("Bank transfer");

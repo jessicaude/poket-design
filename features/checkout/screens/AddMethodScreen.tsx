@@ -5,15 +5,15 @@ import { BANK_TILE, CARD_TILE, ICON, WALLET_ICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
 import { useCheckout } from "../useCheckout";
 
-type Rail = { id: string; icon: string; title: string; sub: string; converted?: boolean; paused?: boolean };
+type Rail = { id: string; icon: string; title: string; sub?: string; converted?: boolean; paused?: boolean };
 
 /** The merchant's own rails (the reference's list): paid in USD. */
 const USD_RAILS: Rail[] = [
   { id: "card", icon: CARD_TILE, title: "Card", sub: "Debit or credit card" },
   { id: "bank", icon: BANK_TILE, title: "Pay by Bank", sub: "Link your bank account" },
-  { id: "apple", icon: WALLET_ICON.apple, title: "Apple Pay", sub: "Use a card in your Apple Wallet" },
-  { id: "google", icon: WALLET_ICON.google, title: "Google Pay", sub: "Use a card in your Google Wallet" },
-  { id: "cashapp", icon: WALLET_ICON.cashapp, title: "Cash App Pay", sub: "Pay from your Cash App" },
+  { id: "apple", icon: WALLET_ICON.apple, title: "Apple Pay" },
+  { id: "google", icon: WALLET_ICON.google, title: "Google Pay" },
+  { id: "cashapp", icon: WALLET_ICON.cashapp, title: "Cash App Pay" },
 ];
 
 /** SCREENS['add-method']: choose how to pay. Card is ported; the others are next. */
@@ -51,7 +51,7 @@ export function AddMethodScreen() {
           <button key={r.id + (r.converted ? "-usd" : "")} type="button" className={`method${r.paused ? " off" : ""}`} data-addpm={r.id} data-converted={r.converted || undefined}
             aria-disabled={r.paused || undefined} onClick={() => choose(r)}>
             <Raw html={r.icon} />
-            <span className="m1">{r.title}{r.converted && <span className="chip">Paid in USD, converted</span>}{r.paused && <span className="chip" id="ngnBankPaused">Paused</span>}<small>{r.sub}</small></span>
+            <span className="m1">{r.title}{r.converted && <span className="chip">Paid in USD, converted</span>}{r.paused && <span className="chip" id="ngnBankPaused">Paused</span>}{r.sub && <small>{r.sub}</small>}</span>
             <span className="chev">›</span>
           </button>
         ))}

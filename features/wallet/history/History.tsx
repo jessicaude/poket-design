@@ -19,6 +19,10 @@ import { useNgnCredits } from "./credits";
 import { TxFields, creditFields, creditTitle } from "./fields";
 import { ShareReceiptButton } from "../receipt/ReceiptSheet";
 import { creditReceipt } from "../receipt/receipt";
+import { useDeposit } from "../deposit/useDeposit";
+import { DepositRow } from "../deposit/DepositRecords";
+import { useCards } from "../card/useCards";
+import { CardPurchaseRow } from "../card/CardScreen";
 
 /**
  * WGT-11, history: every transaction as the reference's activity row (txRow), newest first, grouped by day, with
@@ -28,8 +32,8 @@ import { creditReceipt } from "../receipt/receipt";
  */
 export type HistoryDir = "in" | "out" | "convert";
 export type HistoryItem = { at: number; key: string; dir: HistoryDir;
-  /** Moves the NGN balance (the NGN balance's history). */
-  ngn: boolean; el: ReactNode };
+  /** The balances it moved, as cvKeys ("cash:NGN:open", "cash:USD:fiat"): each balance screen lists its own. */
+  keys: string[]; el: ReactNode };
 
 /** txRow(t) for a demo record: refund in, payment out (activity icon); deposit in (add icon). */
 function DemoTxRow({ t }: { t: DemoTx }) {
@@ -37,7 +41,7 @@ function DemoTxRow({ t }: { t: DemoTx }) {
   return (
     <div className="tx-row" data-txid={t.id} role="button" tabIndex={0} onClick={() => push({ name: "tx", id: t.id })}>
       <div className={`tx-ic ${t.type === "payment" ? "out" : "in"}`} dangerouslySetInnerHTML={{ __html: t.type === "deposit" ? WICON.add : WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{t.title}</div><div className="tx-sub">{t.sub}</div></div>
+      <div className="tx-main"><div className="tx-title">{t.title}</div>{t.sub && <div className="tx-sub">{t.sub}</div>}</div>
       <div className={`tx-amt ${t.positive ? "pos" : ""}`}><Grey>{(t.positive ? "+" : "-") + fmtCurrency(t.amount, "USD")}</Grey></div>
     </div>
   );
@@ -50,14 +54,20 @@ export function useActivity(): HistoryItem[] {
   const credits = useNgnCredits((s) => s.list);
   // WGT-12: the demo user's Checkout payments (naira and dollar, card and bank transfer), kept on the account
   const payments = useAccount((s) => s.account?.payments) ?? [];
+  const deposits = useDeposit((s) => s.records);
+  const cardSpend = useCards((s) => s.purchases);
   return [
-    ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir, ngn: false, el: <DemoTxRow key={t.id} t={t} /> })),
-    // A payment by card or bank transfer doesn't move the NGN balance; a refund into it does
-    ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, dir: "out" as const, ngn: false, el: <CheckoutPaymentRow key={p.id} p={p} /> })),
-    ...allRefunds(payments).map(({ p, r }) => ({ at: new Date(r.at).getTime(), key: r.id, dir: "in" as const, ngn: r.to === "ngn", el: <RefundRow key={r.id} p={p} r={r} /> })),
-    ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, dir: "out" as const, ngn: w.sourceKey ? w.sourceKey.startsWith("cash:NGN:") : w.currency === "NGN", el: <WithdrawalRow key={w.id} w={w} /> })),
-    ...conversions.map((c) => ({ at: c.createdAt, key: c.id, dir: "convert" as const, ngn: [c.from, c.to].some((k) => k.startsWith("cash:NGN:")), el: <ConversionRow key={c.id} c={c} /> })),
-    ...credits.map((c) => ({ at: c.at, key: c.id, dir: "in" as const, ngn: true, el: <CreditRow key={c.id} c={c} /> })),
+    // The reference's records are USD: a top-up only under card-funded USD (the reference's matching rule)
+    ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
+      keys: t.type === "deposit" ? ["cash:USD:fiat"] : ["cash:USD:open", "cash:USD:fiat"], el: <DemoTxRow key={t.id} t={t} /> })),
+    // A payment by card or bank transfer doesn't move a balance; a refund into the NGN balance does
+    ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, dir: "out" as const, keys: [] as string[], el: <CheckoutPaymentRow key={p.id} p={p} /> })),
+    ...allRefunds(payments).map(({ p, r }) => ({ at: new Date(r.at).getTime(), key: r.id, dir: "in" as const, keys: r.to === "ngn" ? ["cash:NGN:open"] : [], el: <RefundRow key={r.id} p={p} r={r} /> })),
+    ...withdrawals.map((w) => ({ at: w.createdAt, key: w.id, dir: "out" as const, keys: [w.sourceKey ?? `cash:${w.currency}:open`], el: <WithdrawalRow key={w.id} w={w} /> })),
+    ...conversions.map((c) => ({ at: c.createdAt, key: c.id, dir: "convert" as const, keys: [c.from, c.to], el: <ConversionRow key={c.id} c={c} /> })),
+    ...credits.map((c) => ({ at: c.at, key: c.id, dir: "in" as const, keys: ["cash:NGN:open"], el: <CreditRow key={c.id} c={c} /> })),
+    ...deposits.map((d) => ({ at: d.at, key: d.id, dir: "in" as const, keys: [d.key], el: <DepositRow key={d.id} r={d} /> })),
+    ...cardSpend.map((p) => ({ at: p.at, key: p.id, dir: "out" as const, keys: p.keys, el: <CardPurchaseRow key={p.id} p={p} /> })),
   ].sort((a, b) => b.at - a.at);
 }
 
@@ -77,7 +87,7 @@ export type HistoryFilter = "all" | "in" | "out";
 /** The list: the filter, then a day heading over each day's rows. */
 export function History({ items, id, empty }: { items: HistoryItem[]; id: string; empty: string }) {
   const [f, setF] = useState<HistoryFilter>("all");
-  if (items.length === 0) return <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>{empty}</div>;
+  if (items.length === 0) return <div id={id} data-histempty="" style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>{empty}</div>;
   const list = items.filter((x) => f === "all" || x.dir === f);
   const groups: { label: string; items: HistoryItem[] }[] = [];
   for (const x of list) {

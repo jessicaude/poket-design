@@ -41,17 +41,17 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
   await expect(chip(page)).toHaveText("Scheduled");
   await expect(chip(page)).toHaveClass(/\bmuted\b/);
   await expect(msg(page)).toHaveText("Sends after [hold]");
-  await expect(page.locator("#panelBody .info-row")).toContainText(["Status", "Date", "ToGTBank · •••• 6789", "Fee₦[fee]", "Reference"]);
-  expect(await ngn(page)).toEqual({ balance: 4500000, reserved: 500000 });
+  await expect(page.locator("#panelBody .info-row")).toContainText(["Status", "Date", "ToGTBank · •••• 6789", "Fee₦25.00 NGN", "Reference"]);
+  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
 
   // Home: the NGN row’s subtitle
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   const row = page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]');
-  await expect(row.locator(".tx-amt")).toHaveText("₦45,000.00 NGN");
-  await expect(row.locator(".tx-sub")).toHaveText("₦45,000.00 NGN · ₦5,000.00 NGN on hold");
+  await expect(row.locator(".tx-amt")).toHaveText("₦44,975.00 NGN");
+  await expect(row.locator(".tx-sub")).toHaveText("₦44,975.00 NGN · ₦5,025.00 NGN on hold"); // the amount and its ₦25.00 fee
   await page.locator("#homeOnHold").click();
-  await expect(title(page)).toHaveText("₦5,000.00 NGN on hold");
+  await expect(title(page)).toHaveText("₦5,025.00 NGN on hold");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("This money isn’t in your available balance.");
   await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(page.locator("#panelBody .tx-row .va-status")).toHaveText(["Scheduled"]);
@@ -59,15 +59,15 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
 
   // NGN balance screen: the line under the balance, and the activity row
   await row.locator(".tx-title").click(); // the row’s centre is the "on hold" link
-  await expect(page.locator("#ngnBalanceAmount")).toHaveText("₦45,000.00 NGN");
-  await expect(page.locator("#ngnOnHold")).toHaveText("₦5,000.00 NGN on hold ›");
+  await expect(page.locator("#balanceAmount")).toHaveText("₦44,975.00 NGN");
+  await expect(page.locator("#balanceOnHold")).toHaveText("₦5,025.00 NGN on hold ›");
   const activity = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada’s seeded history
   await expect(activity.locator(".tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(activity.locator(".tx-sub .va-status")).toHaveText(["Scheduled"]);
   await expect(activity.locator(".tx-sub")).toHaveText(["GTBank · •••• 6789 · Scheduled"]); // the account, then the chip while unfinished
   await expect(activity.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);
-  await page.locator("#ngnOnHold").click();
-  await expect(title(page)).toHaveText("₦5,000.00 NGN on hold");
+  await page.locator("#balanceOnHold").click();
+  await expect(title(page)).toHaveText("₦5,025.00 NGN on hold");
   await page.locator("#panelBody .tx-row").click();
   await expect(chip(page)).toHaveText("Scheduled");
 });
@@ -79,11 +79,11 @@ test("Release first-payment hold: Scheduled → Sending → Paid; paid clears th
   await action(page, "Release first-payment hold").click();
   await expect(chip(page)).toHaveText("Sending");
   await expect(msg(page)).toHaveText("Usually within seconds");
-  expect(await ngn(page)).toEqual({ balance: 4500000, reserved: 500000 });
+  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
   await expect(chip(page)).toHaveText("Paid");
   await expect(chip(page)).not.toHaveClass(/\b(muted|warn|err)\b/);
   await expect(msg(page)).toHaveCount(0);
-  expect(await ngn(page)).toEqual({ balance: 4500000, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 0 });
   await expect(action(page, "Release first-payment hold")).toBeDisabled();
   await page.locator("#backFromTxDetail").click();
   await expect(page.locator("#homeOnHold")).toHaveCount(0); // nothing on hold
@@ -94,10 +94,10 @@ test("Sending (account paid before) → Mark paid", async ({ page }) => {
   await expect(chip(page)).toHaveText("Sending");
   await expect(msg(page)).toHaveText("Usually within seconds");
   await expect(action(page, "Release first-payment hold")).toBeDisabled();
-  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 });
+  expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await action(page, "Mark paid").click();
   await expect(chip(page)).toHaveText("Paid");
-  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 0 });
 });
 
 test("Held for review keeps the reservation; then Fail releases it to the balance", async ({ page }) => {
@@ -107,7 +107,7 @@ test("Held for review keeps the reservation; then Fail releases it to the balanc
   await expect(chip(page)).toHaveClass(/\bwarn\b/);
   await expect(msg(page)).toHaveText("We’re checking this payment. We’ll let you know.");
   await expect(action(page, "Hold for review")).toBeDisabled();
-  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 });
+  expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await action(page, "Fail").click();
   await expect(chip(page)).toHaveText("Failed");
   await expect(chip(page)).toHaveClass(/\berr\b/);
@@ -183,7 +183,7 @@ test("at ₦[step-up] or under: straight to the PIN", async ({ page }) => {
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
-  for (const d of "2000000") await press(page, d); // ₦20,000.00
+  for (const d of "1997500") await press(page, d); // ₦19,975.00: with the ₦25.00 fee, ₦20,000.00 leaves
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();

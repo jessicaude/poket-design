@@ -17,17 +17,26 @@ alwaysApply: true
   Checkout below.)
 - One demo rate everywhere: ₦1,550 per $1 (DEMO_NGN_PER_USD in lib/money.ts), never the checkout prototype's 1/1540.
 - Partner-neutral: never name a bank. Use the placeholder "[Partner bank]".
-- Values not decided yet stay as visible placeholders: ₦[limit], ₦[minimum], [time], [handling], [hold], ₦[fee].
+- Values not decided yet stay as visible placeholders: ₦[limit], ₦[minimum], [time], [handling], [hold].
+- Fees are decided (lib/fees.ts; docs/decisions.md, Fees), shown as amounts and counted in every total, Max and
+  balance: deposits 0.40% capped at ₦5,000.00 (or $4.00), out of what arrives; Convert ₦2,000.00 + 0.40% from NGN
+  ($2.00 + 0.40% from USD or a stablecoin), out of the amount, in the source; sends to external accounts ₦25.00
+  (NGN), $6.00 (USD) or 6.00 in the coin, on top; to Poket users free, end to end (naira that converts to USD on
+  receipt pays no conversion fee). EUR, GBP and GHS (to confirm): the dollar fees at the demo rates (DEMO_USD_PER).
+  Checkout charges the payer nothing.
 - Wallet only: NGN is funded only by bank transfer or conversion, never by card. (Paying a merchant with a naira card
   at Checkout isn't funding a balance.)
 - Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a temporary account
   created per top-up, valid 30 minutes [time], for one exact amount.
 - One naira balance: a user has one NGN balance, the NGN e-wallet (useNgn.ngnBalance). There's no merchant-held or
   other second naira balance, row or tag.
-- The NGN balance screen (features/wallet/withdrawals/NgnBalanceScreen.tsx) has the reference's account card
+- Every cash balance (NGN, USD, EUR, GBP, GHS, and card-funded USD) uses one screen, features/wallet/home/CashBalanceScreen.tsx:
+  the balance ("₦X on hold" only when something is), Deposit, Send and Convert, the account card where account details
+  exist, then Transaction history (filter, day groups) with Statement. The NGN balance's account card
+  (NgnAccountCard in features/wallet/withdrawals/NgnBalanceScreen.tsx) is the reference's account card
   (vaCardHtml) between the actions and Transaction history, while virtual accounts are supported (NGN_VA.supported).
   Tapping it is useNgn.openAccountDetails:
-  - No account, Tier 1 and up: "Get NGN account details" / "Receive NGN by NIP bank transfer. Free to receive.";
+  - No account, Tier 1 and up: "Get NGN account details" / "Receive NGN by bank transfer. 0.40% fee, up to ₦5,000.00.";
     opens the choice, then BVN or NIN, the ID check and terms.
   - No account, Tier 0: "Get NGN account details" / "Verify your identity to get account details"; opens identity
     verification, the wallet's step-up (StepUpIntro, stage 'verify') with the reference's reason "Account details
@@ -83,14 +92,14 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   review, PIN, reservation and status screens (usePayout.executeSend; one summary in
   features/wallet/send/sendSummary.ts). The amount screen's title is "Send to {first name}" (your own accounts and
   wallets by their whole name), with Change. Review rows: To, Account holder (when the nickname differs), They get, You send and Rate (converting), Network (a coin: the wallet's, else the paying coin's), Fee
-  (placeholders where undecided: ₦[fee] for Nigerian banks, [fee] for conversions involving NGN), Delivery, Total
+  (the send's fee, and a conversion's when it converts: "₦2,040.00 NGN + ₦25.00 NGN"), Delivery, Total
   charged; then the first-payment notice for a new bank account. The button reads "Send {amount}" (what leaves
   the source).
   - Arrival: a first payment to any bank account is "After [hold]" and Scheduled; Nigerian banks "Usually within
-    seconds"; US banks one speed, "1 to 3 business days", fee $[fee] (undecided, 0 in the maths; no Instant, Standard
+    seconds"; US banks one speed, "1 to 3 business days", fee $6.00 (no Instant, Standard
     or Wire choice, no wire address); other banks "Within minutes"; debit
-    cards "Instantly", fee $[fee] (undecided, 0 in the maths), status Sending; Poket users "Instantly" and straight
-    to Paid; stablecoin wallets "About 1 minute", fee 1.50 in the coin.
+    cards "Instantly", fee $6.00, status Sending; Poket users "Instantly", free, and straight to Paid; stablecoin
+    wallets "About 1 minute", fee 6.00 in the coin; Nigerian banks ₦25.00. The amount screen shows the fee (#sendFee).
   - Quick check (the exploration's): a first payment of $500 or more (USD value leaving the source) to a new debit
     card, stablecoin wallet or Poket user is held (status "review", Withdrawal.quickCheck) and reads "Held for a
     quick check" with "First payment to a new recipient. Usually under 15 minutes." on done and status. Bank
@@ -99,17 +108,16 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   - A debit card in the verified user's name (any case or word order) is theirs: saved under Your accounts.
   - A new Nigerian bank account takes an optional nickname once the name is found; the enquiry's name stays the
     account holder.
-  - Max is the whole balance less a decided fee (a wallet's); placeholder fees count as 0.
-  - The review's total is what leaves the source, in the source's currency: the amount plus every decided fee (a
-    wallet's 1.50 USDC paid from NGN shows as its naira), then " + ₦[fee]" (or $[fee], [fee] USDC) for an undecided
-    one. It always matches what's reserved.
+  - Max is the whole balance less the send's fee.
+  - The review's total is what leaves the source, in the source's currency: the amount plus every fee (a
+    wallet's 6.00 USDC paid from NGN shows as its naira). It always matches what's reserved.
   - Poket users can be paid from card-funded USD. Their money keeps the FIAT-ONLY tag (shown on They get, review,
     done and the status screen; the mock API credits the matching tagged balance), so the rules on that money
     follow it.
   - Naira to Poket users (WGT-07): a recipient who can hold naira gets naira. One who can't (no BVN or NIN, or not
     eligible) gets USD, converted on receipt (targetFor in features/wallet/send/sources.ts): the amount screen says
-    "{First name} can't hold naira. They'll get USD." with "They get ≈ $X USD" and the quote card (rate, fee as
-    ₦[fee], They get; "Rate held for 0:30", then "Refresh rate"); review shows You send, They get and Rate.
+    "{First name} can't hold naira. They'll get USD." with "They get ≈ $X USD" and the quote card (rate, fee,
+    They get; "Rate held for 0:30", then "Refresh rate"); review shows You send, They get and Rate.
     - The conversion is always naira to USD cash. It's never a stablecoin, so card-funded money never becomes one
       and the "NGN to stablecoins" block is never crossed. Other sources (USD, card-funded USD, USDC) arrive as they
       are; card-funded USD never becomes naira.
@@ -138,12 +146,12 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   The keypad is hidden until You send's amount is tapped; "Done" at its top, or a tap anywhere else, hides it (on
   click, so the tapped control acts first), and Review then sits right under the amounts. The source defaults to the balance it was opened from if that can
   pay, else the recipient's currency. Another currency converts inline with the quote card below the boxes (rate and
-  fee as ₦[fee] or the coin equivalent; They get is in its box, not repeated; the 30-second countdown and Refresh
+  the whole fee: the conversion's and the send's; They get is in its box, not repeated; the 30-second countdown and Refresh
   rate); it converts when the PIN is accepted.
   Review holds the same quote: the countdown shows there too, and on expiry Send is disabled until Refresh rate.
 - A send that converts is one activity record (no separate conversion row): its row reads "To {name}" with
   "{source amount} → {target amount}" as the sub, and its receipt adds You send, They get and Rate, with one Fee row
-  for both ("[fee] USDC + ₦[fee]").
+  for both ("2.04 USDC + ₦25.00 NGN").
 - Send activity rows (WithdrawalRow, everywhere: the Activity tab, every balance's Transaction history, the on-hold
   list) are the reference's txRow: icon, "To {name}", a sub (the conversion, else the account), the amount that left
   the balance. A status chip follows the sub only while unfinished or gone wrong (Scheduled, Held for review, Held for
@@ -165,10 +173,10 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   confirmed as a third-party payee. Without a successful name enquiry, an account can't be added.
 - Every NGN e-wallet can send naira to Nigerian banks, within its tier limits (the selfie check above ₦[step-up]); no
   balance or account type is excluded.
-- Fees aren't decided: show ₦[fee] (FEE_PLACEHOLDER, fmtFee, fmtWithFee in payoutMath.ts) and keep them out of the maths
-  (payoutFee returns 0 for NGN). Don't show the reference's computed naira fees.
-- No speed choice: "Usually within seconds" (NGN_VA.arrives), on the amount screen's They get box; the fee, ₦[fee],
-  is on review. (US banks have one speed too.)
+- Sends to Nigerian banks cost ₦25.00 (SEND_FEE in lib/fees.ts), on top of the amount; the statement shows it as its own
+  line ("Fee · To {name}", same reference). Don't show the reference's computed naira fees.
+- No speed choice: "Usually within seconds" (NGN_VA.arrives), on the amount screen's They get box; the fee, ₦25.00,
+  is on the amount screen and review. (US banks have one speed too.)
 - First-payment hold: the first NGN transfer to a bank account (recipient.paidBefore false) shows "First payment to a
   new account sends after [hold]" on amount and review (They get's arrival reads "After [hold]"), and its delivery is
   "After [hold]".
@@ -217,8 +225,9 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   - Opened with NGN as the target (Deposit NGN, the unavailable screen) and nothing that can convert into it: NGN
     stays the target, with "You have no USD or USDC to convert yet" and a Deposit button. Deposit isn't ported, so it
     shows the wallet's "Not in the prototype yet" notice (showNotPorted in useWalletToast.ts), like other unported actions.
-  - Naira conversion fees are undecided: "Fee: ₦[fee]" (or "$[fee]", or the coin equivalent "[fee] USDC") and 0 in
-    the maths. The quote card shows the rate, the fee, "You get" and the reference's 30-second countdown.
+  - Conversions from NGN cost ₦2,000.00 + 0.40% (from USD or a stablecoin, $2.00 + 0.40%; others the reference's),
+    out of the amount, in the source: "Fee: ₦2,040.00 NGN"; an amount no bigger than the fee says so ("That’s no more
+    than the ₦2,040.00 fee. Enter a larger amount."). The statement shows the fee as its own line. The quote card shows the rate, the fee, "You get" and the reference's 30-second countdown.
   - Naira conversions are capped at ₦[limit] per conversion ("That’s over your ₦[limit] limit per conversion. Enter a smaller amount.") and have a
     minimum, "The minimum is ₦[minimum]. Enter a larger amount.", both on the naira side. NGN_CONVERT_LIMIT_DEMO_KOBO and NGN_CONVERT_MIN_DEMO_KOBO
     are demo values that never show.
@@ -407,13 +416,14 @@ WGT-10 is four parts, each with its rules below:
   (features/wallet/receipt/) and Share (navigator.share with the text; else copied, "Receipt copied"), Download PDF
   and Download image (the receipt drawn on a canvas; the PDF is that image, with the text as its Subject). The
   receipt: the brand (Poket, or white-label: the merchant's logo or initials and colour; demo control "Brand"), the
-  amount, the title, the status chip, Date and time, To or From, Account, Fee (₦[fee] where none is decided; Free
-  for money in), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
+  amount, the title, the status chip, Date and time, To or From, Account, Fee (the fee, or "Free" where there's none:
+  Checkout payments, refunds, naira from a Poket user), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
   to Nigerian banks, deposits, recalls, checkout bank transfers and their reversals), "Payments by Poket". Not done, it says so first: Pending (scheduled, sending), Held for
   review / a quick check, Failed, Reversed, Dispute open (held). Tests: e2e/receipts.spec.ts.
-- Statement (NEW) on the NGN balance ("Statement" by Transaction history): a period (This month and Last 3 months
+- Statement (NEW) on every cash balance ("Statement" by Transaction history; NGN shown here, others the same in their
+  currency, from the demo's start): a period (This month and Last 3 months
   run to today; Last month; a custom range up to 12 months, not in the future) and PDF or CSV, then Download
-  statement (lib/statement.ts). Built from the NGN balance's ledger (features/wallet/history/ledger.ts), which
+  statement (lib/statement.ts). Built from the balances' ledger (features/wallet/history/ledger.ts), which
   records every change to the balance with the balance after it, labelled by its transaction (attribute()); a change
   nothing labels is a "Balance adjustment". So opening + money in - money out = closing, always. A send counts when
   it leaves the available balance (at the PIN); a failed or reversed one comes back as "Returned" / "Reversed · To

@@ -5,13 +5,13 @@ import type { Payment, Refund } from "@/store/account";
 import { conversionTitle } from "../convert/useConvert";
 import { brandInfo, POWERED_BY, type WalletBrand } from "../brand";
 import { CREDIT_METHOD, SESSION_ID_PLACEHOLDER, conversionFields, creditFields, creditTitle, paymentFields, paymentStatusChip, refundFields, withdrawalFields, type Tone } from "../history/fields";
-import { FEE_PLACEHOLDER, HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
+import { HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
 import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { formatTxDate } from "../withdrawals/TxDetail";
 
 /**
  * A naira transaction's receipt (NEW, WGT-11): the amount, status, date and time, who it was to or from, the account
- * details, the fee (₦[fee] while naira fees aren't decided) and the reference, in the wallet's look and brand, with
+ * details, the fee ("Free" where there's none: Checkout payments, refunds, recalls) and the reference, in the wallet's look and brand, with
  * "Payments by Poket". A transaction that isn't done (pending, held, failed, reversed, a dispute holding it) says so
  * in `notice`, on the receipt and in what's shared. A naira bank transfer also has the bank's Session ID ("[session ID]").
  */
@@ -29,7 +29,7 @@ export type Receipt = {
 const row = (label: string, value: string | undefined): [string, string][] => (value ? [[label, value]] : []);
 /** A naira bank transfer adds the bank's Session ID after the Reference (the detail's own rule: TxFieldsData.bankTransfer). */
 const rowsOf = (at: number, dir: "To" | "From", who: string, account: string | undefined, fee: string | undefined, reference: string, bankTransfer?: boolean): [string, string][] => [
-  ["Date and time", formatTxDate(at)], [dir, who], ...row("Account", account), ["Fee", fee ?? FEE_PLACEHOLDER], ["Reference", reference],
+  ["Date and time", formatTxDate(at)], [dir, who], ...row("Account", account), ["Fee", fee ?? "Free"], ["Reference", reference],
   ...row("Session ID", bankTransfer ? SESSION_ID_PLACEHOLDER : undefined),
 ];
 

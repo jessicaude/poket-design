@@ -10,9 +10,10 @@ import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { useConvert } from "../convert/useConvert";
 import { useSend } from "../send/useSend";
+import { useDeposit } from "../deposit/useDeposit";
 import { fmtAsset } from "../convert/convertMath";
 import { useHoldings, type CashCurrency, type CoinAsset, type Network } from "../useHoldings";
-import { showNotPorted, useWalletToast } from "../useWalletToast";
+import { useWalletToast } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
 import { OnHoldLink } from "../withdrawals/parts";
 import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
@@ -34,14 +35,11 @@ function useBalances() {
 }
 
 /** FIAT-ONLY tag: tapping it explains (data-fiatinfo). */
-function FiatTag({ info = true }: { info?: boolean }) {
+export function FiatTag({ info = true }: { info?: boolean }) {
   return (
     <span className="fiat-tag" {...(info ? { "data-fiatinfo": "", role: "button", tabIndex: 0, title: "What does this mean?" } : {})}
       onClick={info ? (e) => { e.stopPropagation(); useWalletToast.getState().showNotice("FIAT-ONLY", FIAT_NOTE_TEXT, 5000); } : undefined}>FIAT-ONLY</span>
   );
-}
-function FiatNote() {
-  return <div className="fiat-note"><span className="fiat-tag" style={{ margin: 0 }}>FIAT-ONLY</span><span>{FIAT_NOTE_TEXT}</span></div>;
 }
 
 /** Open a cash balance: NGN keeps its own screen; everything else uses the reference's tHoldingDetail. */
@@ -147,14 +145,14 @@ export function WalletHome() {
         <div className="bh-sub"><span className="badge-pill">{email}</span></div>
       </div>
       <div className="action-row">
-        <button className="action-btn" id="actDeposit" onClick={() => showNotPorted("Use Deposit on the Nigerian Naira balance.")}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
+        <button className="action-btn" id="actDeposit" onClick={() => useDeposit.getState().open()}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
         {/* Send replaces the reference's Transfer and Payout actions (docs/decisions.md). */}
         <button className="action-btn" id="actSend" onClick={() => useSend.getState().open()}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
         <button className="action-btn" id="actConvert" onClick={() => useConvert.getState().start()}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
       <div className="seg">
-        <div className={`seg-opt ${isCash ? "" : "sel"}`} data-wallettab="assets" role="tab" aria-selected={!isCash} onClick={() => set({ walletTab: "assets" })}>Stablecoins</div>
         <div className={`seg-opt ${isCash ? "sel" : ""}`} data-wallettab="cash" role="tab" aria-selected={isCash} onClick={() => set({ walletTab: "cash" })}>Cash</div>
+        <div className={`seg-opt ${isCash ? "" : "sel"}`} data-wallettab="assets" role="tab" aria-selected={!isCash} onClick={() => set({ walletTab: "assets" })}>Stablecoins</div>
       </div>
       <div className="assets-header">
         <span>{isCash ? "Cash" : "Stablecoins"}</span>
@@ -168,7 +166,6 @@ export function WalletHome() {
         {isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}
         {!(isCash ? cash.length : coins.length) && <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "12px 4px" }}>Nothing here yet.</div>}
       </div>
-      {isCash && cash.some((r) => r.bucket === "fiat") && <FiatNote />}
       <div className="section-title" style={{ marginTop: "22px" }}>
         {activity.length > 0 && <>Recent activity <span className="btn-ghost" id="viewAllTx" role="button" tabIndex={0} style={{ textTransform: "none", letterSpacing: 0 }} onClick={() => set({ tab: "activity" })}>View all</span></>}
       </div>
@@ -194,83 +191,43 @@ export function AssetsAllScreen() {
       <div className="step-title">{isCash ? "Cash" : "Stablecoins"}
         <FilterButton id="assetSettingsGear2" style={{ float: "right" }} />
       </div>
-      <p className="step-sub">{isCash ? "All cash balances held in this wallet." : "All stablecoin balances held in this wallet."}</p>
       {settingsOpen && <SettingsPanel id="hideZeroToggle2" />}
       {rows === 0
         ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>Nothing to show.</div>
-        : <>{isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}{isCash && cash.some((r) => r.bucket === "fiat") && <FiatNote />}</>}
+        : <>{isCash ? cash.map((r) => <CashRowItem key={r.key} r={r} />) : coins.map((r) => <CoinRowItem key={r.key} r={r} />)}</>}
     </>
   );
 }
 
 export type Holding = { k: "cash"; cur: CashCurrency; bucket: CashRow["bucket"] } | { k: "coin"; asset: CoinAsset; net: Network };
-/** VA_SPEC's rails, for the "Get … account details" card (vaCardHtml) on USD, EUR and GBP. */
-const VA_RAILS: Partial<Record<CashCurrency, string>> = { USD: "ACH or wire", EUR: "SEPA or SEPA Instant", GBP: "Faster Payments or Bacs" };
 
-/** tHoldingDetail for every balance except open NGN (which has its own screen). */
-export function HoldingDetailScreen({ h }: { h: Holding }) {
+/** tHoldingDetail for a stablecoin (cash balances: CashBalanceScreen): the coin on its network, Send and Convert, its history. */
+export function HoldingDetailScreen({ h }: { h: Extract<Holding, { k: "coin" }> }) {
   useBalances();
   const back = useWalletNav((s) => s.back);
-  const activity = useActivity();
-  const isCash = h.k === "cash";
-  const balance = h.k === "cash"
-    ? (cashRows(false).find((r) => r.currency === h.cur && r.bucket === h.bucket)?.balance ?? 0)
-    : useHoldings.getState().coins[h.asset][h.net] || 0;
-  const name = h.k === "cash" ? CURRENCY_NAME[h.cur] : ASSET_NAME[h.asset];
-  const icon = h.k === "cash" ? WICON[CURRENCY_ICON[h.cur]] : WICON[ASSET_ICON[h.asset]];
-  const fromKey = h.k === "cash" ? `cash:${h.cur}:${h.bucket}` : `coin:${h.asset}:${h.net}`;
-  // Transaction history: the reference's matching rule for the demo records (Currency, and FIAT-ONLY records only
-  // under FIAT-ONLY), plus conversions from or to this balance.
-  const matches = activity.filter((a) => {
-    const t = DEMO_TXNS.find((x) => x.id === a.key);
-    if (t) return h.k === "cash" && h.cur === "USD" && (h.bucket === "fiat" || t.type !== "deposit");
-    const c = useConvert.getState().conversions.find((x) => x.id === a.key);
-    if (c) return h.k === "cash" ? [c.from, c.to].some((k) => k.startsWith(`cash:${h.cur}:`)) : [c.from, c.to].includes(fromKey);
-    return false;
-  });
-  // vaCardHtml(cur) shows for every cash balance of a currency with account details (USD, EUR, GBP), FIAT-ONLY too.
-  const vaRails = h.k === "cash" ? VA_RAILS[h.cur] : undefined;
+  const key = `coin:${h.asset}:${h.net}`;
+  const items = useActivity().filter((x) => x.keys.includes(key));
+  const balance = useHoldings.getState().coins[h.asset][h.net] || 0;
   return (
     <>
-      <BackRow id="backFromDetail" label={isCash ? "Cash" : "Stablecoins"} onClick={back} />
+      <BackRow id="backFromDetail" label="Stablecoins" onClick={back} />
       <div className="center-col" style={{ padding: "2px 0 4px" }}>
         <div className="asset-icon-wrap" style={{ marginBottom: "10px" }}>
-          <div className="badge" style={{ width: "44px", height: "44px" }} dangerouslySetInnerHTML={{ __html: icon }} />
-          {h.k === "coin" && <span className="badge-network" dangerouslySetInnerHTML={{ __html: WICON[NETWORK_ICON[h.net]] }} />}
+          <div className="badge" style={{ width: "44px", height: "44px" }} dangerouslySetInnerHTML={{ __html: WICON[ASSET_ICON[h.asset]] }} />
+          <span className="badge-network" dangerouslySetInnerHTML={{ __html: WICON[NETWORK_ICON[h.net]] }} />
         </div>
-        <p className="step-sub" style={{ marginBottom: "2px" }}>
-          {name}{h.k === "coin" && ` · ${h.net}`}
-          {h.k === "cash" && h.bucket === "fiat" && <FiatTag info={false} />}
-        </p>
-        <div className="step-title" id="holdingAmount" style={{ fontSize: "28px", letterSpacing: "-.02em" }}><Grey>{h.k === "cash" ? fmtCurrency(balance, h.cur) : fmtUsd(balance)}</Grey></div>
-        {h.k === "coin" && <p className="step-sub"><Grey>{fmtAsset(balance, h.asset)}</Grey></p>}
+        <p className="step-sub" style={{ marginBottom: "2px" }}>{ASSET_NAME[h.asset]} · {h.net}</p>
+        <div className="step-title" id="balanceAmount" style={{ fontSize: "28px", letterSpacing: "-.02em" }}><Grey>{fmtUsd(balance)}</Grey></div>
+        <p className="step-sub"><Grey>{fmtAsset(balance, h.asset)}</Grey></p>
       </div>
       <div className="action-row" style={{ marginTop: "14px" }}>
-        {h.k === "cash" ? (
-          <>
-            <button className="action-btn" id="detailDeposit" onClick={() => showNotPorted(`Depositing ${h.cur} isn’t ported yet.`)}><span className="ic"><Raw html={WICON.add} /></span>Deposit</button>
-            {/* Send replaces Transfer and Payout, with this balance as the source. */}
-            <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(fromKey)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
-            <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ from: fromKey })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
-          </>
-        ) : (
-          <>
-            <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(fromKey)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
-            <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ to: fromKey })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
-          </>
-        )}
+        <button className="action-btn" id="detailSend" onClick={() => useSend.getState().open(key)}><span className="ic"><Raw html={WICON.send} /></span>Send</button>
+        <button className="action-btn" id="detailConvert" onClick={() => useConvert.getState().start({ to: key })}><span className="ic"><Raw html={WICON.convert} /></span>Convert</button>
       </div>
-      {vaRails && h.k === "cash" && (
-        <div className="va-card va-empty" id="vaOpen" data-vacur={h.cur} role="button" tabIndex={0} onClick={() => showNotPorted(`${h.cur} account details aren’t ported yet.`)}>
-          <div className="va-ic"><Raw html={WICON.bank} /></div>
-          <div className="va-meta"><div className="t1">Get {h.cur} account details</div><div className="t2">Receive {h.cur} by {vaRails}. Free to receive.</div></div>
-          <span className="va-chev">{"›"}</span>
-        </div>
-      )}
       <div className="section-title">Transaction history</div>
-      {matches.length === 0
-        ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>No {h.k === "coin" ? `${h.asset} on ${h.net} ` : ""}activity yet.</div>
-        : <div className="section-card">{matches.map((a) => a.el)}</div>}
+      {items.length === 0
+        ? <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0" }}>No {h.asset} on {h.net} activity yet.</div>
+        : <div className="section-card">{items.map((a) => a.el)}</div>}
     </>
   );
 }
@@ -282,7 +239,6 @@ export function ActivityScreen() {
   return (
     <div className="screen-fade">
       <div className="step-title">Activity</div>
-      <p className="step-sub">All wallet transactions in one place.</p>
       {/* WGT-11: grouped by day, with the filter */}
       <History id="activityHistory" items={activity} empty="No activity yet." />
     </div>

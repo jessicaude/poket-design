@@ -54,15 +54,16 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
 
   await typePin(page, "1234");
   await expect(title(page)).toHaveText("Sending…");
-  await expect.poll(() => ngn(page)).toEqual({ balance: 4500000, reserved: 500000 });
+  await expect.poll(() => ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
 
   await expect(title(page)).toHaveText("₦5,000.00 NGN");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Ngozi Eze after [hold]");
-  await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated deliveryAfter [hold]");
-  expect(await ngn(page)).toEqual({ balance: 4500000, reserved: 500000 }); // still reserved while held
+  // Done: the review's rows, then the confirmation reference
+  await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Delivery" })).toContainText("DeliveryAfter [hold]");
+  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 }); // still reserved while held
   await page.locator("#payoutDone").click();
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
-  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦45,000.00 NGN");
+  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦44,975.00 NGN");
 
   // The account has now been paid: no notice next time
   await page.locator("#actSend").click();
@@ -78,10 +79,10 @@ test("account paid before: no notice; reserved at the PIN and still while Sendin
   await toPin(page);
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
   await typePin(page, "1234");
-  await expect.poll(() => ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 });
+  await expect.poll(() => ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await expect(page.locator("#panelBody .step-sub")).toHaveText("On its way to Naira account");
-  expect(await ngn(page)).toEqual({ balance: 4000000, reserved: 1000000 }); // cleared once paid (ngn-withdrawal-status.spec)
-  await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated arrivalUsually within seconds");
+  expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 }); // cleared once paid (ngn-withdrawal-status.spec)
+  await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Arrives" })).toContainText("ArrivesUsually within seconds");
 });
 
 test("a newly added account gets the notice", async ({ page }) => {

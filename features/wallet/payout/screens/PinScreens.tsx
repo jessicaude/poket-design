@@ -15,7 +15,7 @@ import { usePayout } from "../usePayout";
  * Digit boxes as the checkout binds them: digits only, one per box, focus moves on, Backspace on an empty box
  * goes back, and when every box is filled `onComplete` runs after `delay` ms. Remount (key) to clear.
  */
-function DigitBoxes({ count, password, label, delay, onComplete, style }: {
+export function DigitBoxes({ count, password, label, delay, onComplete, style }: {
   count: number; password?: boolean; label: (i: number) => string; delay: number; onComplete: (v: string) => void; style?: React.CSSProperties;
 }) {
   const [vals, setVals] = useState<string[]>(() => Array(count).fill(""));
@@ -53,7 +53,7 @@ export function PinScreen() {
   const [tries, setTries] = useState(0);
   const t = {
     create: [pinPurpose === "reset" ? "Create a new PIN" : "Create your PIN", "Protects money leaving your account. 4 digits."],
-    confirm: ["Confirm your PIN", "Enter it once more."],
+    confirm: ["Confirm your PIN", ""],
     entry: ["Enter your PIN", pinPurpose === "approve" ? pinReason : "Approves this payment."],
   }[pinStage];
   return (
@@ -64,7 +64,7 @@ export function PinScreen() {
       {pinPurpose === "approve" && <BackRow id="pinApproveCancel" onClick={cancelApprove} />}
       <div className="step-eyebrow">{pinStage === "entry" ? "Security check" : "One-time setup"}</div>
       <div className="step-title">{t[0]}</div>
-      <p className="step-sub">{t[1]}{pinError && <> <span style={{ color: "var(--err-600)" }}>{pinError}</span></>}</p>
+      {(t[1] || pinError) && <p className="step-sub">{t[1]}{pinError && <>{t[1] && " "}<span style={{ color: "var(--err-600)" }}>{pinError}</span></>}</p>}
       <DigitBoxes key={`${pinStage}-${tries}`} count={4} password label={(i) => `PIN digit ${i + 1}`} delay={180} style={{ maxWidth: "220px" }}
         onComplete={async (v) => { await pinComplete(v); setTries((n) => n + 1); }} />
       <p className="otp-hint">Different from your passcode. Never sent to you.</p>

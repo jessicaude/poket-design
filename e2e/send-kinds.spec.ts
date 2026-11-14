@@ -41,7 +41,7 @@ test("a Poket user: free, Instantly; paid at once (nothing left on hold)", async
   await expect(page.locator("#panelBody")).not.toContainText("First payment"); // only for bank accounts
   await confirmWithPin(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Tobi Bello");
-  await expect(rows(page).filter({ hasText: "Estimated delivery" }).locator(".r-value")).toHaveText("Instantly");
+  await expect(rows(page).filter({ hasText: "Delivery" }).locator(".r-value")).toHaveText("Instantly");
   await expect.poll(() => balances(page)).toMatchObject({ ngn: 4900000, reserved: 0 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
@@ -49,9 +49,10 @@ test("a Poket user: free, Instantly; paid at once (nothing left on hold)", async
   await expect(page.locator("#recentActivity .tx-row").first().locator(".tx-title")).toHaveText("To Tobi Bello");
 });
 
-test("a saved stablecoin wallet: Tier 2 first; then the address is screened before review; 1.50 USDC fee", async ({ page }) => {
+test("a saved stablecoin wallet: Tier 2 first; then the address is screened before review; 6.00 USDC fee", async ({ page }) => {
   await start(page);
-  await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 1000 }, USDT: { Polygon: 0, Base: 0 } } });
+  // 20.00 USDC: 5.00 to send and the 6.00 USDC fee
+  await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 2000 }, USDT: { Polygon: 0, Base: 0 } } });
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="wallet:sw1"]').click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Unlock sending to external wallets");
@@ -67,11 +68,11 @@ test("a saved stablecoin wallet: Tier 2 first; then the address is screened befo
   await page.locator("#payoutReview").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Checking this address");
   await expect(rows(page).locator(".r-label")).toHaveText(["To", "They get", "Network", "Fee", "Delivery", "Total charged"]);
-  await expect(rows(page).locator(".r-value")).toHaveText(["0x3Fa9cE…D58e12", "5.00 USDC", "Base", "1.50 USDC", "About 1 minute", "6.50 USDC"]);
+  await expect(rows(page).locator(".r-value")).toHaveText(["0x3Fa9cE…D58e12", "5.00 USDC", "Base", "6.00 USDC", "About 1 minute", "11.00 USDC"]);
   await expect(page.locator("#confirmPayout")).toHaveText("Send 5.00 USDC");
   await confirmWithPin(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ledger");
-  await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 350, ngn: 5000000, reserved: 0 });
+  await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 900, ngn: 5000000, reserved: 0 }); // 20.00 less 5.00 and the 6.00 fee
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("About 1 minute"); // the wallet’s own arrival
@@ -105,7 +106,7 @@ test("a USDC wallet paid from NGN: step-up on the naira leaving; the total inclu
   await page.locator("#payoutReview").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Checking this address");
   // 1.50 USDC = ₦2,325.00 at 1,550: in the total, with the conversion’s undecided ₦[fee]
-  await expect(rows(page).filter({ hasText: "Total charged" }).locator(".r-value")).toHaveText("₦27,325.00 NGN + ₦[fee]");
+  await expect(rows(page).filter({ hasText: "Total charged" }).locator(".r-value")).toHaveText("₦34,300.00 NGN"); // 10.00 USDC and the 6.00 USDC fee, in naira
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
   // ₦27,325 (about $17.63) leaves the NGN balance: step-up, though the wallet gets only 16.13 USDC
@@ -113,7 +114,7 @@ test("a USDC wallet paid from NGN: step-up on the naira leaving; the total inclu
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
-  await expect.poll(() => balances(page)).toMatchObject({ ngn: 2267500, reserved: 2732500 }); // what the total said
+  await expect.poll(() => balances(page)).toMatchObject({ ngn: 1570000, reserved: 3430000 }); // what the total said
 });
 
 test("a Poket user over the limit in USDC isn’t judged in naira: 100.00 USDC steps up, 10.00 doesn’t", async ({ page }) => {

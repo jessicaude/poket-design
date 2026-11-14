@@ -34,15 +34,8 @@ export const HOLD_PLACEHOLDER = "[hold]";
 /** A first NGN payment to this account: it's held for [hold] before it sends. */
 export const isFirstPayment = (cur: PayoutCurrency, r: PayoutRecipient | null) => cur === "NGN" && !!r && !r.paidBefore;
 
-/**
- * NGN fees aren't decided (ngn.mdc): every NGN fee on screen is the placeholder ₦[fee], and the maths leaves it out
- * (it counts as 0), so no made-up number leaks through totals, Max or the balance.
- */
-export const FEE_PLACEHOLDER = "\u20a6[fee]";
-export const feeDecided = (cur: PayoutCurrency) => cur !== "NGN";
-
-/** A fee as shown: the amount, or ₦[fee] while undecided. */
-export const fmtFee = (fee: number, cur: PayoutCurrency) => (feeDecided(cur) ? fmtCurrency(fee, cur) : FEE_PLACEHOLDER);
+/** A fee as shown ("₦25.00 NGN"); none is "Free". Fees are decided (lib/fees.ts). */
+export const fmtFee = (fee: number, cur: PayoutCurrency) => (fee ? fmtCurrency(fee, cur) : "Free");
 
 export function payoutMethodIcon(r: Pick<PayoutRecipient, "methodType"> & { asset?: string }): string {
   if (r.methodType === "poket") return WICON.user;

@@ -9,6 +9,10 @@ import { SendBody } from "./send/SendScreens";
 import { useSend } from "./send/useSend";
 import { useConvert } from "./convert/useConvert";
 import { NgnBody } from "./ngn/NgnBody";
+import { DepositBody } from "./deposit/DepositScreens";
+import { DepositDetailScreen } from "./deposit/DepositRecords";
+import { useDeposit } from "./deposit/useDeposit";
+import { CardScreen, CardTxDetailScreen } from "./card/CardScreen";
 import { useNgn } from "./ngn/useNgn";
 import { ActivityScreen, AssetsAllScreen, DemoTxDetailScreen, HoldingDetailScreen, WalletHome } from "./home/WalletHome";
 import { useWalletHome } from "./home/homeData";
@@ -16,7 +20,7 @@ import { PayoutBody } from "./payout/PayoutBody";
 import { usePayout } from "./payout/usePayout";
 import { NotificationsScreen } from "./NotificationsScreen";
 import { currentScreen, useWalletNav } from "./useWalletNav";
-import { NgnBalanceScreen } from "./withdrawals/NgnBalanceScreen";
+import { CashBalanceScreen } from "./home/CashBalanceScreen";
 import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
 import { ComplianceScreen, ComplianceStepUpScreen, InstantLimitScreen, InstantTransfersScreen, SecurityScreen, SettingsScreen } from "./settings/SettingsScreens";
@@ -31,42 +35,46 @@ import "./refundCredits";
 import "./partnerRecovery";
 
 /**
- * WalletShell's default #panelBody: an open Send, Convert, send-to-bank or NGN flow first, then the current wallet screen
- * (balances, on hold, withdrawal status, receipts, notifications), else the wallet home (tWalletHome) or the Activity tab.
+ * WalletShell's default #panelBody: an open Send, Convert, send-to-bank, NGN or Deposit flow first, then the current wallet screen
+ * (balances, on hold, withdrawal status, receipts, notifications), else the tab: the wallet home (tWalletHome), Card (tCard) or Activity.
  */
 export function WalletBody() {
   const send = useSend((s) => s.stage);
   const convert = useConvert((s) => s.stage);
   const payout = usePayout((s) => s.stage);
   const ngn = useNgn((s) => s.stage);
+  const deposit = useDeposit((s) => s.stage);
   const screen = currentScreen(useWalletNav((s) => s.stack));
   const tab = useWalletHome((s) => s.tab);
   // Locked after too many wrong codes: no money moves, so any money flow shows the lock instead
   const locked = useAccountLock((s) => s.until) !== null;
   const blocked = useSettings((s) => s.idBlocked);
-  if (locked && (send || convert || payout || ngn)) return <AccountLockedScreen />;
+  if (locked && (send || convert || payout || ngn || deposit)) return <AccountLockedScreen />;
   // Blocked after 3 failed ID checks: no money moves either (the held send's own done screen still shows)
-  if (blocked && (send || convert || ngn || (payout && payout !== "done" && payout !== "processing"))) return <AccountBlockedScreen />;
+  if (blocked && (send || convert || ngn || deposit || (payout && payout !== "done" && payout !== "processing"))) return <AccountBlockedScreen />;
   if (send) return <SendBody />;
   if (convert) return <ConvertBody />;
   if (payout) return <PayoutBody />;
   if (ngn) return <NgnBody />;
-  if (!screen) return tab === "activity" ? <ActivityScreen /> : <WalletHome />;
+  if (deposit) return <DepositBody />;
+  if (!screen) return tab === "activity" ? <ActivityScreen /> : tab === "card" ? <CardScreen /> : <WalletHome />;
   const key = screen.name + ("id" in screen ? screen.id : "") + ("holding" in screen ? JSON.stringify(screen.holding) : "") + ("target" in screen ? screen.target.id : "");
   return (
     <div className="screen-fade" key={key}>
-      {screen.name === "ngn-balance" && <NgnBalanceScreen />}
+      {screen.name === "ngn-balance" && <CashBalanceScreen cur="NGN" bucket="open" />}
       {screen.name === "on-hold" && <OnHoldScreen />}
       {screen.name === "withdrawal" && <WithdrawalStatusScreen id={screen.id} />}
       {screen.name === "conversion" && <ConversionReceiptScreen id={screen.id} />}
       {screen.name === "notifications" && <NotificationsScreen />}
       {screen.name === "assets-all" && <AssetsAllScreen />}
-      {screen.name === "holding" && <HoldingDetailScreen h={screen.holding} />}
+      {screen.name === "holding" && (screen.holding.k === "cash" ? <CashBalanceScreen cur={screen.holding.cur} bucket={screen.holding.bucket} /> : <HoldingDetailScreen h={screen.holding} />)}
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
       {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
       {screen.name === "refund" && <RefundDetailScreen id={screen.id} />}
       {screen.name === "credit" && <CreditDetailScreen id={screen.id} />}
-      {screen.name === "statement" && <StatementScreen />}
+      {screen.name === "deposit" && <DepositDetailScreen id={screen.id} />}
+      {screen.name === "card-tx" && <CardTxDetailScreen id={screen.id} />}
+      {screen.name === "statement" && <StatementScreen cur={screen.cur ?? "NGN"} />}
       {screen.name === "report" && <ReportProblemScreen id={screen.id} />}
       {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}

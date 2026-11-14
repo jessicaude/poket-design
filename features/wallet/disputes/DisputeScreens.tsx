@@ -10,7 +10,7 @@ import {
   addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
-import { allRefunds, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
+import { allRefunds, refundDest, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
@@ -46,7 +46,7 @@ export function CheckoutPaymentRow({ p }: { p: Payment }) {
   return (
     <div className="tx-row" data-txid={p.id} data-payment={p.id} role="button" tabIndex={0} onClick={() => push({ name: "payment", id: p.id })}>
       <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">Merchant payment · {p.merchant}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
+      <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">{p.method}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
       <div className="tx-amt"><Grey>{"-" + amountText(p)}</Grey></div>
     </div>
   );
@@ -58,7 +58,7 @@ export function RefundRow({ p, r }: { p: Payment; r: Refund }) {
   return (
     <div className="tx-row" data-txid={r.id} data-refund={r.id} role="button" tabIndex={0} onClick={() => push({ name: "refund", id: r.id })}>
       <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
-      <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">Merchant {r.kind === "reversal" ? "reversal" : "refund"} · {p.merchant}</div></div>
+      <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">To {refundDest(p, r)}</div></div>
       <div className="tx-amt pos"><Grey>{"+" + fmtCurrency(r.amount, p.currency)}</Grey></div>
     </div>
   );
@@ -276,6 +276,17 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     );
   }
 
+  // The review's rows: on review, and again once it's submitted
+  const line = (k: string, v: string, id?: string) => <div className="info-row"><span>{k}</span><span id={id} style={{ maxWidth: "200px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
+  const reviewRows = d.reason ? (
+    <>
+      {line("Reason", REASON_SHORT[d.reason], "reviewReason")}
+      {line("What happened", d.description.trim(), "reviewDescription")}
+      {line(`Contacted ${merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
+      {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
+      {line("Updates to", d.contact || email)}
+    </>
+  ) : null;
   if (stage === "review") {
     // WGT-12: review, then submit (NEW screen, in the wallet's info-card rows)
     const submit = () => {
@@ -286,19 +297,12 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
         setStage("done");
       }, 1300);
     };
-    const line = (k: string, v: string, id?: string) => <div className="info-row"><span>{k}</span><span id={id} style={{ maxWidth: "200px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
     return (
       <>
         {backRow(() => setStage("form"))}
         <div className="step-title">Review your dispute</div>
         <p className="step-sub">About your {withoutCode(t.amount)} payment to {merchant}.</p>
-        <div className="info-card" id="disputeReview">
-          {line("Reason", REASON_SHORT[d.reason!], "reviewReason")}
-          {line("What happened", d.description.trim(), "reviewDescription")}
-          {line(`Contacted ${merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
-          {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
-          {line("Updates to", d.contact || email)}
-        </div>
+        <div className="info-card" id="disputeReview">{reviewRows}</div>
         <button className="btn-primary" id="extSubmitDispute" style={{ marginTop: "14px" }} onClick={submit}>Submit dispute</button>
       </>
     );
@@ -308,7 +312,6 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     <div className="center-col" style={{ paddingTop: "50px" }}>
       <div className="sending-dots"><span /><span /><span /></div>
       <div className="step-title" style={{ marginTop: "18px" }}>Submitting dispute&hellip;</div>
-      <p className="step-sub">Sending your details for review.</p>
     </div>
   );
   return (
@@ -318,6 +321,8 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
         <div className="step-title">Dispute submitted</div>
         <p className="step-sub">If resolved in your favor, funds return to your balance.</p>
       </div>
+      {/* The review's rows */}
+      <div className="info-card" id="disputeDoneRows" style={{ marginTop: "16px" }}>{reviewRows}</div>
       <button className="btn-primary" id="extDisputeDone" style={{ marginTop: "18px" }} onClick={() => { nav.home(); useWalletHome.getState().set({ tab: "activity" }); }}>Back to activity</button>
     </>
   );

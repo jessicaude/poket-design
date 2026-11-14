@@ -42,7 +42,7 @@ test("same currency: You send from NGN, They get the same; Max; over the balance
   await expect(page.locator("#youSend")).toHaveText("12,500.00");
   await expect(page.locator("#theyGet")).toHaveText("12,500.00");
   await page.locator("#payoutMaxAmt").click();
-  await expect(page.locator("#theyGet")).toHaveText("50,000.00");
+  await expect(page.locator("#theyGet")).toHaveText("49,975.00"); // Max: the balance less the ₦25.00 fee
   await keys(page, "0");
   await expect(page.locator("#payoutAmtHint")).toHaveText("More than your Nigerian Naira balance.");
   await expect(page.locator("#youSend")).toHaveClass(/\berr\b/);
@@ -74,11 +74,11 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   await page.locator('[data-payfrom="coin:USDC:Base"]').click();
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USDC (Base)");
   await page.locator("#payoutMaxAmt").click();
-  await expect(page.locator("#youSend")).toHaveText("10.00");
-  await expect(page.locator("#theyGet")).toHaveText("≈ 15,500.00");
+  await expect(page.locator("#youSend")).toHaveText("9.98"); // Max leaves room for the ₦25.00 fee (0.02 USDC)
+  await expect(page.locator("#theyGet")).toHaveText("≈ 12,307.00"); // after the 2.04 USDC conversion fee
   const card = page.locator("#cvQuoteCard");
   await expect(card.locator(".r-label")).toHaveText(["Rate", "Fee"]); // They get is in its own box
-  await expect(card.locator(".r-value")).toHaveText(["1 USDC ≈ 1,550.00 NGN", "[fee] USDC"]);
+  await expect(card.locator(".r-value")).toHaveText(["1 USDC ≈ 1,550.00 NGN", "2.04 USDC + ₦25.00 NGN"]); // the conversion’s and the send’s
   await expect(page.locator("#cvTimerLeft")).toHaveText("0:30");
   await page.clock.fastForward("00:31");
   await expect(page.locator("#cvTimer")).toHaveText("Rate expired. Refresh to get a new rate.");
@@ -92,9 +92,9 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "You send", "Rate", "Network", "Fee", "Arrives", "Debited from balance"]);
   await expect(rows.filter({ hasText: "Network" }).locator(".r-value")).toHaveText("Base"); // the paying coin’s
-  await expect(page.locator("#confirmPayout")).toHaveText("Send 10.00 USDC");
-  await expect(rows.filter({ hasText: "You send" }).locator(".r-value")).toHaveText("10.00 USDC");
-  await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("10.00 USDC + [fee] USDC");
+  await expect(page.locator("#confirmPayout")).toHaveText("Send 9.98 USDC");
+  await expect(rows.filter({ hasText: "You send" }).locator(".r-value")).toHaveText("9.98 USDC");
+  await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("10.00 USDC");
   // Review holds the same quote: its countdown, and on expiry Refresh rate before Send
   await page.locator("#payoutAckCheck").check();
   await expect(page.locator("#cvTimerLeft")).toHaveText(/^0:(2\d|30)$/);
@@ -111,19 +111,19 @@ test("from another currency: the quote card (rate, ₦[fee] in the coin, They ge
   await page.keyboard.type("1234");
   await page.clock.runFor(2500);
   // USDC left; the naira it bought is reserved for the send (the NGN balance itself is unchanged)
-  await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 1550000, usdcBase: 0 });
+  await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 1233200, usdcBase: 0 }); // ₦12,307.00 and the ₦25.00 fee, bought with the USDC
 
   // One activity record: "To {name} · {source} → {target}", no separate conversion row
   await page.locator("#viewPayoutTx").click();
   const info = page.locator("#panelBody .info-row");
   await expect(info.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "You send", "They get", "Rate", "Fee", "Reference", "Session ID"]);
-  await expect(info.filter({ hasText: "You send" }).locator("> span:last-child")).toHaveText("10.00 USDC");
+  await expect(info.filter({ hasText: "You send" }).locator("> span:last-child")).toHaveText("9.98 USDC");
   await expect(info.filter({ hasText: "Rate" }).locator("> span:last-child")).toHaveText("1 USDC ≈ 1,550.00 NGN");
-  await expect(info.filter({ hasText: "Fee" }).locator("> span:last-child")).toHaveText("[fee] USDC + ₦[fee]");
+  await expect(info.filter({ hasText: "Fee" }).locator("> span:last-child")).toHaveText("2.04 USDC + ₦25.00 NGN");
   await page.locator("#backFromTxDetail").click();
   const recent = page.locator("#recentActivity .tx-row");
   await expect(recent.first().locator(".tx-title")).toHaveText("To Naira account");
-  await expect(recent.first().locator(".tx-sub")).toHaveText("10.00 USDC → ₦15,500.00 NGN · Sending"); // the conversion, then the chip
+  await expect(recent.first().locator(".tx-sub")).toHaveText("9.98 USDC → ₦12,307.00 NGN · Sending"); // the conversion, then the chip
   await expect(recent.locator(".tx-title", { hasText: "Converted" })).toHaveCount(0);
 });
 
@@ -139,28 +139,28 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   // No speed choice: one speed (first payment: held for [hold] first)
   await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0);
   await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]");
-  // Max is the whole balance: the fee is undecided ($[fee]), so it counts as 0
+  // Max is the whole balance less the $6.00 fee
   await page.locator("#payoutMaxAmt").click();
-  await expect(page.locator("#youSend")).toHaveText("50.00");
+  await expect(page.locator("#youSend")).toHaveText("44.00");
   await keys(page, "0");
   await expect(page.locator("#payoutAmtHint")).toHaveText("More than your US Dollar balance.");
   for (let i = 0; i < 5; i++) await press(page, "back");
-  await keys(page, "1000");
-  await expect(page.locator("#theyGet")).toHaveText("10.00");
+  await keys(page, "500"); // $5.00 and the $6.00 fee: under the step-up amount
+  await expect(page.locator("#theyGet")).toHaveText("5.00");
   await expect(page.locator("#theyGetChip")).toHaveText("USD");
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]); // no Speed row
-  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$10.00 USD", "$[fee]", "After [hold]", "$10.00 USD + $[fee]"]);
-  await expect(page.locator("#confirmPayout")).toHaveText("Send $10.00");
+  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$5.00 USD", "$6.00 USD", "After [hold]", "$11.00 USD"]);
+  await expect(page.locator("#confirmPayout")).toHaveText("Send $5.00");
   await expect(page.locator("#panelBody")).toContainText("First payment to a new account sends after [hold]");
   await approve(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Jordan Blake after [hold]");
-  // Taken from open USD until it’s paid, given back if it fails
-  await expect.poll(() => usd(page)).toEqual({ usd: 5560, fiat: 1560 });
+  // Taken from open USD (the amount and the fee) until it’s paid, given back if it fails
+  await expect.poll(() => usd(page)).toEqual({ usd: 5460, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Scheduled");
-  await expect(page.locator("#panelBody .step-title")).toHaveText("$10.00 USD");
+  await expect(page.locator("#panelBody .step-title")).toHaveText("$5.00 USD");
   await page.getByRole("button", { name: "Release first-payment hold" }).click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // the US bank’s own arrival, not the naira one
@@ -185,7 +185,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
-  await expect(rows.locator(".r-value")).toHaveText(["Visa · •••• 4242", "$25.00 USD", "$[fee]", "Instantly", "$25.00 USD + $[fee]"]);
+  await expect(rows.locator(".r-value")).toHaveText(["Visa · •••• 4242", "$25.00 USD", "$6.00 USD", "Instantly", "$31.00 USD"]);
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // the hold is for bank accounts
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
@@ -193,7 +193,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Kemi Adeyemi");
-  await expect.poll(() => usd(page)).toEqual({ usd: 4060, fiat: 1560 });
+  await expect.poll(() => usd(page)).toEqual({ usd: 3460, fiat: 1560 }); // $25.00 and the $6.00 fee
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("Instantly"); // the card’s own arrival
@@ -221,13 +221,13 @@ test("USD to a Nigerian bank: converts inline at the quote; one record; the nair
   await expect(rows.filter({ hasText: "They get" }).locator(".r-value")).toHaveText(theyGet);
   await expect(rows.filter({ hasText: "You send" }).locator(".r-value")).toHaveText("$10.00 USD");
   await expect(rows.filter({ hasText: "Arrives" }).locator(".r-value")).toHaveText("Usually within seconds");
-  await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("$10.00 USD + $[fee]");
+  await expect(rows.filter({ hasText: "Debited from balance" }).locator(".r-value")).toHaveText("$10.02 USD"); // the ₦25.00 fee, in dollars
   await approve(page);
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
   // USD left; the naira it bought is reserved for the send (the NGN balance itself is unchanged)
   const received = Math.round(Number(theyGet.replace(/[^\d.]/g, "")) * 100);
-  await expect.poll(() => usd(page)).toEqual({ usd: 5560, fiat: 1560 });
-  await expect.poll(() => ngn(page)).toMatchObject({ balance: 5000000, reserved: received });
+  await expect.poll(() => usd(page)).toEqual({ usd: 5558, fiat: 1560 }); // $10.02: the amount and the fee
+  await expect.poll(() => ngn(page)).toMatchObject({ balance: 5000000, reserved: received + 2500 }); // the naira it bought: the amount and the ₦25.00 fee
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#panelBody .info-row").filter({ hasText: "You send" }).locator("> span:last-child")).toHaveText("$10.00 USD");
   await page.locator("#backFromTxDetail").click();
@@ -239,6 +239,7 @@ test("a balance screen preselects its balance when it can pay the recipient", as
   await page.goto("/demo/wallet");
   await expect(page.locator("#actSend")).toBeVisible(); // the demo hooks are set
   await setHoldings(page, { coins: { USDC: { Polygon: 0, Base: 1000 }, USDT: { Polygon: 0, Base: 0 } } });
+  await page.locator('[data-wallettab="assets"]').click(); // Cash is the default tab
   await page.locator('[data-holdasset="USDC"][data-holdnet="Base"]').click();
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From USDC on Base");

@@ -11,8 +11,8 @@ import { useDemo, type BankTransferAccount, type CardOutcome, type Customer, typ
 
 /** ID check outcomes: the prototype's pId (passes, declined) and its sign-up outcomes (SIGNUP_OUTCOMES labels). */
 const ID_OUTCOMES: [IdOutcome, string][] = [
-  ["pass", "ID check: passes"], ["review", "ID check: manual review"], ["retry", "ID check: needs retry"],
-  ["declined", "ID check: declined"], ["under18", "Under 18 at date of birth"], ["sanctions", "Sanctions match"],
+  ["pass", "ID check: Passes"], ["review", "ID check: Manual review"], ["retry", "ID check: Needs retry"],
+  ["declined", "ID check: Declined"], ["under18", "ID check: Under 18 at date of birth"], ["sanctions", "ID check: Sanctions match"],
 ];
 
 const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [
@@ -75,7 +75,7 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
       </label>}
       <label className="opt-lbl"><span>Customer</span>
         <select aria-label="Customer" value={customer} onChange={(e) => set({ customer: e.target.value as Customer })}>
-          <option value="new">New to Poket</option><option value="returning">Ada (remembered)</option>
+          <option value="new">Customer: New to Poket</option><option value="returning">Customer: Ada (remembered)</option>
         </select>
       </label>
       <label className="opt-lbl"><span>ID check</span>
@@ -85,24 +85,24 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
       </label>
       <label className="opt-lbl"><span>Card</span>
         <select aria-label="Card outcome" value={cardOutcome} onChange={(e) => set({ cardOutcome: e.target.value as CardOutcome })}>
-          <option value="approved">Approved</option><option value="declined">Declined</option>
+          <option value="approved">Card: Approved</option><option value="declined">Card: Declined</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Order</span>
         <select aria-label="Order" value={orderSize} onChange={(e) => set({ orderSize: e.target.value as OrderSize })}>
-          <option value="small">Order under $500</option><option value="large">Order over $500</option>
+          <option value="small">Order: Under $500</option><option value="large">Order: Over $500</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Details</span>
         <select aria-label="Customer details" value={shareDetails ? "share" : "none"} onChange={(e) => set({ shareDetails: e.target.value === "share" })}>
-          <option value="share">Shared by merchant</option><option value="none">Not shared</option>
+          <option value="share">Details: Shared by merchant</option><option value="none">Details: Not shared</option>
         </select>
       </label>
       {checkout && (
         <>
           <label className="opt-lbl"><span>Order currency</span>
             <select aria-label="Order currency" value={orderCurrency} onChange={(e) => set({ orderCurrency: e.target.value as OrderCurrency })}>
-              <option value="USD">Order in USD</option><option value="NGN">Order in NGN</option>
+              <option value="USD">Order currency: USD</option><option value="NGN">Order currency: NGN</option>
             </select>
           </label>
           <span className="pbar-group" role="group" aria-label="Merchant accepts">
@@ -117,7 +117,7 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
           </span>
           <label className="opt-lbl"><span>Bank transfer account</span>
             <select aria-label="Bank transfer account" value={bankTransferAccount} onChange={(e) => set({ bankTransferAccount: e.target.value as BankTransferAccount })}>
-              <option value="dynamic">Dynamic account</option><option value="pool">Merchant pool</option>
+              <option value="dynamic">Bank transfer account: Dynamic</option><option value="pool">Bank transfer account: Merchant pool</option>
             </select>
           </label>
         </>
@@ -139,7 +139,7 @@ export function DemoBar({ checkout = false }: { checkout?: boolean }) {
       )}
       <label className="opt-lbl"><span>Theme</span>
         <select aria-label="Theme" value={theme} onChange={(e) => set({ theme: e.target.value as Theme })}>
-          <option value="poket">Poket</option><option value="centry">CentryOS</option>
+          <option value="poket">Theme: Poket</option><option value="centry">Theme: CentryOS</option>
         </select>
       </label>
     </div>

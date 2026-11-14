@@ -57,10 +57,10 @@ test("Daniel can’t hold naira: the notice, They get in USD and the quote; the 
   await sendTo(page, "pu5", "500000");
   await expect(page.locator("#nairaRecipientNotice")).toHaveText("Daniel can’t hold naira. They’ll get USD.");
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("NGN");
-  await expect(page.locator("#theyGet")).toHaveText("≈ 3.23");
+  await expect(page.locator("#theyGet")).toHaveText("≈ 3.23"); // free end to end: no conversion fee
   // The quote card: rate, fee, They get, 30-second hold
   await expect(page.locator("#cvQuoteCard .r-label")).toHaveText(["Rate", "Fee"]); // They get is in its box
-  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "₦[fee]"]);
+  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "Free"]); // a Poket user: free end to end
   await expect(page.locator("#theyGetChip")).toHaveText("USD");
   await expect(page.locator("#cvTimer")).toHaveText(/^Rate held for 0:(30|29)$/);
 
@@ -84,7 +84,7 @@ test("Daniel can’t hold naira: the notice, They get in USD and the quote; the 
   // Your receipt leads with what left your balance; They get is a row
   await expect(page.locator("#panelBody .step-title")).toHaveText("₦5,000.00 NGN");
   const receipt = Object.fromEntries(await info(page).evaluateAll((els) => els.map((e) => [e.children[0].textContent, e.children[1].textContent])));
-  expect(receipt).toMatchObject({ "You send": "₦5,000.00 NGN", "They get": "$3.23 USD", Rate: "1 USD ≈ 1,550.00 NGN", Fee: "₦[fee] + Free" });
+  expect(receipt).toMatchObject({ "You send": "₦5,000.00 NGN", "They get": "$3.23 USD", Rate: "1 USD ≈ 1,550.00 NGN", Fee: "Free" }); // free end to end
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveText("Daniel ChoReceived $3.23 USD from Ada Osun");
 
   // Your activity (the NGN balance’s history): "To Daniel Cho · ₦5,000.00 NGN → $3.23 USD", and the naira that left

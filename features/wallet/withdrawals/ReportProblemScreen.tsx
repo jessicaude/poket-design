@@ -64,6 +64,14 @@ export function ReportProblemScreen({ id }: { id: string }) {
   // Running text drops the code (docs/copy.md)
   const amount = withoutCode(sentText(w));
 
+  // The recall request's rows: on the request, and again once it's sent
+  const recallRows = (
+    <>
+      <div className="info-row"><span>Amount</span><span><Grey>{amount}</Grey></span></div>
+      <div className="info-row"><span>To</span><span>{w.recipientSub}</span></div>
+      <div className="info-row"><span>Reference</span><span className="mono">{w.ref}</span></div>
+    </>
+  );
   if (stage === "reported" || stage === "recalled") return (
     <>
       <div className="center-col" style={{ paddingTop: "30px" }} id="reportDone">
@@ -72,6 +80,7 @@ export function ReportProblemScreen({ id }: { id: string }) {
           ? <><div className="step-title">Recall requested</div><p className="step-sub">We&rsquo;ll let you know when the receiving bank responds.</p></>
           : <><div className="step-title">We&rsquo;re looking into it</div><p className="step-sub">We&rsquo;ll contact the receiving bank and email you within 2 business days.</p></>}
       </div>
+      {stage === "recalled" && <div className="info-card" id="recallDoneRows" style={{ marginTop: "16px" }}>{recallRows}</div>}
       <button className="btn-primary" id="reportDoneBtn" style={{ marginTop: "18px" }} onClick={back}>Done</button>
     </>
   );
@@ -83,11 +92,7 @@ export function ReportProblemScreen({ id }: { id: string }) {
       {/* Said up front: a recall may not work */}
       <div className="alert warn" id="recallWarning" role="note"><Raw html={WICON.alert} /><span>{RECALL_WARNING}</span></div>
       <p className="step-sub">We&rsquo;ll ask {w.recipientName}&rsquo;s bank to return your {amount}. If they do, it goes back to your NGN balance.</p>
-      <div className="info-card">
-        <div className="info-row"><span>Amount</span><span><Grey>{amount}</Grey></span></div>
-        <div className="info-row"><span>To</span><span>{w.recipientSub}</span></div>
-        <div className="info-row"><span>Reference</span><span className="mono">{w.ref}</span></div>
-      </div>
+      <div className="info-card">{recallRows}</div>
       <button className="btn-primary" id="requestRecall" style={{ marginTop: "14px" }} disabled={busy}
         onClick={async () => { setBusy(true); await requestRecall(w.id, WRONG_ACCOUNT, details); setStage("recalled"); }}>Request recall</button>
     </>

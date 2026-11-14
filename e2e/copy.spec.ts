@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * docs/copy.md applied: notifications follow the pattern (2 to 4 words, past tense; one sentence with the amount and
@@ -28,10 +29,10 @@ test("notifications follow the pattern: a short past-tense title, one sentence w
   const titles = await page.locator("#panelBody .settings-row-title > span:first-child").allTextContents();
   const bodies = await page.locator("#panelBody .settings-row-sub").allTextContents();
   expect(bodies).toEqual([
-    "₦25,000.00 from Chinedu Eze added to your NGN balance, after a delay.",
+    "₦24,900.00 from Chinedu Eze added to your NGN balance, after a delay.",
     "₦10,000.00 from Amara Okafor added to your NGN balance.",
-    "₦25,000.00 from Chinedu Eze added to your NGN balance.",
-    "₦10,000.00 added to your NGN balance.", // the top-up: from your own bank
+    "₦24,900.00 from Chinedu Eze added to your NGN balance.",
+    "₦9,960.00 added to your NGN balance.", // the top-up: from your own bank
   ]);
   for (const t of titles) {
     expect(t.split(" ").length).toBeGreaterThanOrEqual(2);
@@ -73,7 +74,7 @@ test("Convert's button carries the amount; the hint says what to do", async ({ p
   await page.getByLabel("Tier").selectOption("1");
   await page.locator("#actConvert").click();
   await expect(page.locator("#cvToAmt")).toHaveText("0.00");
-  for (const d of "1000000") await page.locator(`[data-cvkey="${d}"]`).click();
+  for (const d of "1000000") await cvPress(page, d);
   await page.locator("#cvReview").click();
   await expect(page.locator("#cvConfirm")).toHaveText("Convert ₦10,000.00");
 });

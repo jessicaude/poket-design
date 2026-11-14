@@ -41,16 +41,17 @@ test("cvFixTo and cvDefaultFrom", () => {
 test("quotes: fees by type, integer amounts", () => {
   // Naira conversions: fee undecided, so 0 in the maths and ₦[fee] (or the coin equivalent) on screen
   const n = cvQuote("cash:NGN:open", "coin:USDC:Base", 1000000, 1);
-  expect(n).toMatchObject({ type: "onramp", fee: 0, receive: 645, usd: 645 });
-  expect([cvFeeLabel(n), cvFeeText(n)]).toEqual(["Fee", "₦[fee]"]);
+  expect(n).toMatchObject({ type: "onramp", fee: 204000, receive: 514, usd: 645 }); // ₦2,000.00 + 0.40%, out of the amount
+  expect([cvFeeLabel(n), cvFeeText(n)]).toEqual(["Fee", "₦2,040.00 NGN"]);
   const c = cvQuote("coin:USDC:Base", "cash:NGN:open", 1000, 1);
-  expect([c.fee, c.receive, cvFeeText(c)]).toEqual([0, 1550000, "[fee] USDC"]);
-  expect(cvFeeText(cvQuote("cash:USD:open", "cash:NGN:open", 1000, 1))).toBe("$[fee]");
+  expect([c.fee, c.receive, cvFeeText(c)]).toEqual([204, 1233800, "2.04 USDC"]); // 2.00 USDC + 0.40%, out of the amount
+  expect(cvFeeText(cvQuote("cash:USD:open", "cash:NGN:open", 1000, 1))).toBe("$2.04 USD"); // $2.00 + 0.40%
   // Other pairs keep the reference’s fees
   const e = cvQuote("cash:USD:open", "cash:EUR:open", 1000, 1);
-  expect([e.type, e.fee, cvFeeLabel(e), cvFeeText(e)]).toEqual(["fx", 10, "Exchange fee (1%)", "$0.10 USD"]);
-  expect(cvQuote("coin:USDC:Base", "coin:USDT:Base", 10000, 1)).toMatchObject({ type: "swap", fee: 10, receive: 9990 });
-  expect(cvQuote("coin:USDC:Base", "coin:USDC:Polygon", 10000, 1)).toMatchObject({ type: "bridge", fee: 10, receive: 9990 });
+  expect([e.type, e.fee, cvFeeLabel(e), cvFeeText(e)]).toEqual(["fx", 204, "Fee", "$2.04 USD"]); // from USD: $2.00 + 0.40%
+  // From a stablecoin: 2.00 in the coin + 0.40% (swaps and bridges alike)
+  expect(cvQuote("coin:USDC:Base", "coin:USDT:Base", 10000, 1)).toMatchObject({ type: "swap", fee: 240, receive: 9760 });
+  expect(cvQuote("coin:USDC:Base", "coin:USDC:Polygon", 10000, 1)).toMatchObject({ type: "bridge", fee: 240, receive: 9760 });
   expect(cvQuote("coin:USDC:Base", "coin:USDC:Polygon", 5, 1)).toMatchObject({ fee: 5, receive: 0 }); // fee never exceeds the amount
   expect(cvQuote("cash:NGN:open", "cash:NGN:open", 1000, 1)).toMatchObject({ type: null, fee: 0, receive: 0 });
 });
@@ -66,7 +67,7 @@ test("rate text reads the readable way round", () => {
 test("₦[limit] per conversion: the naira side, from or to NGN (demo value ₦40,000.00)", () => {
   expect(overNgnLimit(cvQuote("cash:NGN:open", "coin:USDC:Base", 4000000, 1))).toBe(false);
   expect(overNgnLimit(cvQuote("cash:NGN:open", "coin:USDC:Base", 4000001, 1))).toBe(true);
-  expect(overNgnLimit(cvQuote("coin:USDC:Base", "cash:NGN:open", 2600, 1))).toBe(true); // receives ₦40,300.00
+  expect(overNgnLimit(cvQuote("coin:USDC:Base", "cash:NGN:open", 2800, 1))).toBe(true); // after the 2.11 USDC fee, receives ₦40,129.50
   expect(overNgnLimit(cvQuote("cash:USD:open", "cash:EUR:open", 999999999, 1))).toBe(false);
 });
 

@@ -1,4 +1,6 @@
 "use client";
+import { cashAmount, type CashCurrency } from "../useHoldings";
+import { CURRENCY_NAME } from "../home/homeData";
 import { useState } from "react";
 import {
   PERIOD_LABEL, buildStatement, customRange, customRangeProblem, isoDay, longDay, periodRange, statementCsv, statementFileName, statementPdf,
@@ -34,7 +36,8 @@ export function statementStatus(e: LedgerEntry): StatementStatus {
   return w ? SEND_STATUS[w.status] : e.status ?? "Completed";
 }
 
-export function StatementScreen() {
+/** The statement of a cash balance (`cur`): NGN has its account details and seeded history; others start at the demo. */
+export function StatementScreen({ cur }: { cur: CashCurrency }) {
   const back = useWalletNav((s) => s.back);
   const brand = useWalletBrand((s) => s.brand);
   const [period, setPeriod] = useState<StatementPeriod>("this_month");
@@ -47,7 +50,8 @@ export function StatementScreen() {
   const download = () => {
     if (problem) return;
     const range = period === "custom" ? customRange(from, to) : periodRange(period);
-    const s = buildStatement(useNgnLedger.getState().entries, useNgn.getState().ngnBalance, range, { holder: holderName(), account: statementAccount() }, statementStatus);
+    const entries = useNgnLedger.getState().entries.filter((e) => (e.currency ?? "NGN") === cur);
+    const s = buildStatement(entries, cashAmount(cur), range, { holder: holderName(), account: cur === "NGN" ? statementAccount() : null, currency: cur }, statementStatus);
     const blob = format === "pdf"
       ? new Blob([statementPdf(s, brandInfo(brand).name) as BlobPart], { type: "application/pdf" })
       : new Blob([statementCsv(s)], { type: "text/csv;charset=utf-8" });
@@ -57,9 +61,8 @@ export function StatementScreen() {
 
   return (
     <>
-      <BackRow id="backFromStatement" label="Nigerian Naira" onClick={back} />
+      <BackRow id="backFromStatement" label={CURRENCY_NAME[cur]} onClick={back} />
       <div className="step-title">Statement</div>
-      <p className="step-sub">NGN balance</p>
       <label className="field-label">Period</label>
       <div role="radiogroup" aria-label="Period">
         {PERIODS.map((p) => {

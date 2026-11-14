@@ -2,6 +2,9 @@
 - Plain, short, sentence case, second person. No em dashes. Curly apostrophes.
 - Buttons are verbs, with the amount when money moves ("Send ₦5,000.00", "Request recall").
 - No subtitles that repeat the title; no descriptions of obvious fields; no filler.
+- Secondary labels (screen subtitles, row subtitles, descriptions) only say what the title and the layout don't:
+  the method, the account, an amount, a time, a next step. A row titled "Mama Tee’s Kitchen" shows how it was paid
+  ("Verve ••• 6011"), not "Merchant payment · Mama Tee’s Kitchen"; if nothing adds anything, there's no subtitle.
 - Errors: what happened, then what to do. "That code isn’t right. Check it and try again."
 - Unavailable or paused: what isn't available, why (if useful), what to do instead.
   "Sending to banks is paused. Try again later."
@@ -9,8 +12,8 @@
   payment. We’ll let you know." Quick check: chip "Held for a quick check", line
   "First payment to a new recipient. Usually under 15 minutes."
 - Money: ₦ with two decimals; running text drops the code ("₦5,000.00"); amount rows and cards keep
-  the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders: ₦[fee],
-  ₦[limit], [hold], [time], [handling].
+  the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders:
+  ₦[limit], [hold], [time], [handling]. Fees are decided: show the amount, or "Free".
 - Never name a partner bank: "[Partner bank]".
 - Notifications: title says what happened in 2 to 4 words, past tense ("Transfer received");
   body is one sentence with the amount and who ("₦25,000.00 added to your NGN balance.").

@@ -82,9 +82,9 @@ test("NGN order: the naira rails first, then the merchant’s other rails marked
     "Bank transfer Pay into an account we show you",
     "CardPaid in USD, converted Debit or credit card",
     "Pay by BankPaid in USD, converted Link your bank account",
-    "Apple PayPaid in USD, converted Use a card in your Apple Wallet",
-    "Google PayPaid in USD, converted Use a card in your Google Wallet",
-    "$ Cash App PayPaid in USD, converted Pay from your Cash App",
+    "Apple PayPaid in USD, converted",
+    "Google PayPaid in USD, converted",
+    "$ Cash App PayPaid in USD, converted",
   ]);
   await expect(widget.locator(".method[data-converted] .chip")).toHaveCount(5);
 
@@ -139,8 +139,7 @@ test("USD order: the add-method list is unchanged", async ({ page }) => {
   await widget.locator("#suGo").click();
   await enterCode(page);
   await expect.poll(() => rows(widget)).toEqual([
-    "Card Debit or credit card", "Pay by Bank Link your bank account", "Apple Pay Use a card in your Apple Wallet",
-    "Google Pay Use a card in your Google Wallet", "$ Cash App Pay Pay from your Cash App",
+    "Card Debit or credit card", "Pay by Bank Link your bank account", "Apple Pay", "Google Pay", "$ Cash App Pay", // no subtitle that restates the name
   ]);
   await expect(widget.locator(".chip")).toHaveCount(0);
 });
@@ -290,14 +289,16 @@ test("demo bar: wraps onto a second row instead of cutting labels off; the page 
     return { h: bar.offsetHeight, v: getComputedStyle(document.documentElement).getPropertyValue("--bar").trim(), overflow: bar.scrollWidth > bar.clientWidth, cut,
       caption: getComputedStyle(bar.querySelector(".pbar-group-lbl")!).display !== "none" };
   });
-  await page.setViewportSize({ width: 1600, height: 900 });
+  // Wide: the bar wraps as needed (every control shows "Name: Value"); --bar is its height; nothing is cut off
+  await page.setViewportSize({ width: 1920, height: 900 });
   await page.goto("/demo/ile-living");
-  await expect.poll(measure).toEqual({ h: 44, v: "44px", overflow: false, cut: [], caption: true }); // one row
+  await expect.poll(async () => { const w = await measure(); return w.v === `${w.h}px` && !w.overflow && w.cut.length === 0 && w.caption; }).toBe(true);
+  const wide = await measure();
 
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 960, height: 900 });
   const widget = await poolTransfer(page);
   const m = await measure();
-  expect(m.h).toBeGreaterThan(44); // a second row
+  expect(m.h).toBeGreaterThan(wide.h); // narrower: more rows
   expect(m).toMatchObject({ v: `${m.h}px`, overflow: false, cut: [], caption: true });
   expect(await page.locator(".scrim").evaluate((e) => e.getBoundingClientRect().top)).toBe(m.h);
   await expect(widget).toBeInViewport();
