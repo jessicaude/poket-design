@@ -22,7 +22,7 @@ async function start(page: Page, path = "/demo/wallet") {
 async function ngnBalance(page: Page) {
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]').click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
 }
 /** Send → a recipient → an amount (keypad), on the amount screen. */
 async function toAmount(page: Page, recipient: string, digits?: string) {

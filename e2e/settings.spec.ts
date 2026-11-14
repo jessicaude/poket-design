@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * The wallet’s Settings (the reference’s tSettings), Security (tSecurity) and Compliance (tAccountTier), and WGT-09's
@@ -181,7 +182,7 @@ test("the tier link opens Compliance; Increase my limits steps up (demo: the tie
   await expect(page.locator("#currentLevel")).toHaveText("Tier 0: Registered");
   await expect(body(page)).toContainText("Verify your identity to raise your limits.");
   await page.locator("#startStepupFromAccount").click();
-  await expect(title(page)).toHaveText("Additional verification needed");
+  await expect(title(page)).toHaveText("Verify your identity");
   await expect(body(page).locator(".alert")).toHaveCount(0); // asked for, not over a limit
   await page.locator("#stepupIntroContinue").click();
   await expect(page.locator("#currentLevel")).toHaveText("Tier 1: Basic");
@@ -348,7 +349,7 @@ test("while off, Convert is unaffected", async ({ page }) => {
   await page.goto("/demo/wallet");
   await page.getByLabel("Instant transfers default").selectOption("off");
   await page.evaluate(() => (window as any).__convert.getState().start({ from: "cash:NGN:open", to: "cash:USD:open" })); // eslint-disable-line @typescript-eslint/no-explicit-any
-  for (const d of "500000") await page.locator(`#panelBody [data-cvkey="${d}"]`).click();
+  for (const d of "500000") await cvPress(page, d);
   await expect(page.locator("#cvReview")).toBeEnabled();
   await expect(page.locator("#panelBody")).not.toContainText("Instant transfers are off");
 });

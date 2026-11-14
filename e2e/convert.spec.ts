@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * Convert (tConvert in reference/poket-unified.html) with the NGN rules, in the wallet demo. Balances, as in the
@@ -8,7 +9,7 @@ import { test, expect, type Page } from "@playwright/test";
  */
 
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
-const keys = async (page: Page, digits: string) => { for (const d of digits) await page.locator(`[data-cvkey="${d}"]`).click(); };
+const keys = async (page: Page, digits: string) => { for (const d of digits) await cvPress(page, d); };
 const state = (page: Page) => page.evaluate(() => {
   const w = window as any; // eslint-disable-line @typescript-eslint/no-explicit-any
   const h = w.__holdings.getState(), n = w.__ngn.getState();
@@ -51,7 +52,7 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(page.locator("#cvToAmt")).toHaveText("≈ 5.14");
   await expect(page.locator("#cvReview")).toBeEnabled();
 
-  await page.locator('[data-cvkey="back"]').click();
+  await cvPress(page, "back");
   await expect(page.locator("#cvHint")).toHaveText("That’s no more than the ₦1,000.00 fee. Enter a larger amount."); // the fee comes out of the amount (the ₦[minimum] demo value is below it)
   await expect(page.locator("#cvReview")).toBeDisabled();
 
@@ -61,7 +62,7 @@ test("form: defaults, quote line with ₦[fee], minimum, Max, the ₦[limit] cap
   await expect(page.locator("#cvHint")).toHaveText("That’s over your ₦[limit] limit per conversion. Enter a smaller amount.");
   await expect(page.locator("#cvHint")).toHaveClass(/\berr\b/);
   await expect(page.locator("#cvReview")).toBeDisabled();
-  for (let i = 0; i < 7; i++) await page.locator('[data-cvkey="back"]').click();
+  for (let i = 0; i < 7; i++) await cvPress(page, "back");
   await keys(page, "4000000");
   await expect(page.locator("#cvHint")).toHaveText(""); // exactly at the limit
   await keys(page, "0");
@@ -195,7 +196,7 @@ test("NGN to stablecoins blocked (demo): USD by default; choosing USDC or USDT e
     await expect(page.locator("#cvPickTo .cv-pick-name")).toHaveText("USD");
     await expect(page.locator("#cvCoinsBlocked")).toHaveCount(0);
     await expect(page.locator("#cvReview")).toBeEnabled();
-    for (let i = 0; i < 7; i++) await page.locator('[data-cvkey="back"]').click();
+    for (let i = 0; i < 7; i++) await cvPress(page, "back");
   }
   // Allowed again: stablecoins are fine
   await page.getByLabel("NGN to stablecoins").selectOption("allowed");
@@ -208,9 +209,11 @@ test("limit and tier check: Tier 0 steps up before converting; Cancel returns to
   await open(page); // Tier 0
   await keys(page, "1000000");
   await reviewAndConvert(page);
-  await expect(title(page)).toHaveText("Additional verification needed");
-  await expect(page.locator("#panelBody .alert.warn")).toHaveText("This is above what Tier 0: Registered allows (up to ₦[limit] per transaction). A quick additional step is needed to continue.");
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 1: Basic, you’ll need to provide:");
+  // One warning, the title, one line, Continue (no tier table)
+  await expect(title(page)).toHaveText("Verify your identity");
+  await expect(page.locator("#panelBody .alert.warn")).toHaveText("Over your Tier 0 limit of ₦[limit] per transaction.");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("Scan your ID and take a selfie to reach Tier 1.");
+  await expect(page.locator("#panelBody .info-card")).toHaveCount(0);
   expect(await state(page)).toMatchObject({ ngn: 5000000, usdcBase: 0 });
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#cvQuoteCard")).toBeVisible();
@@ -226,9 +229,9 @@ test("limit and tier check: over Tier 1's $2,000 steps up to Tier 2; over Tier 3
   await page.evaluate(() => (window as any).__convert.getState().start({ from: "cash:USD:open", to: "coin:USDC:Base" })); // eslint-disable-line @typescript-eslint/no-explicit-any
   await keys(page, "300000"); // $3,000.00
   await reviewAndConvert(page);
-  await expect(page.locator("#panelBody .alert.warn")).toHaveText("This is above what Tier 1: Basic allows (up to $2,000.00 USD per transaction). A quick additional step is needed to continue.");
+  await expect(page.locator("#panelBody .alert.warn")).toHaveText("Over your Tier 1 limit of $2,000.00 USD per transaction.");
   await expect(page.locator("#panelBody .alert.warn .cur-code")).toHaveText("USD"); // the code is grey
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("To reach Tier 2: Standard, you’ll need to provide:");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("Add proof of address to reach Tier 2.");
   await page.locator("#stepupCancel").click();
   await page.locator("#cvBackToForm").click();
   await page.locator("#cvMax").click(); // $60,000.00

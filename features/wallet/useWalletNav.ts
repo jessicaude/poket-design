@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Holding } from "./home/WalletHome";
 import type { DisputeTarget } from "./disputes/DisputeScreens";
+import type { CashCurrency } from "./useHoldings";
 
 /** Wallet screens outside the payout and NGN flows. An empty stack is the home screen. */
 export type WalletScreen =
@@ -18,7 +19,7 @@ export type WalletScreen =
   /** WGT-11: a credit to the NGN balance (a deposit, a transfer in, a recovered recall) */
   | { name: "credit"; id: string }
   /** The NGN balance's statement: a period and a format, then a download */
-  | { name: "statement" }
+  | { name: "statement"; cur?: CashCurrency }
   /** "Report a problem" on a Paid send to a Nigerian bank (and its recall request) */
   | { name: "report"; id: string }
   | { name: "dispute"; target: DisputeTarget }

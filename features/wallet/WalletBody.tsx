@@ -16,7 +16,7 @@ import { PayoutBody } from "./payout/PayoutBody";
 import { usePayout } from "./payout/usePayout";
 import { NotificationsScreen } from "./NotificationsScreen";
 import { currentScreen, useWalletNav } from "./useWalletNav";
-import { NgnBalanceScreen } from "./withdrawals/NgnBalanceScreen";
+import { CashBalanceScreen } from "./home/CashBalanceScreen";
 import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
 import { ComplianceScreen, ComplianceStepUpScreen, InstantLimitScreen, InstantTransfersScreen, SecurityScreen, SettingsScreen } from "./settings/SettingsScreens";
@@ -55,18 +55,18 @@ export function WalletBody() {
   const key = screen.name + ("id" in screen ? screen.id : "") + ("holding" in screen ? JSON.stringify(screen.holding) : "") + ("target" in screen ? screen.target.id : "");
   return (
     <div className="screen-fade" key={key}>
-      {screen.name === "ngn-balance" && <NgnBalanceScreen />}
+      {screen.name === "ngn-balance" && <CashBalanceScreen cur="NGN" bucket="open" />}
       {screen.name === "on-hold" && <OnHoldScreen />}
       {screen.name === "withdrawal" && <WithdrawalStatusScreen id={screen.id} />}
       {screen.name === "conversion" && <ConversionReceiptScreen id={screen.id} />}
       {screen.name === "notifications" && <NotificationsScreen />}
       {screen.name === "assets-all" && <AssetsAllScreen />}
-      {screen.name === "holding" && <HoldingDetailScreen h={screen.holding} />}
+      {screen.name === "holding" && (screen.holding.k === "cash" ? <CashBalanceScreen cur={screen.holding.cur} bucket={screen.holding.bucket} /> : <HoldingDetailScreen h={screen.holding} />)}
       {screen.name === "tx" && <DemoTxDetailScreen id={screen.id} />}
       {screen.name === "payment" && <PaymentDetailScreen id={screen.id} />}
       {screen.name === "refund" && <RefundDetailScreen id={screen.id} />}
       {screen.name === "credit" && <CreditDetailScreen id={screen.id} />}
-      {screen.name === "statement" && <StatementScreen />}
+      {screen.name === "statement" && <StatementScreen cur={screen.cur ?? "NGN"} />}
       {screen.name === "report" && <ReportProblemScreen id={screen.id} />}
       {screen.name === "dispute" && <DisputeScreen target={screen.target} />}
       {screen.name === "settings" && <SettingsScreen />}

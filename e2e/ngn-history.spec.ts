@@ -29,7 +29,7 @@ function inOrder(ls: string[]) {
 async function openNgnBalance(page: Page) {
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  await expect(page.locator("#ngnBalanceAmount")).toBeVisible();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
 }
 
 test("Activity: rows grouped by day; All, Money in, Money out", async ({ page }) => {
@@ -92,7 +92,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await expect.poll(() => ngn(page)).toBe(before + 996000 + 2490000 + 1000000 + 2490000); // deposits less their 0.40% fee; from a Poket user, free
 
   await openNgnBalance(page);
-  const h = page.locator("#ngnHistory");
+  const h = page.locator("#balanceHistory");
   await expect(h.locator('[data-credit]:not([data-txid*="seed"])')).toHaveCount(4);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-title')).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "Poket", "NGN account details", "Temporary account"]);
@@ -144,7 +144,7 @@ test("the NGN balance’s history: what moved the balance, not card payments", a
   await wallet(page);
   await page.locator("#demoPoketTransfer").click();
   await openNgnBalance(page);
-  const h = page.locator("#ngnHistory");
+  const h = page.locator("#balanceHistory");
   // Ada’s 8 seeded records that moved it (the refund into it, not the payment it refunds), and today’s
   await expect(h.locator(".tx-row")).toHaveCount(9);
   await expect(h.locator('.tx-row:not([data-txid*="seed"])')).toHaveCount(1);

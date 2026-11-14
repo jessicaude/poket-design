@@ -107,3 +107,6 @@
 :host(:not(.as-modal)) .panel{display:flex;flex-direction:column;height:min(720px, calc(100vh - var(--pk-bar, 0px) - 48px))}
 :host(:not(.as-modal)) .panel-head,:host(:not(.as-modal)) .tabbar{flex:none}
 :host(:not(.as-modal)) .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+
+/* Convert's review header: the coin's network badge sits on top of its badge (which is raised over the arrow), as on the home rows */
+.convert-visual .badge-network{z-index:2}

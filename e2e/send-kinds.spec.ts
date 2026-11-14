@@ -41,7 +41,7 @@ test("a Poket user: free, Instantly; paid at once (nothing left on hold)", async
   await expect(page.locator("#panelBody")).not.toContainText("First payment"); // only for bank accounts
   await confirmWithPin(page);
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Tobi Bello");
-  await expect(rows(page).filter({ hasText: "Estimated delivery" }).locator(".r-value")).toHaveText("Instantly");
+  await expect(rows(page).filter({ hasText: "Delivery" }).locator(".r-value")).toHaveText("Instantly");
   await expect.poll(() => balances(page)).toMatchObject({ ngn: 4900000, reserved: 0 });
   await page.locator("#viewPayoutTx").click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");

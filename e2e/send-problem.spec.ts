@@ -101,6 +101,9 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await page.locator("#reportGo").click();
   await page.locator("#requestRecall").click();
   await expect(page.locator("#reportDone .step-title")).toHaveText("Recall requested");
+  // The request's rows, repeated on its done screen
+  await expect(page.locator("#recallDoneRows .info-row > span:first-child")).toHaveText(["Amount", "To", "Reference"]);
+  await expect(page.locator("#recallDoneRows .info-row").first()).toContainText("₦5,000.00");
   await page.locator("#reportDoneBtn").click();
 
   await expect(page.locator("#recallStatus")).toHaveText("Submitted");
@@ -121,7 +124,7 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  const credit = page.locator('#ngnHistory [data-credit="recall"]');
+  const credit = page.locator('#balanceHistory [data-credit="recall"]');
   await expect(credit.locator(".tx-title")).toHaveText("Recall · Naira account");
   await expect(credit.locator(".tx-amt")).toHaveText("+₦5,000.00 NGN");
   await credit.click();

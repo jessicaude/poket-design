@@ -58,7 +58,8 @@ test("first payment: notice on amount and review; reserved at the PIN; held unti
 
   await expect(title(page)).toHaveText("₦5,000.00 NGN");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Ngozi Eze after [hold]");
-  await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated deliveryAfter [hold]");
+  // Done: the review's rows, then the confirmation reference
+  await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Delivery" })).toContainText("DeliveryAfter [hold]");
   expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 }); // still reserved while held
   await page.locator("#payoutDone").click();
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
@@ -81,7 +82,7 @@ test("account paid before: no notice; reserved at the PIN and still while Sendin
   await expect.poll(() => ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await expect(page.locator("#panelBody .step-sub")).toHaveText("On its way to Naira account");
   expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 }); // cleared once paid (ngn-withdrawal-status.spec)
-  await expect(page.locator("#panelBody .receipt-row.total")).toContainText("Estimated arrivalUsually within seconds");
+  await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Arrives" })).toContainText("ArrivesUsually within seconds");
 });
 
 test("a newly added account gets the notice", async ({ page }) => {

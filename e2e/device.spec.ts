@@ -1,5 +1,6 @@
 import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * WGT-10, device binding. Demo bar "This device: Known / New". On a new device, the first time money moves (any send,
@@ -133,7 +134,7 @@ test("a new device: turning on instant transfers asks to confirm the device firs
 test("a new device: Convert doesn’t ask (only sends and turning on instant transfers do)", async ({ page }) => {
   await start(page, "new");
   await page.evaluate(() => (window as any).__convert.getState().start({ from: "cash:NGN:open", to: "cash:USD:open" })); // eslint-disable-line @typescript-eslint/no-explicit-any
-  for (const d of "500000") await page.locator(`#panelBody [data-cvkey="${d}"]`).click();
+  for (const d of "500000") await cvPress(page, d);
   await page.locator("#cvReview").click();
   await page.locator("#cvConfirm").click();
   await expect(page.locator("#panelBody")).not.toContainText("Confirm this device");

@@ -79,8 +79,10 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(title(page)).toHaveText("Sending…");
   await expect(title(page)).toHaveText("₦12,500.00 NGN");
   await expect(body.locator(".step-sub")).toHaveText("On its way to Naira account");
-  await expect(body.locator(".receipt-row .r-value").first()).toHaveText(/^TXN-\d{6}$/);
-  await expect(body.locator(".receipt-row.total")).toContainText("Estimated arrivalUsually within seconds");
+  // The review's rows, then the confirmation reference
+  await expect(body.locator("#doneRows .r-label")).toHaveText(["To", "They get", "Fee", "Arrives", "Debited from balance", "Confirmation"]);
+  await expect(body.locator("#doneRows .r-value").last()).toHaveText(/^TXN-\d{6}$/);
+  await expect(body.locator("#doneRows .receipt-row").filter({ hasText: "Arrives" })).toContainText("ArrivesUsually within seconds");
   await page.locator("#payoutDone").click();
   // NGN fees aren’t decided, so only the amount comes off the balance
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab

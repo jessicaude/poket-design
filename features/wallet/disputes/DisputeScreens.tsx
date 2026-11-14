@@ -276,6 +276,17 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     );
   }
 
+  // The review's rows: on review, and again once it's submitted
+  const line = (k: string, v: string, id?: string) => <div className="info-row"><span>{k}</span><span id={id} style={{ maxWidth: "200px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
+  const reviewRows = d.reason ? (
+    <>
+      {line("Reason", REASON_SHORT[d.reason], "reviewReason")}
+      {line("What happened", d.description.trim(), "reviewDescription")}
+      {line(`Contacted ${merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
+      {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
+      {line("Updates to", d.contact || email)}
+    </>
+  ) : null;
   if (stage === "review") {
     // WGT-12: review, then submit (NEW screen, in the wallet's info-card rows)
     const submit = () => {
@@ -286,19 +297,12 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
         setStage("done");
       }, 1300);
     };
-    const line = (k: string, v: string, id?: string) => <div className="info-row"><span>{k}</span><span id={id} style={{ maxWidth: "200px", textAlign: "right", wordBreak: "break-word" }}>{v}</span></div>;
     return (
       <>
         {backRow(() => setStage("form"))}
         <div className="step-title">Review your dispute</div>
         <p className="step-sub">About your {withoutCode(t.amount)} payment to {merchant}.</p>
-        <div className="info-card" id="disputeReview">
-          {line("Reason", REASON_SHORT[d.reason!], "reviewReason")}
-          {line("What happened", d.description.trim(), "reviewDescription")}
-          {line(`Contacted ${merchant}`, d.contacted && d.date ? d.date.replace(/ /g, "") : "No")}
-          {line("Evidence", d.evidence ? "evidence.pdf" : "None")}
-          {line("Updates to", d.contact || email)}
-        </div>
+        <div className="info-card" id="disputeReview">{reviewRows}</div>
         <button className="btn-primary" id="extSubmitDispute" style={{ marginTop: "14px" }} onClick={submit}>Submit dispute</button>
       </>
     );
@@ -308,7 +312,6 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
     <div className="center-col" style={{ paddingTop: "50px" }}>
       <div className="sending-dots"><span /><span /><span /></div>
       <div className="step-title" style={{ marginTop: "18px" }}>Submitting dispute&hellip;</div>
-      
     </div>
   );
   return (
@@ -318,6 +321,8 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
         <div className="step-title">Dispute submitted</div>
         <p className="step-sub">If resolved in your favor, funds return to your balance.</p>
       </div>
+      {/* The review's rows */}
+      <div className="info-card" id="disputeDoneRows" style={{ marginTop: "16px" }}>{reviewRows}</div>
       <button className="btn-primary" id="extDisputeDone" style={{ marginTop: "18px" }} onClick={() => { nav.home(); useWalletHome.getState().set({ tab: "activity" }); }}>Back to activity</button>
     </>
   );

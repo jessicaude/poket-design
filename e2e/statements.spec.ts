@@ -184,7 +184,7 @@ const ngn = (page: Page) => page.evaluate(() => (window as any).__ngn.getState()
 async function openStatement(page: Page) {
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  await page.locator("#ngnStatement").click();
+  await page.locator("#balanceStatement").click();
   await expect(page.locator("#panelBody .step-title")).toHaveText("Statement");
 }
 async function download(page: Page, format: "pdf" | "csv") {
@@ -267,16 +267,16 @@ test("This month as CSV: seeded and new lines, their status, running balances; i
 
   // The send’s status follows it: held, then failed (both its lines Returned)
   await page.locator("#backFromStatement").click();
-  await page.locator('#ngnHistory [data-txid^="wd_"]:not([data-txid*="seed"])').click();
+  await page.locator('#balanceHistory [data-txid^="wd_"]:not([data-txid*="seed"])').click();
   await page.getByRole("button", { name: "Hold for review" }).click();
   await page.locator("#backFromTxDetail").click();
-  await page.locator("#ngnStatement").click();
+  await page.locator("#balanceStatement").click();
   expect(csvRows((await download(page, "csv")).body).slice(2, -1).map((r) => r[3])).toEqual(["Completed", "Completed", "Completed", "Held", "Held"]);
   await page.locator("#backFromStatement").click();
-  await page.locator('#ngnHistory [data-txid^="wd_"]:not([data-txid*="seed"])').click();
+  await page.locator('#balanceHistory [data-txid^="wd_"]:not([data-txid*="seed"])').click();
   await page.getByRole("button", { name: "Fail" }).click();
   await page.locator("#backFromTxDetail").click();
-  await page.locator("#ngnStatement").click();
+  await page.locator("#balanceStatement").click();
   const failed = csvRows((await download(page, "csv")).body);
   expect(failed.slice(2, -1).map((r) => [r[1], r[2], r[3]])).toEqual([
     ["Top-up · Bank transfer", expect.stringMatching(/^TXN-\d{6}$/), "Completed"], ["Fee · Top-up · Bank transfer", expect.stringMatching(/^TXN-\d{6}$/), "Completed"],
@@ -403,12 +403,12 @@ test("Ada’s seeded history is in the wallet too: each record opens its receipt
   await page.locator("#backFromStatement").click();
 
   // The NGN balance’s history: the 8 seeded records (Tobi Bello’s send is one record for its 2 statement lines)
-  const seeded = page.locator('#ngnHistory .tx-row[data-txid*="seed"]');
+  const seeded = page.locator('#balanceHistory .tx-row[data-txid*="seed"]');
   await expect(seeded).toHaveCount(8);
   const ids = await seeded.evaluateAll((els) => els.map((e) => e.getAttribute("data-txid")!));
   const seen: Record<string, string> = {};
   for (const id of ids) {
-    const row = page.locator(`#ngnHistory [data-txid="${id}"]`);
+    const row = page.locator(`#balanceHistory [data-txid="${id}"]`);
     const title = (await row.locator(".tx-title").textContent())!.trim();
     await row.click();
     const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
@@ -424,7 +424,7 @@ test("Ada’s seeded history is in the wallet too: each record opens its receipt
     await page.locator("#backFromTxDetail").click();
   }
   // Tobi Bello: failed, its money returned (both lines, one reference)
-  await page.locator('#ngnHistory [data-txid="wd_seed3"]').click();
+  await page.locator('#balanceHistory [data-txid="wd_seed3"]').click();
   await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
   await page.locator("#shareReceipt").click();
   await expect(page.locator("#receiptNotice")).toHaveText("Failed: this payment wasn’t sent. The money was returned to your balance.");

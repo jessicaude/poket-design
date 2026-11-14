@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * Fees (lib/fees.ts; docs/decisions.md, Fees): deposits 0.40% capped ($4.00, ₦5,000.00) out of what arrives; Convert
@@ -85,11 +86,11 @@ test("convert: the fee before and after an amount; too small for the fee says so
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
   await page.locator("#detailConvert").click();
   await expect(page.locator(".cv-meta")).toContainText("Fee: ₦2,000.00 + 0.40%");
-  for (const d of "150000") await page.locator(`[data-cvkey="${d}"]`).click(); // ₦1,500.00
+  for (const d of "150000") await cvPress(page, d); // ₦1,500.00
   await expect(page.locator("#cvHint")).toHaveText("That’s no more than the ₦1,500.00 fee. Enter a larger amount.");
   await expect(page.locator("#cvReview")).toBeDisabled();
-  for (let i = 0; i < 6; i++) await page.locator('[data-cvkey="back"]').click();
-  for (const d of "1000000") await page.locator(`[data-cvkey="${d}"]`).click(); // ₦10,000.00
+  for (let i = 0; i < 6; i++) await cvPress(page, "back");
+  for (const d of "1000000") await cvPress(page, d); // ₦10,000.00
   await expect(page.locator(".cv-meta")).toContainText("Fee: ₦2,040.00 NGN");
   await expect(page.locator("#cvToAmt")).toHaveText("≈ 5.14");
 });

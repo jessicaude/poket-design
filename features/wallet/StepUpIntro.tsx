@@ -5,24 +5,24 @@ import { TIERS, tierName } from "./limits";
 import { BackRow, Grey } from "./payout/parts";
 
 /**
- * The reference's tStepupIntro: "Additional verification needed", listing what each tier up to `target` needs.
- * `limit` is the current tier's per-transaction limit as shown (a placeholder such as ₦[limit] where undecided).
- * Continue stands in for the verification steps (tStepupTier2 / tStepupTier3), which aren't ported.
- * `reason`: why verification is needed when it isn't a limit (e.g. NGN account details), in place of the limit line.
+ * Step-up (the reference's tStepupIntro, shortened): why, as a warning ("Over your Tier 0 limit of ₦[limit] per
+ * transaction."), "Verify your identity", one line on what it takes, then Continue. `limit` is the current tier's
+ * limit as shown and `per` its period; `reason` replaces the warning when it isn't a limit (e.g. NGN account
+ * details); none when the user asked to raise their tier. Continue stands in for the verification steps (not ported).
  */
-export function StepUpIntro({ current, target, limit, reason, onCancel, onContinue }: {
-  current: number; target: number; limit?: string; reason?: string; onCancel: () => void; onContinue: () => void;
+export function StepUpIntro({ current, target, limit, per = "transaction", reason, onCancel, onContinue }: {
+  current: number; target: number; limit?: string; per?: "transaction" | "day" | "month"; reason?: string; onCancel: () => void; onContinue: () => void;
 }) {
   const t = Math.min(Math.max(target, current + 1), 3) as 1 | 2 | 3;
-  const need = ([1, 2, 3] as const).filter((n) => n > current && n <= t);
   return (
     <>
       <BackRow id="stepupCancel" label="Cancel" onClick={onCancel} />
-      {/* The warning: why (a limit, or `reason`); none when the user asked to raise their tier (Compliance) */}
-      {(reason || limit) && <div className="alert warn"><Raw html={WICON.alert} /><span>{reason ?? <>This is above what {tierName(current)} allows (up to <Grey>{limit ?? ""}</Grey> per transaction). A quick additional step is needed to continue.</>}</span></div>}
-      <div className="step-title">Additional verification needed</div>
-      <p className="step-sub">To reach {TIERS[t].name}, you&rsquo;ll need to provide:</p>
-      <div className="info-card">{need.map((n) => <div className="info-row" key={n}><span>{TIERS[n].name}</span><span>{TIERS[n].need}</span></div>)}</div>
+      {(reason || limit) && (
+        <div className="alert warn" id="stepupWarning"><Raw html={WICON.alert} />
+          <span>{reason ?? <>Over your {tierName(current).split(":")[0]} limit of <Grey>{limit ?? ""}</Grey> per {per}.</>}</span></div>
+      )}
+      <div className="step-title">Verify your identity</div>
+      <p className="step-sub" id="stepupLine">{t === 1 ? "Scan your ID and take a selfie" : t === 2 ? "Add proof of address" : "Add a source of funds declaration"} to reach {TIERS[t].name.split(":")[0]}.</p>
       <button className="btn-primary" id="stepupIntroContinue" onClick={onContinue}>Continue</button>
     </>
   );

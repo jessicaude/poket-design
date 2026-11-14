@@ -10,6 +10,10 @@ import { useNotifications } from "./useNotifications";
 import { useWalletNav } from "./useWalletNav";
 import { useSettings } from "./settings/useSettings";
 import { SignedOutScreen } from "./AccountLockedScreen";
+import { useSend } from "./send/useSend";
+import { useConvert } from "./convert/useConvert";
+import { usePayout } from "./payout/usePayout";
+import { useNgn } from "./ngn/useNgn";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -38,6 +42,11 @@ type Props = {
 export function WalletShell({ css, tab = "home", onTab, onSettings, children }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [root, setRoot] = useState<ShadowRoot | null>(null);
+  // The panel is a fixed size and only its body scrolls: a new screen starts at the top (not where the last one was)
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const navTop = useWalletNav((s) => s.stack.length + ":" + JSON.stringify(s.stack[s.stack.length - 1] ?? null));
+  const flows = [useSend((s) => s.stage), useConvert((s) => s.stage), usePayout((s) => s.stage), useNgn((s) => s.stage)].join("|");
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [navTop, flows, tab]);
   const notifs = useNotifications((s) => s.list);
   const unread = notifs.some((n) => !n.read);
   const signInPrompt = useSettings((s) => s.signInPrompt);
@@ -80,7 +89,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                         </span>
                       </div>
                     </div>
-                    <div className="panel-body" id="panelBody">
+                    <div className="panel-body" id="panelBody" ref={bodyRef}>
                       {signInPrompt ? <SignedOutScreen /> : children ?? <WalletBody />}
                     </div>
                     <div className="tabbar" id="tabbar">

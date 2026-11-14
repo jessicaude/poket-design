@@ -82,3 +82,14 @@ test("secondary labels only where they add something", async ({ page }) => {
   await expect(page.locator("#panelBody > .screen-fade > .step-sub, #panelBody > .step-sub")).toHaveCount(0);
   await expect(page.locator("#panelBody")).not.toContainText("Move money between your currencies and stablecoins.");
 });
+
+test("a new screen starts at the top of the panel, wherever the last one was scrolled", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await wallet(page);
+  const scrolled = await page.locator("#panelBody").evaluate((el) => { el.scrollTop = 300; return el.scrollTop; });
+  expect(scrolled).toBeGreaterThan(0);
+  await page.locator('[data-holdcur="USD"][data-holdbucket="open"] .tx-title').click();
+  await expect(page.locator("#balanceAmount")).toBeVisible();
+  await expect.poll(() => page.locator("#panelBody").evaluate((el) => el.scrollTop)).toBe(0);
+  await expect(page.locator("#backFromDetail")).toBeInViewport();
+});

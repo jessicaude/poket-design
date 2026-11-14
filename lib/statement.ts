@@ -11,7 +11,8 @@ export type StatementStatus = "Completed" | "Pending" | "Held" | "Returned" | "R
  * A change to the NGN balance (features/wallet/history/ledger.ts): `balance` is the balance after it. A send's
  * changes keep its id, so their status is the send's as it is now; others carry their own (else Completed).
  */
-export type LedgerEntry = { id: string; at: number; delta: Kobo; balance: Kobo; description: string; reference: string; status?: StatementStatus; withdrawalId?: string };
+/** `currency`: the balance it changed (NGN when not given: Ada's seeded history). */
+export type LedgerEntry = { id: string; at: number; delta: Kobo; balance: Kobo; description: string; reference: string; status?: StatementStatus; withdrawalId?: string; currency?: string };
 
 export type StatementPeriod = "this_month" | "last_month" | "last_3_months" | "custom";
 export const PERIOD_LABEL: Record<StatementPeriod, string> = { this_month: "This month", last_month: "Last month", last_3_months: "Last 3 months", custom: "Custom range" };
@@ -50,6 +51,8 @@ export const customRange = (fromS: string, toS: string) => ({ from: startOfDay(p
 
 export type StatementRow = { at: number; description: string; reference: string; status: StatementStatus; amount: Kobo; balance: Kobo };
 export type Statement = {
+  /** The balance's currency ("NGN", "USD"). */
+  currency: string;
   holder: string;
   /** The NGN account details, when there are any: [label, value]. */
   account: [string, string][] | null;
@@ -63,7 +66,7 @@ export type Statement = {
  * the first change ever, else today's balance). Closing: opening plus every change in it, which is the balance after
  * its last change.
  */
-export function buildStatement(entries: LedgerEntry[], currentBalance: Kobo, range: { from: Date; to: Date }, who: { holder: string; account: [string, string][] | null },
+export function buildStatement(entries: LedgerEntry[], currentBalance: Kobo, range: { from: Date; to: Date }, who: { holder: string; account: [string, string][] | null; currency?: string },
   statusOf: (e: LedgerEntry) => StatementStatus = (e) => e.status ?? "Completed"): Statement {
   const sorted = [...entries].sort((a, b) => a.at - b.at);
   const before = sorted.filter((e) => e.at < range.from.getTime());
@@ -75,7 +78,7 @@ export function buildStatement(entries: LedgerEntry[], currentBalance: Kobo, ran
     if (e.delta > 0) moneyIn += e.delta; else moneyOut -= e.delta;
     return { at: e.at, description: e.description, reference: e.reference, status: statusOf(e), amount: e.delta, balance: running };
   });
-  return { holder: who.holder, account: who.account, from: range.from, to: range.to, opening, closing: running, moneyIn, moneyOut, rows };
+  return { currency: who.currency ?? "NGN", holder: who.holder, account: who.account, from: range.from, to: range.to, opening, closing: running, moneyIn, moneyOut, rows };
 }
 
 /** Kobo as "5,000.00" (negative "-5,000.00"). */
@@ -91,13 +94,13 @@ export const CSV_COLUMNS = ["Date", "Description", "Reference", "Status", "Amoun
 /** CSV: the transactions, opened and closed by the balances (an empty period says so between them). */
 export function statementCsv(s: Statement): string {
   const lines = [CSV_COLUMNS,
-    [isoDay(s.from), "Opening balance", "", "", "", "NGN", plain(s.opening)],
-    ...(s.rows.length ? s.rows.map((r) => [csvDate(r.at), r.description, r.reference, r.status, plain(r.amount), "NGN", plain(r.balance)]) : [["", NO_TRANSACTIONS, "", "", "", "", ""]]),
-    [isoDay(s.to), "Closing balance", "", "", "", "NGN", plain(s.closing)],
+    [isoDay(s.from), "Opening balance", "", "", "", s.currency, plain(s.opening)],
+    ...(s.rows.length ? s.rows.map((r) => [csvDate(r.at), r.description, r.reference, r.status, plain(r.amount), s.currency, plain(r.balance)]) : [["", NO_TRANSACTIONS, "", "", "", "", ""]]),
+    [isoDay(s.to), "Closing balance", "", "", "", s.currency, plain(s.closing)],
   ];
   return lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
-export const statementFileName = (s: Statement, ext: "pdf" | "csv") => `ngn-statement-${isoDay(s.from)}-to-${isoDay(s.to)}.${ext}`;
+export const statementFileName = (s: Statement, ext: "pdf" | "csv") => `${s.currency.toLowerCase()}-statement-${isoDay(s.from)}-to-${isoDay(s.to)}.${ext}`;
 
 /* ---------- PDF ---------- */
 
@@ -130,13 +133,13 @@ export function statementPdf(s: Statement, brandName: string): Uint8Array {
   const COL = { date: M, desc: M + 68, ref: M + 262, status: M + 338, amt: A4.w - M - 78, bal: A4.w - M };
   const tableHead = () => {
     text(COL.date, y, "Date", 8, true, true); text(COL.desc, y, "Description", 8, true, true); text(COL.ref, y, "Reference", 8, true, true); text(COL.status, y, "Status", 8, true, true);
-    right(COL.amt, y, "Amount (NGN)", 8, true, true); right(COL.bal, y, "Balance (NGN)", 8, true, true);
+    right(COL.amt, y, `Amount (${s.currency})`, 8, true, true); right(COL.bal, y, `Balance (${s.currency})`, 8, true, true);
     y -= 8; rule(y); y -= 14;
   };
   const newPage = () => { ops = []; pages.push(ops); y = A4.h - M; };
 
   newPage();
-  text(M, y - 6, brandName, 16, true); right(A4.w - M, y - 6, "NGN statement", 12, true);
+  text(M, y - 6, brandName, 16, true); right(A4.w - M, y - 6, `${s.currency} statement`, 12, true);
   y -= 34;
   const info: [string, string][] = [["Account holder", s.holder], ...(s.account ?? []), ["Period", `${longDay(s.from)} to ${longDay(s.to)}`]];
   for (const [k, v] of info) { text(M, y, k, 9, false, true); text(M + 120, y, v, 9); y -= 15; }
@@ -144,7 +147,7 @@ export function statementPdf(s: Statement, brandName: string): Uint8Array {
   const sum: [string, Kobo][] = [["Opening balance", s.opening], ["Money in", s.moneyIn], ["Money out", s.moneyOut], ["Closing balance", s.closing]];
   sum.forEach(([k, v], i) => {
     const x = M + i * ((A4.w - 2 * M) / 4);
-    text(x, y, k, 8, false, true); text(x, y - 15, `NGN ${naira(v)}`, 11, true);
+    text(x, y, k, 8, false, true); text(x, y - 15, `${s.currency} ${naira(v)}`, 11, true);
   });
   y -= 42; rule(y); y -= 24;
   text(M, y, "Transactions", 10, true); y -= 18;
@@ -174,7 +177,7 @@ export function statementPdf(s: Statement, brandName: string): Uint8Array {
   objs[2] = `<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
   objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
   objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-  objs[5] = `<< /Title (${winAnsi(`NGN statement ${isoDay(s.from)} to ${isoDay(s.to)}`)}) /Producer (Poket) >>`;
+  objs[5] = `<< /Title (${winAnsi(`${s.currency} statement ${isoDay(s.from)} to ${isoDay(s.to)}`)}) /Producer (Poket) >>`;
   pages.forEach((p, i) => {
     const content = p.join("\n");
     objs[6 + i * 2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${A4.w} ${A4.h}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${7 + i * 2} 0 R >>`;

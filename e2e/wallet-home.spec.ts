@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { cvPress } from "./keypad";
 
 /**
  * Wallet home (tWalletHome in reference/poket-unified.html). Demo balances: ₦50,000.00 NGN, $65.60 USD ($50.00 open,
@@ -106,7 +107,7 @@ test("rows open their balance screens: USD (with account details card and histor
   await page.locator('[data-holdcur="USD"][data-holdbucket="fiat"]').click(); // the card-funded part
   await expect(page.locator("#backFromDetail")).toHaveText("Cash");
   await expect(body(page).locator(".step-sub").first()).toHaveText("US DollarFIAT-ONLY");
-  await expect(page.locator("#holdingAmount")).toHaveText("$15.60 USD");
+  await expect(page.locator("#balanceAmount")).toHaveText("$15.60 USD");
   await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Deposit", "Send", "Convert"]);
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From US DollarFIAT-ONLY"); // this balance is the source
@@ -116,7 +117,7 @@ test("rows open their balance screens: USD (with account details card and histor
   await page.locator("#backToPayoutRecipient2").click();
   await page.locator("#backFromSend").click();
   await expect(page.locator("#vaOpen")).toHaveText("Get USD account detailsReceive USD by ACH or wire. 0.40% fee, up to $4.00.›");
-  await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242", "Converted NGN to USD"]); // + Ada’s seeded conversion to USD
+  await expect(body(page).locator(".section-card .tx-title")).toHaveText(["Refund · Kola Books", "Sooyah Bistro", "Top-up · Visa ····4242"]); // card-funded USD: Ada’s seeded conversion went to open USD
   await page.locator("#detailConvert").click();
   await expect(page.locator("#cvPickFrom .cv-pick-name")).toHaveText("USDFIAT-ONLY");
   await page.locator("#backHome").click();
@@ -126,14 +127,14 @@ test("rows open their balance screens: USD (with account details card and histor
   await page.locator("#backFromDetail").click();
 
   await page.locator('[data-holdcur="NGN"][data-holdbucket="open"] .tx-title').click();
-  await expect(page.locator("#ngnBalanceAmount")).toHaveText("₦50,000.00 NGN"); // NGN keeps its own screen
+  await expect(page.locator("#balanceAmount")).toHaveText("₦50,000.00 NGN"); // NGN keeps its own screen
   await page.locator("#backFromDetail").click();
 
   await page.locator('[data-wallettab="assets"]').click();
   await page.locator('[data-holdasset="USDC"][data-holdnet="Base"]').click();
   await expect(page.locator("#backFromDetail")).toHaveText("Stablecoins");
   await expect(body(page).locator(".step-sub").first()).toHaveText("USD Coin · Base");
-  await expect(page.locator("#holdingAmount")).toHaveText("$0.00 USD");
+  await expect(page.locator("#balanceAmount")).toHaveText("$0.00 USD");
   await expect(body(page).locator(".action-row .action-btn")).toHaveText(["Send", "Convert"]);
   await page.locator("#detailSend").click();
   await expect(page.locator("#sendFrom")).toHaveText("From USDC on Base");
@@ -151,7 +152,7 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   await setHoldings(page, { cash: { USD: 1560, EUR: 0, GBP: 0, GHS: 0 } });
   await page.getByLabel("Tier").selectOption("1");
   await page.locator("#actConvert").click();
-  for (const d of "1000000") await page.locator(`[data-cvkey="${d}"]`).click();
+  for (const d of "1000000") await cvPress(page, d);
   await page.locator("#cvReview").click();
   await page.locator("#cvConfirm").click();
   await page.locator("#cvDone").click();

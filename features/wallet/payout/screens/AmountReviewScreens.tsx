@@ -6,7 +6,8 @@ import { SendPausedNotice } from "../../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useQuoteTimer } from "../../send/useQuoteTimer";
-import { sendSummary } from "../../send/sendSummary";
+import { sendSummary, type SendSummary } from "../../send/sendSummary";
+import type { PayoutRecipient } from "@/lib/mock-api";
 import { cvFmt, cvParse } from "../../convert/convertMath";
 import { CURRENCY_INFO, HOLD_PLACEHOLDER, isLogoMethod, payoutMethodIcon, payoutMethodSub } from "../payoutMath";
 import { BackRow, Grey, SpinButton } from "../parts";
@@ -32,6 +33,36 @@ export function CurrencyBadge() {
 }
 
 /**
+ * A send's rows, the same on review and done: To, Account holder (when the nickname differs), They get, You send and
+ * Rate (converting), Network (coins), Fee, Delivery (Arrives to your own), Total charged (Debited from balance).
+ */
+export function SendRows({ r, s, payFrom }: { r: PayoutRecipient; s: SendSummary; payFrom: string }) {
+  const isSelf = r.isSelf;
+  const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
+  const holder = r.holderName && r.holderName.trim() !== r.name.trim() ? r.holderName : null;
+  // The coin's network: the wallet's, else the paying coin's
+  const network = tgt.k === "coin" ? tgt.net : src.k === "coin" ? src.net : null;
+  const row = (icon: string, label: string, value: string, extra = "") => (
+    <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className={`r-value ${label === "To" ? "mono" : ""}`}><Grey>{value}</Grey></span></div>
+  );
+  return (
+    <>
+      {row(WICON.user, "To", payoutMethodSub(r))}
+      {holder && row(WICON.user, "Account holder", holder)}
+      {/* A Poket user paid from card-funded USD: their money keeps the FIAT-ONLY tag */}
+      <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">They get</span>
+        <span className="r-value" id="reviewTheyGet"><Grey>{s.theyGetText}</Grey>{s.tag && <span className="fiat-tag">{s.tag}</span>}</span></div>
+      {s.youSendText && row(WICON.convert, "You send", s.youSendText)}
+      {s.rateText && row(WICON.globe, "Rate", s.rateText)}
+      {network && row(WICON.globe, "Network", network)}
+      {row(WICON.percent, "Fee", s.feeText)}
+      {row(WICON.calendar, isSelf ? "Arrives" : "Delivery", s.arrival)}
+      {row(WICON.check, isSelf ? "Debited from balance" : "Total charged", s.totalText, "total")}
+    </>
+  );
+}
+
+/**
  * Review, for every kind of send: To, Account holder (when the nickname differs), Speed (US banks), They get, You
  * send and Rate (converting), Network (coins), Fee, Delivery, Total charged; the first-payment notice for a new bank
  * account; the held quote's countdown when converting; "Send {amount}". tPayout's review layout, with the
@@ -45,13 +76,7 @@ export function ReviewScreen() {
   if (!r || !payFrom) return <BackRow id="backToPayoutAmount" onClick={back} />;
   const s = sendSummary(r, payFrom, payCents, cents, jitter);
   const isSelf = r.isSelf;
-  const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
-  const holder = r.holderName && r.holderName.trim() !== r.name.trim() ? r.holderName : null;
-  // The coin's network: the wallet's, else the paying coin's
-  const network = tgt.k === "coin" ? tgt.net : src.k === "coin" ? src.net : null;
-  const row = (icon: string, label: string, value: string, extra = "") => (
-    <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className={`r-value ${label === "To" ? "mono" : ""}`}><Grey>{value}</Grey></span></div>
-  );
+  const src = cvParse(payFrom);
   return (
     <>
       <BackRow id="backToPayoutAmount" onClick={back} />
@@ -61,17 +86,7 @@ export function ReviewScreen() {
       <div className="step-title mono" style={{ textAlign: "center", marginTop: "6px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>
       <p className="step-sub" style={{ textAlign: "center", marginBottom: "2px" }}>to {r.name}</p>
       <div className="receipt-card" style={{ marginTop: "14px" }}>
-        {row(WICON.user, "To", payoutMethodSub(r))}
-        {holder && row(WICON.user, "Account holder", holder)}
-        {/* A Poket user paid from card-funded USD: their money keeps the FIAT-ONLY tag */}
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">They get</span>
-          <span className="r-value" id="reviewTheyGet"><Grey>{s.theyGetText}</Grey>{s.tag && <span className="fiat-tag">{s.tag}</span>}</span></div>
-        {s.youSendText && row(WICON.convert, "You send", s.youSendText)}
-        {s.rateText && row(WICON.globe, "Rate", s.rateText)}
-        {network && row(WICON.globe, "Network", network)}
-        {row(WICON.percent, "Fee", s.feeText)}
-        {row(WICON.calendar, isSelf ? "Arrives" : "Delivery", s.arrival)}
-        {row(WICON.check, isSelf ? "Debited from balance" : "Total charged", s.totalText, "total")}
+        <SendRows r={r} s={s} payFrom={payFrom} />
       </div>
       {/* WGT-13: the partner went down after the amount: why Send is disabled (no banner here, as on the amount) */}
       {partnerPaused && <SendPausedNotice style={{ marginBottom: "10px" }} />}
