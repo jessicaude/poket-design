@@ -84,7 +84,7 @@ export function NgnDemoBar() {
         </select>
       </label>
       <label className="opt-lbl"><span>Recipient can hold naira</span>
-        {/* WGT-07: Poket users other than Amara Okafor (yes) and Daniel Cho (no) */}
+        {/* WGT-07: CentryLink users other than Amara Okafor (yes) and Daniel Cho (no) */}
         <select aria-label="Recipient can hold naira" value={othersHoldNaira ? "yes" : "no"}
           onChange={(e) => { setOthersHoldNaira(e.target.value === "yes"); usePayout.getState().refreshQuote(); }}>
           <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
@@ -169,7 +169,7 @@ export function NgnDemoBar() {
       )}
       {/* WGT-11: naira coming in, each with its own record. A transfer to the account details needs a ready account and the partner up (while down, "Transfer arrived while down") */}
       {!flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
-      {!flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a Poket user</button>}
+      {!flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a CentryLink user</button>}
       {vaCur && va?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => dep.vaApprove(vaCur)}>Account approved</button>}
       {vaCur && va?.status === "ready" && <button className="pbtn" id="demoVaTransfer" onClick={() => dep.vaReceive(vaCur)}>Transfer to {vaCur} account details</button>}
       {/* On the locked screen: end the 2-hour lock now */}

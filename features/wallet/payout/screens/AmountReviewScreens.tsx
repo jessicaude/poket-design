@@ -13,11 +13,14 @@ import { CURRENCY_INFO, HOLD_PLACEHOLDER, isLogoMethod, payoutMethodIcon, payout
 import { BackRow, Grey, SpinButton } from "../parts";
 import { usePayout } from "../usePayout";
 
-/** Not in the reference: a first payment to a bank account sends after [hold]. Shown on amount and review. */
+/**
+ * Not in the reference: a first payment of $500 or more (USD value leaving the balance) to a new recipient, of any
+ * kind except your own accounts, sends after [hold]. Shown on amount and review.
+ */
 export function FirstPaymentNotice() {
   return (
     <div className="alert info" id="firstPaymentNotice" role="note" style={{ marginBottom: "10px" }}>
-      <Raw html={WICON.info} /><span>First payment to a new account sends after {HOLD_PLACEHOLDER}</span>
+      <Raw html={WICON.info} /><span>To protect you, first payments of $500 or more to a new account send after {HOLD_PLACEHOLDER}.</span>
     </div>
   );
 }
@@ -50,7 +53,7 @@ export function SendRows({ r, s, payFrom, confirmation }: { r: PayoutRecipient; 
     <>
       {row(WICON.user, "To", payoutMethodSub(r))}
       {holder && row(WICON.user, "Account holder", holder)}
-      {/* A Poket user paid from card-funded USD: their money keeps the FIAT-ONLY tag */}
+      {/* A CentryLink user paid from card-funded USD: their money keeps the FIAT-ONLY tag */}
       <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">They get</span>
         <span className="r-value" id="reviewTheyGet"><Grey>{s.theyGetText}</Grey>{s.tag && <span className="fiat-tag">{s.tag}</span>}</span></div>
       {s.youSendText && row(WICON.convert, "You send", s.youSendText)}

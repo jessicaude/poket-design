@@ -9,7 +9,7 @@ import { fmtDepositAmount, type DepositRecord } from "../deposit/useDeposit";
 import { fmtSource, type CardPurchase } from "../card/useCards";
 import type { DemoTx } from "../home/homeData";
 import { HOLD_PLACEHOLDER, fmtCurrency } from "../payout/payoutMath";
-import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
+import { STATUS_META, sentText } from "../payout/withdrawals";
 import { formatTxDate } from "../withdrawals/TxDetail";
 
 /**
@@ -41,7 +41,7 @@ function sendNotice(w: Withdrawal): Receipt["notice"] {
   switch (w.status) {
     case "scheduled": return { tone: "warn", text: `Pending. Sends after ${HOLD_PLACEHOLDER}.` };
     case "sending": return { tone: "warn", text: "Pending: on its way. It hasn’t arrived yet." };
-    case "review": return { tone: "warn", text: w.quickCheck ? `${QUICK_CHECK.chip}. ${QUICK_CHECK.message}` : `Held for review. ${STATUS_META.review.message}` };
+    case "review": return { tone: "warn", text: `Held for review. ${STATUS_META.review.message}` };
     case "failed": return { tone: "err", text: "Failed: this payment wasn’t sent. The money was returned to your balance." };
     case "reversed": return { tone: "err", text: "Reversed: the bank returned this payment. The money was returned to your balance." };
     default: return null;

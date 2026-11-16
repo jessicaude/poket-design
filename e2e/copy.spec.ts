@@ -16,7 +16,7 @@ const notes = (page: Page) => page.locator("#panelBody [data-notif]");
 
 test("notifications follow the pattern: a short past-tense title, one sentence with the amount and who", async ({ page }) => {
   await wallet(page);
-  // A temporary-account top-up (new), a transfer to the account details, naira from a Poket user, a delayed transfer
+  // A temporary-account top-up (new), a transfer to the account details, naira from a CentryLink user, a delayed transfer
   await page.evaluate(async () => { const s = (window as any).__ngn.getState(); await s.createTemp(1000000); await s.transferArrives(); (window as any).__ngn.getState().close(); });
   await page.evaluate(() => (window as any).__ngn.getState().set({ dedicated: { status: "ready", num: "0123456789" } }));
   await page.locator("#demoAccountTransfer").click();

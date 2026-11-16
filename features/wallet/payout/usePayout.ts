@@ -76,7 +76,7 @@ type State = {
   ack: boolean;
   lastRef: string | null;
   /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
-  sent: { id: string; amount: number; fee: number; status: WithdrawalStatus; quickCheck?: boolean } | null;
+  sent: { id: string; amount: number; fee: number; status: WithdrawalStatus } | null;
   pinStage: PinStage;
   /** "reset" after Reset PIN with passcode (S.pinPurpose). "approve": a setting that needs the PIN (approveWithPin). */
   pinPurpose: "payout" | "reset" | "approve";
@@ -203,7 +203,7 @@ export const usePayout = create<State>((set, get) => {
   /**
    * executeWithdraw, called once the PIN is accepted, for NGN to a Nigerian bank: a source in another currency
    * converts into naira first, then the amount is reserved from the NGN balance and the send created. It starts
-   * Scheduled (first payment to an account) or Sending; its reservation is cleared when it's paid and released when it
+   * Scheduled (a first payment of $500 or more to a new account) or Sending; its reservation is cleared when it's paid and released when it
    * fails (useWithdrawals). If it can't be created, the reservation is released. Every other send: executeSend.
    */
   const execute = async () => {
@@ -225,7 +225,7 @@ export const usePayout = create<State>((set, get) => {
       // The reservation stays until the withdrawal is paid (cleared) or fails (released): see useWithdrawals.
       const w = await createPayout({
         currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r), conversion, kind: "bank",
-        amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta, sourceKey: payFrom,
+        amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta, sourceKey: payFrom, usdOut: s.usdOut,
         ...(takeHold() ? { heldForReview: true } : {}),
       });
       relabel([...cvIds, ...sendIds], { reference: w.ref, withdrawalId: w.id });
@@ -295,7 +295,7 @@ export const usePayout = create<State>((set, get) => {
   const conversionDetails = () => {
     const { payFrom, payCents, recipient: r, cents, jitter } = get();
     if (!payFrom || !r || sameAsTarget(payFrom, asSendRecipient(r))) return undefined;
-    const q = cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter, r.methodType === "poket"); // a Poket user: free
+    const q = cvQuote(payFrom, targetKeyFor(r, payFrom), payCents, jitter, r.methodType === "poket"); // a CentryLink user: free
     return { paidText: cvFmt(payCents, q.f), receivedText: cvFmt(cents, q.to), rateText: cvRateText(q.f, q.to, jitter, false), feeText: cvFeeText(q) };
   };
   /** Add to (or, negative, take from) a balance by its cvKey: cash (keeping FIAT-ONLY in step) or a coin. */
@@ -324,9 +324,9 @@ export const usePayout = create<State>((set, get) => {
   };
 
   /**
-   * Every other send (a US or UK bank, a Poket user, a stablecoin wallet): once the PIN is accepted the whole amount
+   * Every other send (a US or UK bank, a CentryLink user, a stablecoin wallet): once the PIN is accepted the whole amount
    * (plus fee) is reserved from the paying balance, NGN into "on hold" as for bank sends, others taken from the
-   * balance and given back if the send fails. A Poket user is paid at once.
+   * balance and given back if the send fails. A CentryLink user is paid at once.
    */
   const executeSend = async () => {
     const { recipient: r, payFrom, payCents, cents, jitter } = get();
@@ -344,7 +344,7 @@ export const usePayout = create<State>((set, get) => {
       ...(feeSource ? attribute({ description: `Fee · To ${r.name}`, reference: "" }, () => take(feeSource)) : []),
     ];
     try {
-      // A Poket user: your record is in your paying balance's currency; what they receive (USD when naira converts on
+      // A CentryLink user: your record is in your paying balance's currency; what they receive (USD when naira converts on
       // receipt, WGT-07) is its targetKey, and only their side is credited in it
       const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
       // The coin's network, as review shows it: the wallet's, else the paying coin's
@@ -358,7 +358,7 @@ export const usePayout = create<State>((set, get) => {
       relabel(sendIds, { reference: w.ref, withdrawalId: w.id });
       if (w.status === "paid" && fromNgn) moveReserved(-s.sourceTotal, 0); // paid at once: nothing left on hold
       useWithdrawals.getState().refresh();
-      set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status, quickCheck: w.quickCheck }, recipients: listPayoutRecipients() });
+      set({ stage: "done", lastRef: w.ref, sent: { id: w.id, amount: cents, fee: s.feeTarget, status: w.status }, recipients: listPayoutRecipients() });
     } catch {
       await releaseReservation(rsv.id);
       dropEntries([...sendIds, ...attribute({ description: "", reference: "" }, () => { if (fromNgn) moveReserved(-s.sourceTotal, -s.sourceTotal); else adjustBalance(payFrom, s.sourceTotal); })]);

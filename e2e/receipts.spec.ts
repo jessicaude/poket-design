@@ -104,9 +104,9 @@ test("Share: the native share sheet where there is one; else the text summary is
   const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
   await openSheet(page);
   await expect(page.locator("#receiptTitle")).toHaveText("From Amara Okafor");
-  // From a Poket user: not a bank transfer, so no Session ID
+  // From a CentryLink user: not a bank transfer, so no Session ID
   await expect(page.locator("#receiptCard .rc-row > span:first-child")).toHaveText(["Date and time", "From", "Account", "Fee", "Reference"]);
-  await expect(rcRow(page, "Account")).toHaveText("Poket");
+  await expect(rcRow(page, "Account")).toHaveText("CentryLink");
   await expect(rcRow(page, "Fee")).toHaveText("Free");
 
   // Native share
@@ -116,7 +116,7 @@ test("Share: the native share sheet where there is one; else the text summary is
   expect(shared.title).toBe(`Receipt ${ref}`);
   expect(shared.text.split("\n")).toEqual([
     "Poket receipt", "Completed", "", "₦10,000.00 NGN", "From Amara Okafor", "",
-    expect.stringMatching(/^Date and time: \d{2} [A-Z][a-z]{2}, \d{4}/), "From: Amara Okafor", "Account: Poket", "Fee: Free", `Reference: ${ref}`, "", "Payments by Poket",
+    expect.stringMatching(/^Date and time: \d{2} [A-Z][a-z]{2}, \d{4}/), "From: Amara Okafor", "Account: CentryLink", "Fee: Free", `Reference: ${ref}`, "", "Payments by Poket",
   ]);
   // No native share: copied
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));

@@ -29,10 +29,8 @@ export const STEP_UP_PLACEHOLDER = "\u20a6[step-up]";
 export const STEP_UP_DEMO_USD_CENTS = 2000000 / DEMO_NGN_PER_USD;
 export const needsStepUp = (usdCents: number) => usdCents > STEP_UP_DEMO_USD_CENTS;
 
-/** How long a first NGN payment to a new account is held before it sends: not decided, so a placeholder (ngn.mdc). */
+/** How long a first payment of $500 or more to a new recipient is held before it sends: not decided, so a placeholder (ngn.mdc). */
 export const HOLD_PLACEHOLDER = "[hold]";
-/** A first NGN payment to this account: it's held for [hold] before it sends. */
-export const isFirstPayment = (cur: PayoutCurrency, r: PayoutRecipient | null) => cur === "NGN" && !!r && !r.paidBefore;
 
 /** A fee as shown ("₦25.00 NGN"); none is "Free". Fees are decided (lib/fees.ts). */
 export const fmtFee = (fee: number, cur: PayoutCurrency) => (fee ? fmtCurrency(fee, cur) : "Free");

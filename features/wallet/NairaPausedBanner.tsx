@@ -16,7 +16,7 @@ export function NairaPausedBanner() {
   return (
     <div className="alert warn" id="nairaPaused" role="status">
       <Raw html={WICON.alert} />
-      <span>Naira bank transfers are paused. Your balance is safe, and sending to Poket users, converting and card payments still work.</span>
+      <span>Naira bank transfers are paused. Your balance is safe, and sending to CentryLink users, converting and card payments still work.</span>
     </div>
   );
 }

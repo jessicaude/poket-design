@@ -81,7 +81,7 @@ export function SendAmountScreen() {
     <>
       <BackRow id="backToPayoutRecipient2" onClick={back} />
       {r.methodType === "bank" ? <CurrencyBadge /> : (
-        // A Poket user's initials, a wallet's coin or a card, where a bank shows its currency's flag
+        // A CentryLink user's initials, a wallet's coin or a card, where a bank shows its currency's flag
         <div className="center-col" style={{ padding: "4px 0 2px" }}>
           {r.methodType === "wallet" || r.methodType === "card"
             ? <div className={`tx-ic tx-ic-lg ${isLogoMethod(r) ? "tx-ic-real" : "review"}`} style={{ width: "36px", height: "36px" }} dangerouslySetInnerHTML={{ __html: payoutMethodIcon(r) }} />
@@ -94,7 +94,7 @@ export function SendAmountScreen() {
         <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
       {nairaConvertsOnReceipt(asSendRecipient(r), payFrom) && (
-        // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
+        // WGT-07: a CentryLink user who can't hold naira gets USD, converted on receipt (the quote card below)
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&rsquo;t hold naira. They&rsquo;ll get USD.</span>
         </div>

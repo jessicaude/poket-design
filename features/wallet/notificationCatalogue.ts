@@ -9,7 +9,7 @@ import type { WalletScreen } from "./useWalletNav";
  */
 export const NOTIFICATIONS = {
   topUpReceived: { type: "info", trigger: "A temporary-account top-up arrives (Deposit, bank transfer)", title: "Transfer received", body: "{amount} added to your NGN balance." },
-  transferReceived: { type: "info", trigger: "A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a Poket user, arrives", title: "Transfer received", body: "{amount} from {sender} added to your {currency} balance." },
+  transferReceived: { type: "info", trigger: "A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a CentryLink user, arrives", title: "Transfer received", body: "{amount} from {sender} added to your {currency} balance." },
   delayedTransferReceived: { type: "info", trigger: "The naira partner is back: each transfer that arrived while it was down is credited", title: "Transfer received", body: "{amount} from {sender} added to your NGN balance, after a delay." },
   refundReceived: { type: "payout", trigger: "A merchant refunds a naira bank-transfer payment into the NGN balance (not from a dispute)", title: "Refund received", body: "{amount} from {merchant} added to your NGN balance." },
   disputeRefundedToBalance: { type: "payout", trigger: "A dispute is resolved by refund, into the NGN balance (a naira bank transfer)", title: "Dispute resolved", body: "{amount} from {merchant} added to your NGN balance." },

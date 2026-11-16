@@ -3,9 +3,9 @@ import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * WGT-07, naira to Poket users: a recipient who can hold naira gets naira; one who can’t gets USD, converted on
+ * WGT-07, naira to CentryLink users: a recipient who can hold naira gets naira; one who can’t gets USD, converted on
  * receipt, with the quote card before sending. Amara Okafor (pu4) can hold naira; Daniel Cho (pu5) can’t; every other
- * Poket user follows the demo bar’s "Recipient can hold naira". Demo balances: ₦50,000.00 NGN, $50.00 + $15.60
+ * CentryLink user follows the demo bar’s "Recipient can hold naira". Demo balances: ₦50,000.00 NGN, $50.00 + $15.60
  * FIAT-ONLY USD. Each test pins the quote at ₦1,550 per $1 (jitter 1) before typing, so amounts are exact.
  */
 
@@ -20,7 +20,7 @@ async function start(page: Page) {
   await expect(page.locator("#actSend")).toBeVisible();
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
 }
-/** Send → a saved Poket user, then the amount (from the home: the NGN balance first). */
+/** Send → a saved CentryLink user, then the amount (from the home: the NGN balance first). */
 async function sendTo(page: Page, id: string, digits: string) {
   await page.locator("#actSend").click();
   await page.locator(`[data-sendrecipient="poket:${id}"]`).click();
@@ -60,7 +60,7 @@ test("Daniel can’t hold naira: the notice, They get in USD and the quote; the 
   await expect(page.locator("#theyGet")).toHaveText("≈ 3.23"); // free end to end: no conversion fee
   // The quote card: rate, fee, They get, 30-second hold
   await expect(page.locator("#cvQuoteCard .r-label")).toHaveText(["Rate", "Fee"]); // They get is in its box
-  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "Free"]); // a Poket user: free end to end
+  await expect(page.locator("#cvQuoteCard .r-value")).toHaveText(["1 USD ≈ 1,550.00 NGN", "Free"]); // a CentryLink user: free end to end
   await expect(page.locator("#theyGetChip")).toHaveText("USD");
   await expect(page.locator("#cvTimer")).toHaveText(/^Rate held for 0:(30|29)$/);
 
@@ -100,7 +100,7 @@ test("Daniel can’t hold naira: the notice, They get in USD and the quote; the 
   expect(mine).toMatchObject({ currency: "NGN", sourceKey: "cash:NGN:open", targetKey: "cash:USD:open" });
 });
 
-test("Daniel, held for a quick check ($500 or more, first payment): on hold in naira, listed with what left", async ({ page }) => {
+test("Daniel, held for [hold] ($500 or more, first payment): on hold in naira, listed with what left", async ({ page }) => {
   await start(page);
   await page.evaluate(() => (window as any).__ngn.getState().set({ ngnBalance: 100000000 })); // eslint-disable-line @typescript-eslint/no-explicit-any
   await sendTo(page, "pu5", "77500000"); // ₦775,000.00 = $500.00
@@ -110,7 +110,7 @@ test("Daniel, held for a quick check ($500 or more, first payment): on hold in n
   await passSelfie(page); // over the demo step-up limit
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
-  await expect(page.locator("#quickCheck")).toBeVisible();
+  await expect(page.locator("#panelBody .step-sub", { hasText: "after [hold]" })).toHaveText("Sends to Daniel Cho after [hold]");
   await expect(page.locator("#doneSent")).toHaveText("₦775,000.00 NGN sent");
   await expect(page.locator("#doneTheyGet")).toHaveText("Daniel gets $500.00 USD");
   await page.locator("#viewPayoutTx").click();
@@ -119,7 +119,7 @@ test("Daniel, held for a quick check ($500 or more, first payment): on hold in n
   await page.locator('[data-wallettab="cash"]').click();
   await page.locator("#homeOnHold").click();
   await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Daniel Cho"]);
-  await expect(page.locator("#panelBody .tx-row .tx-sub")).toHaveText(["₦775,000.00 NGN → $500.00 USD · Held for a quick check"]);
+  await expect(page.locator("#panelBody .tx-row .tx-sub")).toHaveText(["₦775,000.00 NGN → $500.00 USD · Scheduled"]);
   await expect(page.locator("#panelBody .tx-row .tx-amt")).toHaveText(["-₦775,000.00 NGN"]);
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveCount(0); // not credited until it’s paid
 });
@@ -148,7 +148,7 @@ test("the NGN-to-stablecoins block doesn’t change it: Daniel still gets USD, n
   await expect(activity(page).locator('li[data-recipient="pu5"]')).toHaveText("Daniel ChoReceived $2.00 USD from Ada Osun");
 });
 
-test("any other Poket user follows the demo bar: No converts on receipt, Yes gets naira (switching live)", async ({ page }) => {
+test("any other CentryLink user follows the demo bar: No converts on receipt, Yes gets naira (switching live)", async ({ page }) => {
   await start(page);
   await sendTo(page, "pu1", "310000"); // Tobi Bello
   await expect(page.locator("#nairaRecipientNotice")).toHaveCount(0);

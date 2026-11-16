@@ -2,14 +2,14 @@
 import type { Withdrawal, WithdrawalStatus } from "@/lib/mock-api";
 import { fmtCurrency } from "../payout/payoutMath";
 import { Grey } from "../payout/parts";
-import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
+import { STATUS_META, sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
 import { TxIcon } from "../history/TxView";
 
 /** A withdrawal status chip: the wallet's .va-status with its tone (ok / muted / warn / err). */
-export function StatusChip({ status, quickCheck }: { status: WithdrawalStatus; quickCheck?: boolean }) {
+export function StatusChip({ status }: { status: WithdrawalStatus }) {
   const m = STATUS_META[status];
-  const chip = status === "review" && quickCheck ? QUICK_CHECK.chip : m.chip;
+  const chip = m.chip;
   return <span className={`va-status${m.tone ? " " + m.tone : ""}`} data-status={status}>{chip}</span>;
 }
 
@@ -23,8 +23,8 @@ export function StatusChip({ status, quickCheck }: { status: WithdrawalStatus; q
  */
 export function WithdrawalRow({ w }: { w: Withdrawal }) {
   const push = useWalletNav((s) => s.push);
-  // The icon is the direction only: the sub says how (a Poket user's handle, a wallet's address get their method)
-  const how = w.kind === "poket" ? "Poket" : w.kind === "wallet" ? "Stablecoin wallet" : null;
+  // The icon is the direction only: the sub says how (a CentryLink user's handle, a wallet's address get their method)
+  const how = w.kind === "poket" ? "CentryLink" : w.kind === "wallet" ? "Stablecoin wallet" : null;
   const sub = w.conversion ? `${w.conversion.paidText} \u2192 ${w.conversion.receivedText}` : how && w.recipientSub ? `${how} · ${w.recipientSub}` : w.recipientSub;
   return (
     <div className="tx-row" data-txid={w.id} role="button" tabIndex={0} onClick={() => push({ name: "withdrawal", id: w.id })}
@@ -32,7 +32,7 @@ export function WithdrawalRow({ w }: { w: Withdrawal }) {
       <TxIcon dir="out" />
       <div className="tx-main">
         <div className="tx-title">{`To ${w.recipientName}`}</div>
-        <div className="tx-sub"><Grey>{sub}</Grey>{w.status !== "paid" && <> · <StatusChip status={w.status} quickCheck={w.quickCheck} /></>}</div>
+        <div className="tx-sub"><Grey>{sub}</Grey>{w.status !== "paid" && <> · <StatusChip status={w.status} /></>}</div>
       </div>
       <div className="tx-amt"><Grey>{"-" + sentText(w)}</Grey></div>
     </div>

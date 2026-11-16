@@ -136,9 +136,9 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   await page.locator("#payFromChip").click();
   await expect(chipOptions(page).locator(".t1")).toHaveText(["US DollarFIAT-ONLY", "US Dollar"]); // card-funded and open; no NGN for a non-Nigerian bank
   await page.locator('[data-payfrom="cash:USD:open"]').click();
-  // No speed choice: one speed (first payment: held for [hold] first)
+  // No speed choice: one speed (a first payment under $500 isn’t held)
   await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0);
-  await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]");
+  await expect(page.locator("#theyGetArrival")).toHaveText("1 to 3 business days");
   // Max is the whole balance less the $6.00 fee
   await page.locator("#payoutMaxAmt").click();
   await expect(page.locator("#youSend")).toHaveText("44.00");
@@ -151,18 +151,16 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   await page.locator("#payoutReview").click();
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]); // no Speed row
-  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$5.00 USD", "$6.00 USD", "After [hold]", "$11.00 USD"]);
+  await expect(rows.locator(".r-value")).toHaveText(["Chase Bank · •••• 4821", "$5.00 USD", "$6.00 USD", "1 to 3 business days", "$11.00 USD"]);
   await expect(page.locator("#confirmPayout")).toHaveText("Send $5.00");
-  await expect(page.locator("#panelBody")).toContainText("First payment to a new account sends after [hold]");
+  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // $11.00 leaves: under $500
   await approve(page);
-  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Jordan Blake after [hold]");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Jordan Blake");
   // Taken from open USD (the amount and the fee) until it’s paid, given back if it fails
   await expect.poll(() => usd(page)).toEqual({ usd: 5460, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Scheduled");
-  await expect(page.locator("#panelBody .step-title")).toHaveText("$5.00 USD");
-  await page.getByRole("button", { name: "Release first-payment hold" }).click();
   await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
+  await expect(page.locator("#panelBody .step-title")).toHaveText("$5.00 USD");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // the US bank’s own arrival, not the naira one
   await page.getByRole("button", { name: "Fail", exact: true }).click();
   await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Failed");
@@ -186,7 +184,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   const rows = page.locator("#panelBody .receipt-row");
   await expect(rows.locator(".r-label")).toHaveText(["To", "They get", "Fee", "Delivery", "Total charged"]);
   await expect(rows.locator(".r-value")).toHaveText(["Visa · •••• 4242", "$25.00 USD", "$6.00 USD", "Instantly", "$31.00 USD"]);
-  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // the hold is for bank accounts
+  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // $31.00 leaves: under $500
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
   await passSelfie(page); // $25.00 leaves USD: over the step-up limit
@@ -293,7 +291,7 @@ test("They get: the same box as You send, with a fixed chip (currency mark, name
   await expect(page.locator("#theyGetChip")).toHaveText("NGN");
   await expect(page.locator("#theyGetChip")).toHaveAttribute("aria-disabled", "true");
   await expect(page.locator("#theyGetChip .asset-icon-wrap, #theyGetChip svg").first()).toBeVisible(); // the currency mark
-  await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]");
+  await expect(page.locator("#theyGetArrival")).toHaveText("Usually within seconds"); // nothing to send yet: not held
   await expect(page.locator("#cvQuoteCard")).toHaveCount(0); // not converting
   // The two amounts are the same size
   const size = (sel: string) => page.locator(sel).evaluate((e) => getComputedStyle(e).fontSize);

@@ -8,7 +8,7 @@ import { useWalletNav } from "../../useWalletNav";
 import { sendSummary } from "../../send/sendSummary";
 import { SendRows } from "./AmountReviewScreens";
 import { cvParse } from "../../convert/convertMath";
-import { QUICK_CHECK, STATUS_META } from "../withdrawals";
+import { STATUS_META } from "../withdrawals";
 
 /** tPayout stage 'processing': what they get, to whom. */
 export function ProcessingScreen() {
@@ -25,17 +25,15 @@ export function ProcessingScreen() {
 
 /**
  * tPayout stage 'done', for any recipient: what they get, the confirmation and arrival from the send's summary.
- * A Poket user is paid at once ("Sent to"); a first payment to a bank account sends after [hold].
+ * A CentryLink user is paid at once ("Sent to"); a first payment of $500 or more to a new recipient sends after [hold].
  */
 export function DoneScreen() {
   const { recipient: r, sent, lastRef, close, payFrom, payCents, cents, jitter } = usePayout();
   if (!r || !sent || !payFrom) return null;
   const s = sendSummary(r, payFrom, payCents, cents, jitter);
   const held = sent.status === "scheduled";
-  // A first payment of $500 or more to a new card, wallet or Poket user (the exploration's doneScreen when held)
-  const checking = sent.status === "review" && !!sent.quickCheck;
   // Held for review after the 3rd failed selfie check (not approved, not sent)
-  const reviewing = sent.status === "review" && !sent.quickCheck;
+  const reviewing = sent.status === "review";
   // A converted send leads with what left your balance (its badge too); what they get follows
   const t = cvParse(s.converting ? payFrom : s.targetKey);
   const iconKey = t.k === "coin" ? t.asset.toLowerCase() : CURRENCY_INFO[t.cur as keyof typeof CURRENCY_INFO]?.icon;
@@ -53,17 +51,11 @@ export function DoneScreen() {
             <p className="step-sub" id="doneTheyGet" style={{ marginBottom: "2px" }}>{who} gets <Grey>{s.theyGetText}</Grey></p>
           </>
         ) : <div className="step-title mono" style={{ marginTop: "2px", fontSize: "26px" }}><Grey>{s.theyGetText}</Grey></div>}
-        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : checking || reviewing ? `To ${r.name}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
+        <p className="step-sub">{held ? `Sends to ${r.name} after ${HOLD_PLACEHOLDER}` : reviewing ? `To ${r.name}` : `${r.isSelf ? "On its way to" : "Sent to"} ${r.name}`}{s.tag && <span className="fiat-tag">{s.tag}</span>}</p>
         {reviewing && (
           <>
             <span className="va-status warn" id="heldForReview">{STATUS_META.review.chip}</span>
             <p className="step-sub" id="heldForReviewNote" style={{ marginTop: "8px" }}>{STATUS_META.review.message}</p>
-          </>
-        )}
-        {checking && (
-          <>
-            <span className="va-status warn" id="quickCheck">{QUICK_CHECK.chip}</span>
-            <p className="step-sub" id="quickCheckNote" style={{ marginTop: "8px" }}>{QUICK_CHECK.message}</p>
           </>
         )}
         <span className="btn-ghost" id="viewPayoutTx" role="button" tabIndex={0}

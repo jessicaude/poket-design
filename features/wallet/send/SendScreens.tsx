@@ -24,7 +24,7 @@ const subOf = (r: SendRecipient) =>
 /** A grey icon in a badge (the reference's payoutMethodBadgeHtml for non-logo methods). */
 const greyIcon = (icon: string) => `<span style="display:inline-flex;color:var(--txt2)">${icon}</span>`;
 
-/** A recipient's mark: a bank's country flag, a card, a Poket user's initials, a wallet's coin with its network. */
+/** A recipient's mark: a bank's country flag, a card, a CentryLink user's initials, a wallet's coin with its network. */
 function Mark({ r }: { r: SendRecipient }) {
   if (r.kind === "bank") return <div className="badge" dangerouslySetInnerHTML={{ __html: WICON[BANK_FLAG[r.bank.currency] ?? "globe"] }} />;
   if (r.kind === "card") return <div className="badge" dangerouslySetInnerHTML={{ __html: greyIcon(WICON.card) }} />;
@@ -101,8 +101,8 @@ export function SendNewRecipientScreen() {
   const kinds: { kind: "bank" | "card" | "poket" | "wallet"; label: string; sub: string; icon: string }[] = [
     { kind: "bank", label: "Bank account", sub: "", icon: WICON.bank },
     { kind: "card", label: "Debit card", sub: "", icon: WICON.card },
-    { kind: "poket", label: "Poket user", sub: "@handle, email or phone", icon: WICON.user },
-    { kind: "wallet", label: "Stablecoin wallet", sub: "", icon: WICON.usdc },
+    { kind: "poket", label: "CentryLink user", sub: "@handle, email or phone", icon: WICON.user },
+    { kind: "wallet", label: "Stablecoin wallet", sub: "", icon: WICON.stablecoin },
   ];
   return (
     <>
@@ -110,7 +110,8 @@ export function SendNewRecipientScreen() {
       <div className="step-title">New recipient</div>
       {kinds.map((k) => (
         <div className="select-row" key={k.kind} data-newkind={k.kind} role="button" tabIndex={0} onClick={() => addKind(k.kind)} onKeyDown={(e) => { if (e.key === "Enter") addKind(k.kind); }}>
-          <div className="badge" dangerouslySetInnerHTML={{ __html: k.kind === "wallet" ? k.icon : greyIcon(k.icon) }} />
+          {/* Line icons, all the same style and size */}
+          <div className="badge" dangerouslySetInnerHTML={{ __html: greyIcon(k.icon) }} />
           <div className="meta"><div className="t1">{k.label}</div>{k.sub && <div className="t2">{k.sub}</div>}</div>
           <span className="va-chev">{"›"}</span>
         </div>
@@ -259,14 +260,14 @@ function PoketUserRow({ u, id, sel, onClick }: { u: PoketUser; id?: string; sel?
   );
 }
 
-/** New Poket user: @handle, email or phone with a name lookup; recent: the reference Transfer's contacts. */
+/** New CentryLink user: @handle, email or phone with a name lookup; recent: the reference Transfer's contacts. */
 export function SendPoketUserScreen() {
   const { poket: d, back, setPoketQuery, pickRecent, editPoket, continuePoket } = useSend();
   const found = d.lookup.status === "found" ? d.lookup.user : undefined;
   return (
     <>
       <BackRow id="backFromPoketUser" onClick={back} />
-      <div className="step-title">Poket user</div>
+      <div className="step-title">CentryLink user</div>
       <div style={{ position: "relative", marginBottom: "14px" }}>
         <input className="field-input" id="poketQuery" placeholder="@handle, email or phone" aria-label="@handle, email or phone" autoComplete="off"
           style={{ marginBottom: 0, paddingRight: "40px" }} value={d.query} onChange={(e) => setPoketQuery(e.target.value)} />
@@ -281,7 +282,7 @@ export function SendPoketUserScreen() {
           <input className="field-input" id="poketNick" placeholder="e.g. Mom, Alex from work" value={d.nick} onChange={(e) => editPoket({ nick: e.target.value })} />
         </>
       )}
-      {d.lookup.status === "notFound" && <div className="field-err" role="alert">No Poket account found.</div>}
+      {d.lookup.status === "notFound" && <div className="field-err" role="alert">No CentryLink account found.</div>}
       {!found && (
         <>
           <label className="field-label" style={{ marginTop: "8px" }}>Recent</label>

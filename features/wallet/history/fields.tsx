@@ -6,7 +6,7 @@ import type { Payment, Refund } from "@/store/account";
 import { toNigerianBank } from "@/store/partner";
 import { cvParse } from "../convert/convertMath";
 import { fmtCurrency, fmtFee } from "../payout/payoutMath";
-import { QUICK_CHECK, STATUS_META } from "../payout/withdrawals";
+import { STATUS_META } from "../payout/withdrawals";
 import { DetailRow, ReferenceRow, StatusRow } from "../withdrawals/TxDetail";
 import { formatTxDate } from "../withdrawals/TxDetail";
 import type { DepositRecord } from "../deposit/useDeposit";
@@ -76,13 +76,13 @@ const onNetwork = (key: string) => { const o = cvParse(key); return o.k === "coi
 /** A balance's network, when it's a stablecoin. */
 const coinNetwork = (key: string) => { const o = cvParse(key); return o.k === "coin" ? o.net : undefined; };
 
-const SEND_METHOD: Record<Withdrawal["kind"], string> = { bank: "Bank transfer", card: "Debit card", poket: "Poket", wallet: "Stablecoin wallet" };
+const SEND_METHOD: Record<Withdrawal["kind"], string> = { bank: "Bank transfer", card: "Debit card", poket: "CentryLink", wallet: "Stablecoin wallet" };
 
 /** A send: from the paying balance to the recipient's account. */
 export function withdrawalFields(w: Withdrawal): TxFieldsData {
   const m = STATUS_META[w.status];
   return {
-    status: { label: w.status === "review" && w.quickCheck ? QUICK_CHECK.chip : m.chip, tone: m.tone },
+    status: { label: m.chip, tone: m.tone },
     at: w.createdAt, from: balanceName(w.sourceKey, w.currency), to: w.recipientSub, method: SEND_METHOD[w.kind ?? "bank"],
     youSend: w.conversion?.paidText, theyGet: w.conversion?.receivedText, rate: w.conversion?.rateText,
     fee: w.feeText ?? (w.conversion ? `${w.conversion.feeText} + ${fmtFee(w.fee, w.currency)}` : fmtFee(w.fee, w.currency)),
@@ -125,9 +125,9 @@ export function refundFields(p: Payment, r: Refund): TxFieldsData {
 /** How each NGN credit came in. */
 export const CREDIT_METHOD: Record<NgnCredit["kind"], string> = {
   temp: "Bank transfer · Temporary account", account: "Bank transfer · NGN account details",
-  delayed: "Bank transfer · NGN account details", poket: "Poket", recall: "Bank transfer · Recall",
+  delayed: "Bank transfer · NGN account details", poket: "CentryLink", recall: "Bank transfer · Recall",
 };
-/** Naira into the NGN balance: a deposit's fee (0.40%, capped), free from a Poket user; a recall has no fee line. */
+/** Naira into the NGN balance: a deposit's fee (0.40%, capped), free from a CentryLink user; a recall has no fee line. */
 export function creditFields(c: NgnCredit): TxFieldsData {
   return {
     status: COMPLETED, at: c.at, from: c.from, to: "NGN balance", method: CREDIT_METHOD[c.kind],

@@ -1,11 +1,13 @@
 import { test, expect, type Page } from "@playwright/test";
+import { HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
+import { passSelfie } from "./selfie";
 
 /**
  * WGT-13, partner downtime. Demo bar "Naira partner: Up / Down" (in both widgets' bars, one shared state). While down:
  * a banner tops the wallet home, the NGN balance and the affected naira screens; Deposit NGN’s Bank transfer and
  * getting NGN account details are paused (no accounts created; Convert instead); existing account details stay, with
  * a Paused chip and "Transfers may arrive late."; sends to Nigerian banks can’t be reviewed and the name enquiry is
- * unavailable; sends already Sending stay Sending; Checkout’s naira bank transfer is Paused. Poket users, Convert,
+ * unavailable; sends already Sending stay Sending; Checkout’s naira bank transfer is Paused. CentryLink users, Convert,
  * cards and balances are unaffected. Back up, everything is as before.
  *
  * Reliability: the partner state lives in each page's memory (store/partner.ts), so every test (its own browser
@@ -17,7 +19,7 @@ import { test, expect, type Page } from "@playwright/test";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /** How long a released send takes to move on (RELEASE_SEND_MS in features/wallet/payout/useWithdrawals.ts). */
 const RELEASE_SEND_MS = 1500;
-const COPY = "Naira bank transfers are paused. Your balance is safe, and sending to Poket users, converting and card payments still work.";
+const COPY = "Naira bank transfers are paused. Your balance is safe, and sending to CentryLink users, converting and card payments still work.";
 const banner = (page: Page) => page.locator("#panelBody #nairaPaused");
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
 /** Set the partner, and wait until the bar shows it. */
@@ -203,8 +205,16 @@ test("adding a Nigerian bank: the name enquiry shows its unavailable state", asy
 
 test("a send already Sending stays Sending until the partner is back", async ({ page }) => {
   await start(page, "/demo/wallet", { clock: true });
-  await toAmount(page, "bank:r6", "500000"); // a first payment to Ngozi: scheduled, then released
-  await sendWithPin(page);
+  // A first payment of $500 or more to Ngozi: scheduled, then released
+  await roomForHeldNaira(page);
+  await toAmount(page, "bank:r6", HELD_NGN_DIGITS);
+  await page.locator("#payoutReview").click();
+  await page.locator("#payoutAckCheck").check();
+  await page.locator("#confirmPayout").click();
+  await passSelfie(page);
+  await page.locator("#panelBody .otp-box").first().click();
+  await page.keyboard.type("1234");
+  await expect(page.locator("#viewPayoutTx")).toBeVisible();
   await page.locator("#viewPayoutTx").click();
   const chip = page.locator('#txDetail [data-label="Status"] > span:last-child');
   await expect(chip).toHaveText("Scheduled");
@@ -221,7 +231,7 @@ test("a send already Sending stays Sending until the partner is back", async ({ 
   await expect(banner(page)).toHaveCount(0);
 });
 
-test("unaffected: Poket users, other banks and Convert", async ({ page }) => {
+test("unaffected: CentryLink users, other banks and Convert", async ({ page }) => {
   await start(page);
   await partner(page, "down");
   await toAmount(page, "poket:pu1", "300000");

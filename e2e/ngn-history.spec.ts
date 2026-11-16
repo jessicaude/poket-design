@@ -6,7 +6,7 @@ import { test, expect, type Page } from "@playwright/test";
  * the same rows in the same order (Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed,
  * Fee, Reference, Session ID), a unique reference in the copyable chip and, for a bank transfer, the bank’s session
  * ID as "[session ID]". The audit found naira coming into the NGN balance with no record at all (temporary-account
- * top-ups, transfers to the account details, delayed transfers, naira from Poket users, recovered recalls): each is
+ * top-ups, transfers to the account details, delayed transfers, naira from CentryLink users, recovered recalls): each is
  * now its own record with a receipt.
  */
 
@@ -74,7 +74,7 @@ test("a payment’s row carries its status chip unless it’s completed", async 
   await expect(page.locator('[data-payment="pay_ilv10077"] .va-status')).toHaveText("Refunded");
 });
 
-test("deposits and transfers in are records: top-up, account details, delayed, Poket user; their receipts", async ({ page }) => {
+test("deposits and transfers in are records: top-up, account details, delayed, CentryLink user; their receipts", async ({ page }) => {
   await wallet(page);
   const before = await ngn(page);
   // A temporary-account top-up (₦10,000.00), as the Deposit flow makes it
@@ -82,20 +82,20 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   // The NGN account details: a transfer in
   await page.evaluate(() => (window as any).__ngn.getState().set({ dedicated: { status: "ready", num: "0123456789" } }));
   await page.locator("#demoAccountTransfer").click();
-  // Naira from a Poket user
+  // Naira from a CentryLink user
   await page.locator("#demoPoketTransfer").click();
   // One that arrived while the partner was down: credited when it’s back
   await page.getByLabel("Naira partner").selectOption("down");
   await expect(page.locator("#demoAccountTransfer")).toHaveCount(0);
   await page.locator("#demoQueuedArrival").click();
   await page.getByLabel("Naira partner").selectOption("up");
-  await expect.poll(() => ngn(page)).toBe(before + 996000 + 2490000 + 1000000 + 2490000); // deposits less their 0.40% fee; from a Poket user, free
+  await expect.poll(() => ngn(page)).toBe(before + 996000 + 2490000 + 1000000 + 2490000); // deposits less their 0.40% fee; from a CentryLink user, free
 
   await openNgnBalance(page);
   const h = page.locator("#balanceHistory");
   await expect(h.locator('[data-credit]:not([data-txid*="seed"])')).toHaveCount(4);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-title')).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
-  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "Poket", "NGN account details", "Temporary account"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "CentryLink", "NGN account details", "Temporary account"]);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦24,900.00 NGN", "+₦10,000.00 NGN", "+₦24,900.00 NGN", "+₦9,960.00 NGN"]); // deposits less their fee
   await expect(h.locator("[data-histday]").first()).toHaveText("Today");
   await h.locator('[data-histfilter="out"]').click();
@@ -106,10 +106,10 @@ test("deposits and transfers in are records: top-up, account details, delayed, P
   await h.locator('[data-histfilter="in"]').click();
 
   const refs = new Set<string>();
-  // Deposits pay 0.40% (capped at ₦5,000.00); naira from a Poket user is free
+  // Deposits pay 0.40% (capped at ₦5,000.00); naira from a CentryLink user is free
   const expectations: [string, string, string, boolean, string][] = [
     ["delayed", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
-    ["poket", "Amara Okafor", "Poket", false, "Free"],
+    ["poket", "Amara Okafor", "CentryLink", false, "Free"],
     ["account", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
     ["temp", "Ada Osun", "Bank transfer · Temporary account", true, "₦40.00 NGN"],
   ];

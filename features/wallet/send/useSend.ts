@@ -16,7 +16,7 @@ import { cardIssue, handleKind, initialsOf, routingBank, sortBank, validAddress 
  *     use the explore prototype's US and UK bank fields (a US bank's speed is chosen per send, on the amount screen).
  *   - Debit card: the explore prototype's card fields (number with the brand, name on card, billing ZIP). Visa and
  *     Mastercard debit cards only; credit cards can't receive payouts.
- *   - Poket user: @handle, email or phone, with a name lookup; recent: the reference Transfer's contacts.
+ *   - CentryLink user: @handle, email or phone, with a name lookup; recent: the reference Transfer's contacts.
  *   - Stablecoin wallet (Tier 2, as decided): coin and network, address (validated, start and end highlighted),
  *     optional nickname.
  * Every new recipient can be saved ("Save recipient", on by default). Every kind then goes on to the same amount,

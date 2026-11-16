@@ -2,7 +2,7 @@ import { press } from "./keypad";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * Send: the recipients screen and "+ New recipient" (bank account by currency, Poket user, stablecoin wallet), from
+ * Send: the recipients screen and "+ New recipient" (bank account by currency, CentryLink user, stablecoin wallet), from
  * reference/poket-wallet-explore.html with the wallet’s look. Opened with the ?send= preview (no home entry on this branch).
  */
 
@@ -36,7 +36,7 @@ test("a saved Nigerian bank account goes straight to the amount; Back returns to
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
   await page.locator("#backToPayoutRecipient2").click();
   await expect(title(page)).toHaveText("Send");
-  // Poket users have the same amount screen
+  // CentryLink users have the same amount screen
   await page.locator('[data-sendrecipient="poket:pu1"]').click();
   await expect(page.locator("#sendToTitle")).toHaveText("Send to Tobi");
 });
@@ -45,7 +45,10 @@ test("+ New recipient asks where to send; Bank account asks the currency first",
   await page.goto("/demo/wallet?send=recipients");
   await page.locator("#newRecipient").click();
   await expect(title(page)).toHaveText("New recipient");
-  await expect(page.locator("#panelBody [data-newkind] .t1")).toHaveText(["Bank account", "Debit card", "Poket user", "Stablecoin wallet"]);
+  await expect(page.locator("#panelBody [data-newkind] .t1")).toHaveText(["Bank account", "Debit card", "CentryLink user", "Stablecoin wallet"]);
+  // Line icons in the same style and size: no full-colour coin
+  const marks = await page.locator("#panelBody [data-newkind] .badge svg").evaluateAll((els) => els.map((e) => [e.getAttribute("width"), e.querySelector("[fill]:not([fill=none])") ? "fill" : "line"]));
+  expect(marks).toEqual([["15", "line"], ["15", "line"], ["15", "line"], ["15", "line"]]);
   await expect(page.locator('#panelBody [data-newkind="poket"] .t2')).toHaveText("@handle, email or phone");
   await page.locator('[data-newkind="bank"]').click();
   await expect(title(page)).toHaveText("Currency");
@@ -118,7 +121,7 @@ test("USD bank account: routing number and bank, account, holder, nickname; one 
   // On to the amount, paying from open USD: one speed (no Instant or Wire), 1 to 3 business days
   await expect(page.locator("#payFromChip .cv-pick-name")).toHaveText("USD");
   await expect(page.locator("#panelBody [data-speed]")).toHaveCount(0);
-  await expect(page.locator("#theyGetArrival")).toHaveText("After [hold]"); // a new account: first-payment hold
+  await expect(page.locator("#theyGetArrival")).toHaveText("1 to 3 business days"); // a new account, but under $500: not held
   for (const d of "1000") await press(page, d);
   await expect(page.locator("#payoutReview")).toBeEnabled();
   await page.locator("#backToPayoutRecipient2").click();
@@ -280,16 +283,16 @@ test("GBP bank account: sort code with the bank’s name, 8-digit account number
   await expect(title(page)).toHaveText("Currency");
 });
 
-test("Poket user: @handle, email or phone with a name lookup; recent contacts; not found", async ({ page }) => {
+test("CentryLink user: @handle, email or phone with a name lookup; recent contacts; not found", async ({ page }) => {
   await page.goto("/demo/wallet?send=new");
   await page.locator('[data-newkind="poket"]').click();
-  await expect(title(page)).toHaveText("Poket user");
+  await expect(title(page)).toHaveText("CentryLink user");
   await expect(page.locator("#panelBody [data-poketuser] .t1")).toHaveText(["Amara Okafor", "Daniel Cho", "Priya Nair"]);
   await expect(page.locator("#poketContinue")).toBeDisabled();
 
   await page.locator("#poketQuery").fill("@nobody");
   await expect(page.getByRole("status", { name: "Looking up the name" })).toBeVisible();
-  await expect(page.locator("#panelBody .field-err")).toHaveText("No Poket account found.");
+  await expect(page.locator("#panelBody .field-err")).toHaveText("No CentryLink account found.");
   await page.locator("#poketQuery").fill("kemi.a@gmail.com");
   await expect(page.locator("#poketFound .t1")).toHaveText("Kemi Adeyemi");
   await page.locator("#poketQuery").fill("+234 803 123 4567");

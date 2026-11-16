@@ -115,7 +115,7 @@ export function History({ items, id, empty }: { items: HistoryItem[]; id: string
 }
 
 const CREDIT_SUB: Record<NgnCredit["kind"], string> = {
-  temp: "Temporary account", account: "NGN account details", delayed: "NGN account details · Delayed", poket: "Poket", recall: "Recovered",
+  temp: "Temporary account", account: "NGN account details", delayed: "NGN account details · Delayed", poket: "CentryLink", recall: "Recovered",
 };
 
 function useRecallName(c: NgnCredit) {

@@ -4,7 +4,7 @@ import { cvPress } from "./keypad";
 /**
  * Fees (lib/fees.ts; docs/decisions.md, Fees): deposits 0.40% capped ($4.00, ₦5,000.00) out of what arrives; Convert
  * $2.00 + 0.40% from USD or a stablecoin, ₦2,000.00 + 0.40% from NGN, out of the amount in the source; sends to
- * external accounts $6.00 / 6.00 in the coin / ₦25.00 on top; to Poket users free. In every total, Max and balance.
+ * external accounts $6.00 / 6.00 in the coin / ₦25.00 on top; to CentryLink users free. In every total, Max and balance.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,7 +29,7 @@ test("mock: the fees", async () => {
   expect([f.externalSendFee({ k: "cash", cur: "EUR" }), f.externalSendFee({ k: "cash", cur: "GBP" }), f.externalSendFee({ k: "cash", cur: "GHS" })]).toEqual([556, 472, 9300]);
   expect([f.depositCap("EUR"), f.depositCap("GBP"), f.depositCap("GHS")]).toEqual([370, 315, 6200]);
   expect([f.depositFeeText("EUR"), f.depositFeeText("GBP")]).toEqual(["0.40% fee, up to €3.70", "0.40% fee, up to £3.15"]);
-  // A Poket user's conversion on receipt: free
+  // A CentryLink user's conversion on receipt: free
   expect(cv.cvQuote("cash:NGN:open", "cash:USD:open", 500000, 1, true)).toMatchObject({ fee: 0, receive: 323 });
   expect(cv.cvFeeText(cv.cvQuote("cash:NGN:open", "cash:USD:open", 500000, 1, true))).toBe("Free");
   expect(cv.underFee(q("cash:NGN:open", "cash:USD:open", 200000))).toBe(true);
@@ -42,7 +42,7 @@ test("mock: the fees", async () => {
   expect(sendSummary(r("lb1"), "cash:USD:open", 1000, 1000, 1)).toMatchObject({ feeTarget: 600, feeText: "$6.00 USD", sourceTotal: 1600 });
   const poket = { id: "pu4", name: "Amara Okafor", methodType: "poket", currency: "NGN", bankName: "", accountNumber: "", routingNumber: "", handle: "@amara" } as any;
   expect(sendSummary(poket, "cash:NGN:open", 500000, 500000, 1)).toMatchObject({ feeTarget: 0, feeText: "Free", sourceTotal: 500000 });
-  // To a Poket user who can't hold naira: converted on receipt, still free
+  // To a CentryLink user who can't hold naira: converted on receipt, still free
   const usdPoket = { ...poket, id: "pu5", name: "Daniel Cho", currency: "USD" };
   expect(sendSummary(usdPoket, "cash:NGN:open", 500000, 323, 1)).toMatchObject({ feeTarget: 0, feeText: "Free", sourceTotal: 500000 });
   // A UK bank (to confirm): $6.00 at the demo rate, £4.72
@@ -68,7 +68,7 @@ test("deposit: the amount screen shows the fee and what you get; the account car
   await expect(page.locator("#vaOpen .t2")).toHaveText("Receive NGN by bank transfer. 0.40% fee, up to ₦5,000.00.");
 });
 
-test("send: the fee on the amount screen, in Max and the total; a Poket user is free", async ({ page }) => {
+test("send: the fee on the amount screen, in Max and the total; a CentryLink user is free", async ({ page }) => {
   await wallet(page);
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="bank:lb2"]').click();

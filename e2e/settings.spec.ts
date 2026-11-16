@@ -331,7 +331,7 @@ test("while off, naira to a Nigerian bank is blocked whatever pays it (USD conve
   await expect(page.locator("#instantOffNotice")).toBeVisible();
 });
 
-for (const [recipient, label] of [["poket:pu1", "a Poket user"], ["bank:r4", "a US bank"]] as const) {
+for (const [recipient, label] of [["poket:pu1", "a CentryLink user"], ["bank:r4", "a US bank"]] as const) {
   test(`while off, ${label} is unaffected`, async ({ page }) => {
     await offThenSend(page, recipient, recipient === "bank:r4" ? "" : "500000");
     if (recipient === "bank:r4") {
@@ -406,7 +406,7 @@ test("daily limit in Send: today’s total can’t go over it; the amount screen
   await expect(title(page)).toHaveText("Instant transfers");
 });
 
-test("daily limit in Send: a failed send doesn’t count; Poket users aren’t limited; naira converted from USD counts", async ({ page }) => {
+test("daily limit in Send: a failed send doesn’t count; CentryLink users aren’t limited; naira converted from USD counts", async ({ page }) => {
   await limitedWallet(page);
   await amountTo(page, "bank:lb2", "1500000");
   await sendIt(page);
@@ -420,7 +420,7 @@ test("daily limit in Send: a failed send doesn’t count; Poket users aren’t l
   await page.locator('[data-sendrecipient="poket:pu1"]').click();
   await page.locator("#youSend").click();
   for (const d of "3000000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click(); // ₦30,000.00, over the limit
-  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0); // a Poket user: not a bank
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0); // a CentryLink user: not a bank
   // USD paying a Nigerian bank: the naira it becomes counts against the limit
   await page.locator("#editPayoutRecipient").click();
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
@@ -431,7 +431,7 @@ test("daily limit in Send: a failed send doesn’t count; Poket users aren’t l
   await expect(page.locator("#dailyLimitNotice")).toContainText("That’s over your daily limit of ₦25,000.00.");
 });
 
-test("mock: today’s total counts sends to Nigerian banks today, not failed or reversed ones, other days or Poket users", async () => {
+test("mock: today’s total counts sends to Nigerian banks today, not failed or reversed ones, other days or CentryLink users", async () => {
   const { reservePayout, createPayout, setWithdrawalStatus, getInstantSentToday, resetPayoutServer } = await import("@/lib/mock-api");
   resetPayoutServer();
   const send = async (amount: number, recipientId: string, kind: "bank" | "poket" = "bank") => {

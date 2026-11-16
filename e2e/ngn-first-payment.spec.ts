@@ -1,21 +1,24 @@
 import { press } from "./keypad";
+import { HELD_NGN_BALANCE, HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
+import { passSelfie } from "./selfie";
 import { test, expect, type Page } from "@playwright/test";
 
 /**
- * NGN withdrawal: a first payment to an account shows "sends after [hold]" on amount and review, and the amount
- * is reserved from the balance once the PIN is accepted. Seed: "Naira account" (lb2) has been paid before;
+ * NGN withdrawal: a first payment of $500 or more to a new account shows the first-payment notice on amount and
+ * review and sends after [hold]; anything smaller isn't held. The amount is reserved once the PIN is accepted. Seed: "Naira account" (lb2) has been paid before;
  * "Ngozi Eze" (r6) and newly added accounts haven’t.
  */
 
-const NOTICE = "First payment to a new account sends after [hold]";
+const NOTICE = "To protect you, first payments of $500 or more to a new account send after [hold].";
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
 const ngn = (page: Page) => page.evaluate(() => {
   const s = (window as any).__ngn.getState(); // eslint-disable-line @typescript-eslint/no-explicit-any
   return { balance: s.ngnBalance as number, reserved: s.ngnReserved as number };
 });
 
-async function toAmount(page: Page, recipient: string) {
+async function toAmount(page: Page, recipient: string, held = false) {
   await page.goto("/demo/wallet");
+  if (held) await roomForHeldNaira(page);
   await page.getByLabel("PIN", { exact: true }).selectOption("set"); // demo PIN 1234
   await page.locator("#actSend").click();
   await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
@@ -35,41 +38,53 @@ async function typePin(page: Page, pin: string) {
   await page.keyboard.type(pin);
 }
 
-test("first payment: notice on amount and review; reserved at the PIN; held until [hold]", async ({ page }) => {
-  await toAmount(page, "other:r6");
+test("a first payment of $500 or more to a new account: notice on amount and review; reserved at the PIN; held until [hold]", async ({ page }) => {
+  await toAmount(page, "other:r6", true);
+  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0); // nothing to send yet
+  await typeAmount(page, HELD_NGN_DIGITS); // ₦800,000.00 and the ₦25.00 fee: about $516
   await expect(page.locator("#firstPaymentNotice")).toHaveText(NOTICE);
-  await typeAmount(page, "500000");
   await page.locator("#payoutReview").click();
   await expect(page.locator("#firstPaymentNotice")).toHaveText(NOTICE);
   await expect(page.locator("#panelBody .receipt-row", { hasText: "Delivery" }).locator(".r-value")).toHaveText("After [hold]");
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
+  await passSelfie(page); // over ₦[step-up]
 
   // Nothing is reserved until the PIN is accepted: not at review, not on a wrong PIN
   await expect(title(page)).toHaveText("Enter your PIN");
-  expect(await ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: HELD_NGN_BALANCE, reserved: 0 });
   await typePin(page, "0000");
   await expect(page.locator("#panelBody .step-sub")).toContainText("That PIN isn’t right. Try again. 2 attempts left.");
-  expect(await ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: HELD_NGN_BALANCE, reserved: 0 });
 
   await typePin(page, "1234");
-  await expect(title(page)).toHaveText("Sending…");
-  await expect.poll(() => ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
+  await expect.poll(() => ngn(page)).toEqual({ balance: HELD_NGN_BALANCE - 80002500, reserved: 80002500 });
 
-  await expect(title(page)).toHaveText("₦5,000.00 NGN");
+  await expect(title(page)).toHaveText("₦800,000.00 NGN");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sends to Ngozi Eze after [hold]");
-  // Done: the review's rows, then the confirmation reference
   await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Delivery" })).toContainText("DeliveryAfter [hold]");
-  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 }); // still reserved while held
-  await page.locator("#payoutDone").click();
-  await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
-  await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦44,975.00 NGN");
+  expect(await ngn(page)).toEqual({ balance: HELD_NGN_BALANCE - 80002500, reserved: 80002500 }); // still reserved while held
+  await page.locator("#viewPayoutTx").click();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Scheduled");
+  await page.locator("#backFromTxDetail").click();
 
-  // The account has now been paid: no notice next time
+  // The account has now been paid: no notice next time, whatever the amount
   await page.locator("#actSend").click();
   await page.locator('[data-sendrecipient="bank:r6"]').click();
-  await expect(page.locator("#youSend")).toBeVisible(); // the amount screen (the keypad opens on tap)
+  await typeAmount(page, "10000000");
   await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
+});
+
+test("under $500, a first payment to a new account isn’t held: no notice, Sending", async ({ page }) => {
+  await toAmount(page, "other:r6");
+  await typeAmount(page, "500000"); // ₦5,000.00: about $3
+  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
+  await toPin(page);
+  await typePin(page, "1234");
+  await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ngozi Eze");
+  await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Delivery" })).toContainText("DeliveryUsually within seconds");
+  await page.locator("#viewPayoutTx").click();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
 });
 
 test("account paid before: no notice; reserved at the PIN and still while Sending", async ({ page }) => {
@@ -85,8 +100,9 @@ test("account paid before: no notice; reserved at the PIN and still while Sendin
   await expect(page.locator("#panelBody .receipt-row").filter({ hasText: "Arrives" })).toContainText("ArrivesUsually within seconds");
 });
 
-test("a newly added account gets the notice", async ({ page }) => {
+test("a newly added account gets the notice for $500 or more", async ({ page }) => {
   await page.goto("/demo/wallet");
+  await roomForHeldNaira(page);
   await page.locator("#actSend").click();
   await page.locator("#newRecipient").click();
   await page.locator('[data-newkind="bank"]').click();
@@ -96,5 +112,7 @@ test("a newly added account gets the notice", async ({ page }) => {
   await page.locator("#ngnAcctInput").fill("2045671111");
   await page.locator("#ngnThirdPartyOk").check();
   await page.locator("#ngnAcctSave").click();
+  await expect(page.locator("#firstPaymentNotice")).toHaveCount(0);
+  await typeAmount(page, HELD_NGN_DIGITS);
   await expect(page.locator("#firstPaymentNotice")).toHaveText(NOTICE);
 });

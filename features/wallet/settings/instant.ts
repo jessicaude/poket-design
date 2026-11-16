@@ -21,7 +21,7 @@ export function turnOnInstantTransfers() {
 
 /**
  * While instant transfers are off, sends to Nigerian bank accounts don't go: naira to a Nigerian bank, whatever pays
- * it. Poket users, other banks, cards, wallets, Convert and Checkout aren't affected.
+ * it. CentryLink users, other banks, cards, wallets, Convert and Checkout aren't affected.
  */
 export const blockedByInstantOff = (r: PayoutRecipient | null, instantOn: boolean) =>
   !instantOn && !!r && r.methodType === "bank" && r.currency === "NGN";

@@ -8,9 +8,9 @@
 - Errors: what happened, then what to do. "That code isn’t right. Check it and try again."
 - Unavailable or paused: what isn't available, why (if useful), what to do instead.
   "Sending to banks is paused. Try again later."
-- Holds: say the kind, and when. First payment: "Sends after [hold]". Review: "We’re checking this
-  payment. We’ll let you know." Quick check: chip "Held for a quick check", line
-  "First payment to a new recipient. Usually under 15 minutes."
+- Holds: say the kind, and when. First payment: "Sends after [hold]"; before sending, "To protect you, first
+  payments of $500 or more to a new account send after [hold]." Review: "We’re checking this payment. We’ll let you
+  know."
 - Money: ₦ with two decimals; running text drops the code ("₦5,000.00"); amount rows and cards keep
   the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders:
   ₦[limit], [hold], [time], [handling]. Fees are decided: show the amount, or "Free".
