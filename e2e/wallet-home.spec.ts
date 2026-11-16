@@ -165,10 +165,12 @@ test("Recent activity: the latest four, newest first; View all opens the Activit
   await expect(body(page).locator(".tx-row")).toHaveCount(16); // the reference’s 3, Ada’s 4 Checkout payments, her 8 seeded naira records, the conversion
   await page.locator('[data-txid="t1"]').click();
   const rows = page.locator("#txDetail .info-row");
-  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "Currency", "Merchant", "Context", "Reference"]);
-  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /\d{4}/, "USD", "Kola Books", "Checkout", /^TXN-\d{6}/]);
-  await expect(rows.filter({ hasText: "Currency" }).locator(".icon-16 svg")).toHaveCount(1); // the flag
+  // The shared template: +, the amount, one title line, the shared rows, Share receipt
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Reference"]);
+  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /\d{4}/, "Kola Books", "USD balance", "Checkout", /^TXN-\d{6}/]);
+  await expect(body(page).locator(".tx-ic-lg")).toHaveAttribute("data-dir", "in");
   await expect(body(page).locator(".step-title")).toHaveText("$4.50 USD");
+  await expect(page.locator("#shareReceipt")).toBeVisible();
   await page.locator("#backFromTxDetail").click();
   await expect(body(page).locator(".step-title")).toHaveText("Activity");
   await page.locator("#tabHome").click();

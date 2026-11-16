@@ -412,7 +412,7 @@ test("daily limit in Send: a failed send doesn’t count; Poket users aren’t l
   await sendIt(page);
   await page.locator("#viewPayoutTx").click();
   await page.getByRole("button", { name: "Fail", exact: true }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Failed");
   await page.locator("#backFromTxDetail").click();
   await amountTo(page, "bank:lb2", "2500000"); // the whole ₦25,000 again
   await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);

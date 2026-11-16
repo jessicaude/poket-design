@@ -69,10 +69,9 @@ export function DoneScreen() {
         <span className="btn-ghost" id="viewPayoutTx" role="button" tabIndex={0}
           onClick={() => { close(); useWalletNav.getState().push({ name: "withdrawal", id: sent.id }); }}>View transaction</span>
       </div>
-      {/* The review's rows, then the confirmation reference */}
+      {/* The review's rows with the confirmation reference; the total stays last */}
       <div className="receipt-card" id="doneRows" style={{ marginTop: "16px" }}>
-        <SendRows r={r} s={s} payFrom={payFrom} />
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.hash} /></span><span className="r-label">Confirmation</span><span className="r-value mono">{lastRef}</span></div>
+        <SendRows r={r} s={s} payFrom={payFrom} confirmation={lastRef ?? undefined} />
       </div>
       <p className="fine-print"><Raw html={WICON.info} /><span>We&rsquo;ve emailed you a receipt.</span></p>
       <button className="btn-primary" id="payoutDone" style={{ marginTop: "18px" }} onClick={close}>Done</button>

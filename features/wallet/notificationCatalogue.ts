@@ -1,4 +1,5 @@
 import { useNotifications } from "./useNotifications";
+import type { WalletScreen } from "./useWalletNav";
 
 /**
  * Every notification the wallet sends, in one place (docs/notifications.md lists the same, and a test keeps them
@@ -32,7 +33,7 @@ export function fillBody(key: NotificationKey, vars: Record<string, string>): st
 /** The notification as sent: its title and filled body. */
 export const notificationFor = (key: NotificationKey, vars: Record<string, string>) => ({ type: NOTIFICATIONS[key].type, title: NOTIFICATIONS[key].title, desc: fillBody(key, vars) });
 
-/** Send a notification from the catalogue. The only way the wallet sends one. */
-export function notify(key: NotificationKey, vars: Record<string, string>) {
-  useNotifications.getState().add(notificationFor(key, vars));
+/** Send a notification from the catalogue. The only way the wallet sends one. `target`: its transaction's detail. */
+export function notify(key: NotificationKey, vars: Record<string, string>, target?: WalletScreen) {
+  useNotifications.getState().add({ ...notificationFor(key, vars), ...(target ? { target } : {}) });
 }

@@ -13,7 +13,9 @@ const ngn = (page: Page) => page.evaluate(() => {
   const s = (window as any).__ngn.getState(); // eslint-disable-line @typescript-eslint/no-explicit-any
   return { balance: s.ngnBalance as number, reserved: s.ngnReserved as number };
 });
-const chip = (page: Page) => page.locator("#withdrawalStatus .va-status");
+/** The status, only in the detail's Status row (no chip); its tone on the row. */
+const chip = (page: Page) => page.locator('#txDetail [data-label="Status"] > span:last-child');
+const tone = (page: Page) => page.locator('#txDetail [data-label="Status"]');
 const msg = (page: Page) => page.locator("#withdrawalStatusMsg");
 const action = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 
@@ -31,7 +33,7 @@ async function payAndOpen(page: Page, recipient: string, digits: string) {
   await page.keyboard.type("1234");
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
 }
 
 test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance screen; the list of held withdrawals", async ({ page }) => {
@@ -39,7 +41,7 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
   await expect(title(page)).toHaveText("₦5,000.00 NGN");
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("To Ngozi Eze");
   await expect(chip(page)).toHaveText("Scheduled");
-  await expect(chip(page)).toHaveClass(/\bmuted\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "muted");
   await expect(msg(page)).toHaveText("Sends after [hold]");
   await expect(page.locator("#panelBody .info-row")).toContainText(["Status", "Date", "ToGTBank · •••• 6789", "Fee₦25.00 NGN", "Reference"]);
   expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
@@ -81,7 +83,7 @@ test("Release first-payment hold: Scheduled → Sending → Paid; paid clears th
   await expect(msg(page)).toHaveText("Usually within seconds");
   expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
   await expect(chip(page)).toHaveText("Paid");
-  await expect(chip(page)).not.toHaveClass(/\b(muted|warn|err)\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "ok");
   await expect(msg(page)).toHaveCount(0);
   expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 0 });
   await expect(action(page, "Release first-payment hold")).toBeDisabled();
@@ -104,13 +106,13 @@ test("Held for review keeps the reservation; then Fail releases it to the balanc
   await payAndOpen(page, "self:lb2", "1000000");
   await action(page, "Hold for review").click();
   await expect(chip(page)).toHaveText("Held for review");
-  await expect(chip(page)).toHaveClass(/\bwarn\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "warn");
   await expect(msg(page)).toHaveText("We’re checking this payment. We’ll let you know.");
   await expect(action(page, "Hold for review")).toBeDisabled();
   expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await action(page, "Fail").click();
   await expect(chip(page)).toHaveText("Failed");
-  await expect(chip(page)).toHaveClass(/\berr\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "err");
   await expect(msg(page)).toHaveText("The money is back in your balance.");
   await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
   for (const a of ["Release first-payment hold", "Hold for review", "Mark paid", "Fail", "Reverse"]) await expect(action(page, a)).toBeDisabled();
@@ -134,7 +136,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
   await expect(page.locator("#openNotifHeader")).toBeHidden();
   await action(page, "Reverse").click();
   await expect(chip(page)).toHaveText("Reversed");
-  await expect(chip(page)).toHaveClass(/\berr\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "err");
   await expect(msg(page)).toHaveText("The money is back in your balance.");
   await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Transfer reversed");

@@ -293,7 +293,7 @@ test("no dispute option on deposits, top-ups, refunds, sends or conversions; the
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
 });
 

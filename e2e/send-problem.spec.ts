@@ -26,11 +26,11 @@ async function sent(page: Page, recipient = "bank:lb2", digits = "500000") {
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
 }
 async function paid(page: Page) {
   await page.getByRole("button", { name: "Mark paid" }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Paid");
 }
 async function recall(page: Page) {
   await page.locator("#reportProblem").click();
@@ -43,7 +43,7 @@ async function recall(page: Page) {
 test("only a Paid send to a Nigerian bank offers Report a problem", async ({ page }) => {
   test.setTimeout(60000);
   await sent(page);
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
   await expect(page.locator("#reportProblem")).toHaveCount(0);
   await paid(page);
   await expect(page.locator("#reportProblem")).toHaveText("Report a problem");

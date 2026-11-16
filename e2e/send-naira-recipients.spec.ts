@@ -80,7 +80,7 @@ test("Daniel can’t hold naira: the notice, They get in USD and the quote; the 
   await expect.poll(() => page.evaluate(() => { const n = (window as any).__ngn.getState(); return [n.ngnBalance, n.ngnReserved]; })).toEqual([4500000, 0]); // eslint-disable-line @typescript-eslint/no-explicit-any
 
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Paid");
   // Your receipt leads with what left your balance; They get is a row
   await expect(page.locator("#panelBody .step-title")).toHaveText("₦5,000.00 NGN");
   const receipt = Object.fromEntries(await info(page).evaluateAll((els) => els.map((e) => [e.children[0].textContent, e.children[1].textContent])));

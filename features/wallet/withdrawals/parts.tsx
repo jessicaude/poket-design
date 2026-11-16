@@ -1,10 +1,10 @@
 "use client";
 import type { Withdrawal, WithdrawalStatus } from "@/lib/mock-api";
-import { WICON } from "@/lib/icons";
 import { fmtCurrency } from "../payout/payoutMath";
 import { Grey } from "../payout/parts";
 import { QUICK_CHECK, STATUS_META, sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
+import { TxIcon } from "../history/TxView";
 
 /** A withdrawal status chip: the wallet's .va-status with its tone (ok / muted / warn / err). */
 export function StatusChip({ status, quickCheck }: { status: WithdrawalStatus; quickCheck?: boolean }) {
@@ -13,9 +13,6 @@ export function StatusChip({ status, quickCheck }: { status: WithdrawalStatus; q
   return <span className={`va-status${m.tone ? " " + m.tone : ""}`} data-status={status}>{chip}</span>;
 }
 
-/** A send's icon: a bank, a debit card, a Poket user, or the stablecoin. */
-export const withdrawalIcon = (w: Withdrawal) =>
-  w.kind === "poket" ? WICON.user : w.kind === "card" ? WICON.card : w.kind === "wallet" ? (w.amountText?.includes("USDT") ? WICON.usdt : WICON.usdc) : WICON.bank;
 
 /**
  * An activity row for a send: the reference's txRow (icon, title, sub, amount), the same as every other row in the
@@ -26,11 +23,13 @@ export const withdrawalIcon = (w: Withdrawal) =>
  */
 export function WithdrawalRow({ w }: { w: Withdrawal }) {
   const push = useWalletNav((s) => s.push);
-  const sub = w.conversion ? `${w.conversion.paidText} \u2192 ${w.conversion.receivedText}` : w.recipientSub;
+  // The icon is the direction only: the sub says how (a Poket user's handle, a wallet's address get their method)
+  const how = w.kind === "poket" ? "Poket" : w.kind === "wallet" ? "Stablecoin wallet" : null;
+  const sub = w.conversion ? `${w.conversion.paidText} \u2192 ${w.conversion.receivedText}` : how && w.recipientSub ? `${how} · ${w.recipientSub}` : w.recipientSub;
   return (
     <div className="tx-row" data-txid={w.id} role="button" tabIndex={0} onClick={() => push({ name: "withdrawal", id: w.id })}
       onKeyDown={(e) => { if (e.key === "Enter") push({ name: "withdrawal", id: w.id }); }}>
-      <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: withdrawalIcon(w) }} />
+      <TxIcon dir="out" />
       <div className="tx-main">
         <div className="tx-title">{`To ${w.recipientName}`}</div>
         <div className="tx-sub"><Grey>{sub}</Grey>{w.status !== "paid" && <> · <StatusChip status={w.status} quickCheck={w.quickCheck} /></>}</div>

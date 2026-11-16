@@ -2,6 +2,8 @@
 import { depositFee } from "@/lib/fees";
 import { useState } from "react";
 import { formatNaira } from "@/lib/money";
+import { Raw } from "@/components/ui/Raw";
+import { WICON } from "@/lib/icons";
 import { NGN_MIN_TOPUP, parseNairaInput, useNgn } from "../useNgn";
 import { VaBack } from "./VaBack";
 
@@ -29,8 +31,8 @@ export function TempAmountScreen() {
       {tempCents > 0 && (
         // The deposit fee comes out of what arrives (lib/fees.ts)
         <div className="receipt-card" id="ngnTempFee" style={{ marginTop: "4px" }}>
-          <div className="receipt-row"><span className="r-label">Fee</span><span className="r-value mono">{formatNaira(depositFee(tempCents, "NGN"))}</span></div>
-          <div className="receipt-row"><span className="r-label">You get</span><span className="r-value mono">{formatNaira(tempCents - depositFee(tempCents, "NGN"))}</span></div>
+          <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fee</span><span className="r-value mono">{formatNaira(depositFee(tempCents, "NGN"))}</span></div>
+          <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">You get</span><span className="r-value mono">{formatNaira(tempCents - depositFee(tempCents, "NGN"))}</span></div>
         </div>
       )}
       <button className="btn-primary" id="ngnTempGo" disabled={!ok} onClick={() => createTemp(tempCents)}>Create temporary account</button>

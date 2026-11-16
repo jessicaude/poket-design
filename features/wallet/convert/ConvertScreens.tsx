@@ -206,10 +206,10 @@ export function ConvertReviewScreen() {
 }
 
 /**
- * A conversion's rows, the same on review and done: You convert, Rate, Fee, Network (to a coin), then what you get,
- * with its unit ("5.14 USDC").
+ * A conversion's rows, the same on review and done: You convert, Rate, Fee, Network (to a coin), on done the
+ * Confirmation, then last what you get, with its unit ("5.14 USDC").
  */
-function ConvertRows({ f, to, paid, feeLabel, feeText, received }: { f: Side; to: Side; paid: string; feeLabel: string; feeText: string; received: string }) {
+function ConvertRows({ f, to, paid, feeLabel, feeText, received, confirmation }: { f: Side; to: Side; paid: string; feeLabel: string; feeText: string; received: string; confirmation?: string }) {
   const row = (icon: string, label: string, value: React.ReactNode, extra = "") => (
     <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className="r-value mono">{value}</span></div>
   );
@@ -221,6 +221,7 @@ function ConvertRows({ f, to, paid, feeLabel, feeText, received }: { f: Side; to
       {to.k === "coin" && (
         <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Network</span><span className="r-value">{to.net} · {NETWORK[to.net].eta}</span></div>
       )}
+      {confirmation && row(WICON.hash, "Confirmation", confirmation)}
       {row(WICON.coins, involvesNgn(f, to) ? "You get" : "You’ll receive", <Grey>{received}</Grey>, "total")}
     </>
   );
@@ -243,9 +244,6 @@ export function ConvertProcessingScreen() {
 export function ConvertDoneScreen() {
   const { result: r, close } = useConvert();
   if (!r) return null;
-  const row = (icon: string, label: string, value: React.ReactNode, extra = "") => (
-    <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className="r-value mono">{value}</span></div>
-  );
   return (
     <>
       <div className="center-col" style={{ paddingBottom: 0 }}>
@@ -255,10 +253,9 @@ export function ConvertDoneScreen() {
         <span className="btn-ghost" id="cvViewTx" role="button" tabIndex={0}
           onClick={() => { close(); useWalletNav.getState().push({ name: "conversion", id: r.id }); }}>View transaction</span>
       </div>
-      {/* The review's rows, then the confirmation reference */}
+      {/* The review's rows with the confirmation reference; what you get stays last */}
       <div className="receipt-card" id="cvDoneCard" style={{ marginTop: "16px" }}>
-        <ConvertRows f={cvParse(r.from)} to={cvParse(r.to)} paid={r.paidText} feeLabel={r.feeLabel} feeText={r.feeText} received={r.receivedText} />
-        {row(WICON.hash, "Confirmation", r.ref)}
+        <ConvertRows f={cvParse(r.from)} to={cvParse(r.to)} paid={r.paidText} feeLabel={r.feeLabel} feeText={r.feeText} received={r.receivedText} confirmation={r.ref} />
       </div>
       <button className="btn-primary" id="cvDone" onClick={close}>Done</button>
     </>

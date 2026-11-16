@@ -50,21 +50,22 @@ function buildQr(seed: string, iconKey: keyof typeof WICON) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${m}</svg>`;
 }
 
-/** tCardFund 'select': every currency (NGN goes on to its own flow) and every stablecoin on every network. */
+/**
+ * tCardFund 'select': every currency (NGN goes on to its own flow) and every stablecoin on every network. Tapping one
+ * goes straight to its next step (no radio, no Continue).
+ */
 function DepositSelect() {
-  const { search, choice, set, selectContinue, close } = useDeposit();
+  const { search, set, pick, close } = useDeposit();
   const q = search.trim().toLowerCase();
-  const isSel = (c: DepositChoice) => JSON.stringify(c) === JSON.stringify(choice);
-  const cash = CASH_CURRENCIES.filter((c) => !q || c.toLowerCase().includes(q) || CURRENCY_NAME[c].toLowerCase().includes(q))
-    .sort((a, b) => Number(isSel({ k: "cash", cur: b })) - Number(isSel({ k: "cash", cur: a })));
+  const cash = CASH_CURRENCIES.filter((c) => !q || c.toLowerCase().includes(q) || CURRENCY_NAME[c].toLowerCase().includes(q));
   const coins = COIN_ASSETS.flatMap((asset) => NETWORKS.map((net) => ({ asset, net })))
-    .filter(({ asset, net }) => !q || asset.toLowerCase().includes(q) || net.toLowerCase().includes(q) || ASSET_NAME[asset].toLowerCase().includes(q))
-    .sort((a, b) => Number(isSel({ k: "coin", ...b })) - Number(isSel({ k: "coin", ...a })));
-  const go = () => {
+    .filter(({ asset, net }) => !q || asset.toLowerCase().includes(q) || net.toLowerCase().includes(q) || ASSET_NAME[asset].toLowerCase().includes(q));
+  const go = (c: DepositChoice) => {
     // NGN keeps its own flow (temporary account, account details, Convert)
-    if (choice?.k === "cash" && choice.cur === "NGN") { close(); useNgn.getState().open("deposit-method"); return; }
-    selectContinue();
+    if (c.k === "cash" && c.cur === "NGN") { close(); useNgn.getState().open("deposit-method"); return; }
+    pick(c);
   };
+  const keys = (c: DepositChoice) => (e: React.KeyboardEvent) => { if (e.key === "Enter") go(c); };
   return (
     <>
       <BackRow id="backHome" label="Wallet" onClick={close} />
@@ -77,24 +78,23 @@ function DepositSelect() {
       <div style={{ margin: "0 -2px" }}>
         {cash.length > 0 && <label className="field-label">Cash</label>}
         {cash.map((cur) => (
-          <div key={cur} className={`select-row ${isSel({ k: "cash", cur }) ? "sel" : ""}`} data-depositcash={cur} role="button" tabIndex={0} onClick={() => set({ choice: { k: "cash", cur } })}>
+          <div key={cur} className="select-row" data-depositcash={cur} role="button" tabIndex={0} onClick={() => go({ k: "cash", cur })} onKeyDown={keys({ k: "cash", cur })}>
             <div className="badge"><Raw html={WICON[CURRENCY_ICON[cur]]} /></div>
             <div className="meta"><div className="t1">{CURRENCY_NAME[cur]}</div><div className="t2">{cur}</div></div>
-            <div className="radio" />
+            <span className="va-chev">{"›"}</span>
           </div>
         ))}
         {coins.length > 0 && <label className="field-label" style={{ marginTop: "14px" }}>Stablecoin</label>}
         {coins.map(({ asset, net }) => (
-          <div key={asset + net} className={`select-row ${isSel({ k: "coin", asset, net }) ? "sel" : ""}`} data-depositasset={asset} data-depositnet={net} role="button" tabIndex={0}
-            onClick={() => set({ choice: { k: "coin", asset, net } })}>
+          <div key={asset + net} className="select-row" data-depositasset={asset} data-depositnet={net} role="button" tabIndex={0}
+            onClick={() => go({ k: "coin", asset, net })} onKeyDown={keys({ k: "coin", asset, net })}>
             <div className="asset-icon-wrap"><div className="badge"><Raw html={WICON[ASSET_ICON[asset]]} /></div><span className="badge-network"><Raw html={WICON[NETWORK_INFO[net].icon]} /></span></div>
             <div className="meta"><div className="t1">{asset} on {net}</div><div className="t2">Deposit address</div></div>
-            <div className="radio" />
+            <span className="va-chev">{"›"}</span>
           </div>
         ))}
         {!cash.length && !coins.length && <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0 4px" }}>No matches for &ldquo;{search}&rdquo;.</div>}
       </div>
-      <SpinButton id="depositSelectContinue" delay={500} style={{ marginTop: "10px" }} disabled={!choice} onClick={go}>Continue</SpinButton>
     </>
   );
 }
@@ -236,10 +236,11 @@ function CardAmount() {
       </div>
       {!keypadOpen ? <p className="step-sub" style={{ textAlign: "center" }}>Tap the amount to enter how much to add.</p> : (
         <>
-          <div className="info-card" id="cardFundFeeCard">
-            <div className="info-row"><span>Amount</span><span id="cfAmtRow"><Grey>{fmtCurrency(cents, cur)}</Grey></span></div>
-            <div className="info-row"><span>Card funding fee ({(CARD_FUND_RATE * 100).toFixed(1)}% + {fmtCurrency(cardFundFlat(cur), cur).replace(/ [A-Z]{3}$/, "")})</span><span id="cfFeeRow"><Grey>{fmtCurrency(fee, cur)}</Grey></span></div>
-            <div className="info-row"><span style={{ fontWeight: 600, color: "var(--n-900)" }}>Total charged</span><span id="cfTotalRow" style={{ fontWeight: 600, color: "var(--n-900)" }}><Grey>{fmtCurrency(cents + fee, cur)}</Grey></span></div>
+          {/* The highlighted total last, as on every review */}
+          <div className="receipt-card" id="cardFundFeeCard">
+            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">Amount</span><span className="r-value mono" id="cfAmtRow"><Grey>{fmtCurrency(cents, cur)}</Grey></span></div>
+            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Card funding fee ({(CARD_FUND_RATE * 100).toFixed(1)}% + {fmtCurrency(cardFundFlat(cur), cur).replace(/ [A-Z]{3}$/, "")})</span><span className="r-value mono" id="cfFeeRow"><Grey>{fmtCurrency(fee, cur)}</Grey></span></div>
+            <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.check} /></span><span className="r-label">Total charged</span><span className="r-value mono" id="cfTotalRow"><Grey>{fmtCurrency(cents + fee, cur)}</Grey></span></div>
           </div>
           <SpinButton id="cardFundAmtContinue" delay={700} style={{ marginBottom: "12px" }} disabled={cents <= 0} onClick={() => set({ stage: "select-card" })}>Continue</SpinButton>
           <Keypad dataKey="key" onKey={key} />

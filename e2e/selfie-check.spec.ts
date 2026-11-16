@@ -83,7 +83,7 @@ test("the 3rd failure holds the send for review (no PIN) and the account shows t
   await expect(page.locator("#heldForReviewNote")).toHaveText("We’re checking this payment. We’ll let you know.");
   expect(await ngn(page)).toMatchObject({ balance: 5000000 - 2502500, reserved: 2502500, attempts: 3 }); // with the ₦25.00 fee
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Held for review");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Held for review");
   await page.locator("#backFromTxDetail").click();
 
   // Blocked: no money moves (Send, Convert); balances still show

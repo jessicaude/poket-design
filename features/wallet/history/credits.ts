@@ -41,6 +41,6 @@ export const DEMO_POKET_TRANSFER_KOBO: Kobo = 1000000;
 export function receiveNaira(kind: "account" | "poket", amount: Kobo) {
   const from = kind === "account" ? DEMO_ACCOUNT_SENDER : DEMO_POKET_SENDER;
   const c = creditNgn({ kind, amount, from });
-  notify("transferReceived", { amount: formatNairaShort(c.amount), sender: from.split(" · ")[0], currency: "NGN" }); // what was added
+  notify("transferReceived", { amount: formatNairaShort(c.amount), sender: from.split(" · ")[0], currency: "NGN" }, { name: "credit", id: c.id }); // what was added
   return c;
 }

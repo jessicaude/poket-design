@@ -191,7 +191,7 @@ test("a send already Sending stays Sending until the partner is back", async ({ 
   await toAmount(page, "bank:r6", "500000"); // a first payment to Ngozi: scheduled, then released
   await sendWithPin(page);
   await page.locator("#viewPayoutTx").click();
-  const chip = page.locator("#withdrawalStatus");
+  const chip = page.locator('#txDetail [data-label="Status"] > span:last-child');
   await expect(chip).toHaveText("Scheduled");
   await partner(page, "down");
   await page.getByRole("button", { name: "Release first-payment hold" }).click();
@@ -262,7 +262,7 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await toAmount(page, "bank:lb2", "500000");
   await sendWithPin(page);
   await page.locator("#viewPayoutTx").click();
-  const chip = page.locator("#withdrawalStatus");
+  const chip = page.locator('#txDetail [data-label="Status"] > span:last-child');
   await expect(chip).toHaveText("Sending");
   const before = await balance();
 

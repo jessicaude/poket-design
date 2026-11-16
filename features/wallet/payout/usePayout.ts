@@ -346,11 +346,13 @@ export const usePayout = create<State>((set, get) => {
     try {
       // A Poket user: your record is in your paying balance's currency; what they receive (USD when naira converts on
       // receipt, WGT-07) is its targetKey, and only their side is credited in it
-      const src = cvParse(payFrom);
+      const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
+      // The coin's network, as review shows it: the wallet's, else the paying coin's
+      const network = tgt.k === "coin" ? tgt.net : src.k === "coin" ? src.net : undefined;
       const w = await createPayout({
         currency: s.kind === "poket" && src.k === "cash" ? src.cur as typeof r.currency : r.currency, amount: cents, fee: s.feeTarget, recipientId: r.id, reservationId: rsv.id, recipientSub: payoutMethodSub(r),
         kind: s.kind, recipientName: r.name, ...(s.kind === "poket" ? { targetKey: s.targetKey } : {}), amountText: s.theyGetText, feeText: s.feeText, arrival: s.arrival, eta: s.eta,
-        sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut,
+        sourceKey: payFrom, sourceTotal: s.sourceTotal, reservedIn: fromNgn ? "ngn" : "source", conversion, usdOut: s.usdOut, ...(network ? { network } : {}),
         ...(takeHold() ? { heldForReview: true } : {}),
       });
       relabel(sendIds, { reference: w.ref, withdrawalId: w.id });

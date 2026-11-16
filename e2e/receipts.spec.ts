@@ -28,7 +28,7 @@ async function sent(page: Page) {
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
 }
 const sheet = (page: Page) => page.locator("#receiptSheet");
 const rcRow = (page: Page, label: string) => page.locator(`#receiptCard .rc-row[data-label="${label}"] > span:last-child`);
@@ -187,17 +187,21 @@ test("white-label: the merchant’s name and colours, still Payments by Poket", 
   expect(lines[lines.indexOf("Reference: pay_ilv10077") + 1]).toBe("Session ID: [session ID]");
 });
 
-test("every naira transaction has Share receipt; dollar ones don’t; a dispute’s hold is on the receipt", async ({ page }) => {
+test("every transaction has Share receipt, dollar ones too; a dispute’s hold is on the receipt", async ({ page }) => {
   await wallet(page);
   await page.locator("#tabActivity").click();
-  // A dollar payment and the reference’s dollar records: no
+  // A dollar payment and the reference’s dollar records: yes, in dollars
   await page.locator('[data-payment="pay_a9d2c7ke"]').click();
   await expect(page.locator("#extRaiseDispute, #disputeClosed").first()).toBeVisible();
-  await expect(page.locator("#shareReceipt")).toHaveCount(0);
+  await openSheet(page);
+  await expect(page.locator("#receiptAmount")).toContainText("$");
+  await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-txid="t1"]').click();
-  await expect(page.locator("#txDetail")).toBeVisible();
-  await expect(page.locator("#shareReceipt")).toHaveCount(0);
+  await openSheet(page);
+  await expect(page.locator("#receiptTitle")).toHaveText("Refund · Kola Books");
+  await expect(rcRow(page, "From")).toHaveText("Kola Books");
+  await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   // A naira refund (to the NGN balance)
   await page.locator('[data-payment="pay_ilv10077"]').click();

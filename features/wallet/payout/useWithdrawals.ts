@@ -68,10 +68,10 @@ export const useWithdrawals = create<State>((set, get) => ({
     get().refresh();
     // docs/copy.md: a notification for money that came back (failed or reversed): the amount, who, where it went
     if (to === "failed") {
-      notify("transferFailed", cameBack(after));
+      notify("transferFailed", cameBack(after), { name: "withdrawal", id: after.id });
     }
     if (to === "reversed") {
-      notify("transferReversed", cameBack(after));
+      notify("transferReversed", cameBack(after), { name: "withdrawal", id: after.id });
       const n = notificationFor("transferReversed", cameBack(after));
       useWalletToast.getState().showNotice(n.title, n.desc, 3200);
     }
@@ -83,10 +83,10 @@ export const useWithdrawals = create<State>((set, get) => ({
     const w = await setRecallStatus(id, to);
     if (to === "recovered") {
       // WGT-11: the recovered naira is its own record (from the account it came back from)
-      creditNgn({ kind: "recall", amount: w.amount, from: w.recipientSub, withdrawalId: w.id, description: `Recall · ${w.recipientName}` });
-      notify("transferRecovered", { amount: formatNairaShort(w.amount), recipient: w.recipientName });
+      const c = creditNgn({ kind: "recall", amount: w.amount, from: w.recipientSub, withdrawalId: w.id, description: `Recall · ${w.recipientName}` });
+      notify("transferRecovered", { amount: formatNairaShort(w.amount), recipient: w.recipientName }, { name: "credit", id: c.id });
     } else if (to === "not_recovered") {
-      notify("recallClosed", { amount: formatNairaShort(w.amount), recipient: w.recipientName });
+      notify("recallClosed", { amount: formatNairaShort(w.amount), recipient: w.recipientName }, { name: "withdrawal", id: w.id });
     }
     get().refresh();
   },

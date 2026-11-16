@@ -19,7 +19,7 @@ import { useWalletHome } from "./home/homeData";
 import { PayoutBody } from "./payout/PayoutBody";
 import { usePayout } from "./payout/usePayout";
 import { NotificationsScreen } from "./NotificationsScreen";
-import { currentScreen, useWalletNav } from "./useWalletNav";
+import { currentScreen, useWalletNav, type WalletScreen } from "./useWalletNav";
 import { CashBalanceScreen } from "./home/CashBalanceScreen";
 import { OnHoldScreen } from "./withdrawals/OnHoldScreen";
 import { WithdrawalStatusScreen } from "./withdrawals/WithdrawalStatusScreen";
@@ -44,11 +44,16 @@ export function WalletBody() {
   const payout = usePayout((s) => s.stage);
   const ngn = useNgn((s) => s.stage);
   const deposit = useDeposit((s) => s.stage);
-  const screen = currentScreen(useWalletNav((s) => s.stack));
+  const stack = useWalletNav((s) => s.stack);
+  const screen = currentScreen(stack);
+  // The bell opens Notifications from any screen: it (and a transaction opened from it) shows over an open flow, and
+  // Back from it returns to the flow where it was
+  const overFlow = stack.some((s) => s.name === "notifications");
   const tab = useWalletHome((s) => s.tab);
   // Locked after too many wrong codes: no money moves, so any money flow shows the lock instead
   const locked = useAccountLock((s) => s.until) !== null;
   const blocked = useSettings((s) => s.idBlocked);
+  if (screen && overFlow) return <NavScreen screen={screen} />;
   if (locked && (send || convert || payout || ngn || deposit)) return <AccountLockedScreen />;
   // Blocked after 3 failed ID checks: no money moves either (the held send's own done screen still shows)
   if (blocked && (send || convert || ngn || deposit || (payout && payout !== "done" && payout !== "processing"))) return <AccountBlockedScreen />;
@@ -58,6 +63,11 @@ export function WalletBody() {
   if (ngn) return <NgnBody />;
   if (deposit) return <DepositBody />;
   if (!screen) return tab === "activity" ? <ActivityScreen /> : tab === "card" ? <CardScreen /> : <WalletHome />;
+  return <NavScreen screen={screen} />;
+}
+
+/** The nav stack's current screen. */
+function NavScreen({ screen }: { screen: WalletScreen }) {
   const key = screen.name + ("id" in screen ? screen.id : "") + ("holding" in screen ? JSON.stringify(screen.holding) : "") + ("target" in screen ? screen.target.id : "");
   return (
     <div className="screen-fade" key={key}>

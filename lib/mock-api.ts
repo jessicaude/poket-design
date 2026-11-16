@@ -397,6 +397,8 @@ export type Withdrawal = {
   sourceKey?: string; sourceTotal?: number;
   /** A Poket user: what they receive (a cvKey); naira converts to USD on receipt when they can't hold naira (WGT-07). */
   targetKey?: string;
+  /** A stablecoin's network ("Base"): the wallet's, else the paying coin's. */
+  network?: string;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
   /** "Report a problem" on a Paid send (send-report in reference/poket-widgets.html): the reason chosen. */
@@ -425,6 +427,7 @@ export async function createPayout(p: {
   usdOut?: number;
   /** A Poket user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
   targetKey?: string;
+  network?: string;
   /** The 3rd failed selfie check before the send: it's held for review (status "review"), not sent. */
   heldForReview?: boolean;
 }): Promise<Withdrawal> {
@@ -448,7 +451,7 @@ export async function createPayout(p: {
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
     kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
-    ...(p.targetKey ? { targetKey: p.targetKey } : {}),
+    ...(p.targetKey ? { targetKey: p.targetKey } : {}), ...(p.network ? { network: p.network } : {}),
     status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
   };
   // A first payment of $500 or more to a new card, stablecoin wallet or Poket user: held for a quick check (the

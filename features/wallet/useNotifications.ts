@@ -1,7 +1,9 @@
 import { create } from "zustand";
+import type { WalletScreen } from "./useWalletNav";
 
 /** POKET.identity.notifications in the reference: shown by the header bell (#openNotifHeader) and tNotifications. */
-export type WalletNotification = { id: string; type: "payout" | "info"; title: string; desc: string; ts: number; read: boolean };
+/** `target`: the transaction it is about (tapping the notification opens its detail). */
+export type WalletNotification = { id: string; type: "payout" | "info"; title: string; desc: string; ts: number; read: boolean; target?: WalletScreen };
 
 type State = {
   list: WalletNotification[];

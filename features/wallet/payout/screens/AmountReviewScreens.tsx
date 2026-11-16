@@ -34,9 +34,10 @@ export function CurrencyBadge() {
 
 /**
  * A send's rows, the same on review and done: To, Account holder (when the nickname differs), They get, You send and
- * Rate (converting), Network (coins), Fee, Delivery (Arrives to your own), Total charged (Debited from balance).
+ * Rate (converting), Network (coins), Fee, Delivery (Arrives to your own), on done the Confirmation, and always last
+ * the highlighted Total charged (Debited from balance).
  */
-export function SendRows({ r, s, payFrom }: { r: PayoutRecipient; s: SendSummary; payFrom: string }) {
+export function SendRows({ r, s, payFrom, confirmation }: { r: PayoutRecipient; s: SendSummary; payFrom: string; confirmation?: string }) {
   const isSelf = r.isSelf;
   const src = cvParse(payFrom), tgt = cvParse(s.targetKey);
   const holder = r.holderName && r.holderName.trim() !== r.name.trim() ? r.holderName : null;
@@ -57,6 +58,7 @@ export function SendRows({ r, s, payFrom }: { r: PayoutRecipient; s: SendSummary
       {network && row(WICON.globe, "Network", network)}
       {row(WICON.percent, "Fee", s.feeText)}
       {row(WICON.calendar, isSelf ? "Arrives" : "Delivery", s.arrival)}
+      {confirmation && <div className="receipt-row"><span className="r-ic"><Raw html={WICON.hash} /></span><span className="r-label">Confirmation</span><span className="r-value mono">{confirmation}</span></div>}
       {row(WICON.check, isSelf ? "Debited from balance" : "Total charged", s.totalText, "total")}
     </>
   );

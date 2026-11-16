@@ -159,13 +159,13 @@ test("a US bank: starts on open USD (card-funded is offered too, not NGN); one s
   // Taken from open USD (the amount and the fee) until it’s paid, given back if it fails
   await expect.poll(() => usd(page)).toEqual({ usd: 5460, fiat: 1560 });
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Scheduled");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Scheduled");
   await expect(page.locator("#panelBody .step-title")).toHaveText("$5.00 USD");
   await page.getByRole("button", { name: "Release first-payment hold" }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("1 to 3 business days"); // the US bank’s own arrival, not the naira one
   await page.getByRole("button", { name: "Fail", exact: true }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Failed");
   await expect.poll(() => usd(page)).toEqual({ usd: 6560, fiat: 1560 });
 });
 
@@ -195,7 +195,7 @@ test("a debit card: only USD pays it; $[fee], Instantly", async ({ page }) => {
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Kemi Adeyemi");
   await expect.poll(() => usd(page)).toEqual({ usd: 3460, fiat: 1560 }); // $25.00 and the $6.00 fee
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("Instantly"); // the card’s own arrival
 });
 

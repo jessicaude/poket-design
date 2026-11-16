@@ -44,7 +44,7 @@ test("a Poket user: free, Instantly; paid at once (nothing left on hold)", async
   await expect(rows(page).filter({ hasText: "Delivery" }).locator(".r-value")).toHaveText("Instantly");
   await expect.poll(() => balances(page)).toMatchObject({ ngn: 4900000, reserved: 0 });
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Paid");
   await page.locator("#backFromTxDetail").click();
   await expect(page.locator("#recentActivity .tx-row").first().locator(".tx-title")).toHaveText("To Tobi Bello");
 });
@@ -74,9 +74,12 @@ test("a saved stablecoin wallet: Tier 2 first; then the address is screened befo
   await expect(page.locator("#panelBody .step-sub")).toHaveText("Sent to Ledger");
   await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 900, ngn: 5000000, reserved: 0 }); // 20.00 less 5.00 and the 6.00 fee
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Sending");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Sending");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("About 1 minute"); // the wallet’s own arrival
   await expect(page.locator("#panelBody .step-title")).toHaveText("5.00 USDC");
+  // The stablecoin's network, after Method
+  await expect(page.locator("#txDetail .info-row > span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Network", "Fee", "Reference"]);
+  await expect(page.locator('#txDetail [data-label="Network"] > span:last-child')).toHaveText("Base");
 });
 
 test("a flagged address: screening blocks the send before review", async ({ page }) => {
@@ -152,7 +155,7 @@ test("a Poket user from card-funded USD: allowed; their money keeps FIAT-ONLY", 
   await confirmWithPin(page);
   await expect.poll(() => page.evaluate(() => { const h = (window as any).__holdings.getState(); return [h.cash.USD, h.fiatOnly.USD]; })).toEqual([6060, 1060]); // eslint-disable-line @typescript-eslint/no-explicit-any
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalTag")).toHaveText("FIAT-ONLY");
+  await expect(page.locator("#txTag")).toHaveText("FIAT-ONLY");
 });
 
 test("a first payment of $500 or more to a new Poket user is held for a quick check; the next one isn’t", async ({ page }) => {
@@ -175,10 +178,10 @@ test("a first payment of $500 or more to a new Poket user is held for a quick ch
   await expect(rows(page).filter({ hasText: "Estimated delivery" })).toHaveCount(0);
   await expect.poll(() => balances(page)).toMatchObject({ usdcBase: 150000 }); // taken from USDC until it clears
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Held for a quick check");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Held for a quick check");
   await expect(page.locator("#withdrawalStatusMsg")).toHaveText("First payment to a new recipient. Usually under 15 minutes.");
   await page.getByRole("button", { name: "Mark paid" }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Paid");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Paid");
 
   // Tobi has been paid now: the next $500 isn’t held
   await page.locator("#backFromTxDetail").click();

@@ -110,3 +110,10 @@
 
 /* Convert's review header: the coin's network badge sits on top of its badge (which is raised over the arrow), as on the home rows */
 .convert-visual .badge-network{z-index:2}
+
+/* A transaction detail's highlighted total (a card deposit's Total charged): last in its .info-card, edge to edge,
+   in the done and review cards' .receipt-row.total look */
+.info-row.total{margin:6px -14px -12px;padding:12px 14px;background:var(--brand-50);border-radius:0 0 calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px);border-top:1px dashed var(--brand-200)}
+.info-row.total span:first-child{color:var(--brand-800);font-weight:600}
+.info-row.total span:last-child{color:var(--brand-800);font-weight:600;font-size:14.5px}
+.info-row.total .detail-ic{background:#fff;color:var(--brand-600)}

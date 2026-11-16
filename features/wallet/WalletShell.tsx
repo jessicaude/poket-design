@@ -83,7 +83,11 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                         {/* The bell shows once there are notifications, with a dot while any are unread (as in the reference). */}
                         <span className="panel-settings-btn" id="openNotifHeader" role="button" tabIndex={0} aria-label="Notifications"
                           style={{ position: "relative", display: notifs.length ? undefined : "none" }}
-                          onClick={() => useWalletNav.getState().push({ name: "notifications" })}>
+                          onClick={() => {
+                            // From any screen, flows included (WalletBody shows it over them); not twice in a row
+                            const nav = useWalletNav.getState();
+                            if (nav.stack.at(-1)?.name !== "notifications") nav.push({ name: "notifications" });
+                          }}>
                           <Raw html={BELL_ICON} />
                           <span className="notif-dot" id="notifDot" style={{ display: unread ? undefined : "none" }} />
                         </span>
