@@ -3,7 +3,7 @@ import { useNairaPartner } from "@/store/partner";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, registerAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
+import { DIRECTORY, GEO_COUNTRY, registerAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 import { useAccountLock } from "@/store/lock";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
@@ -51,8 +51,8 @@ export type Idv = {
 };
 const NEW_IDV: Idv = { det: { d: "", m: "", y: "", ssn: "" }, noSsn: false, vendor: "veriff", vstage: "start", retryReason: null };
 
-/** Where the location check puts a new account (the reference's GEO_COUNTRY), and the details screen's countries. */
-export const GEO_COUNTRY = "Nigeria";
+/** Where the location check puts a new account (lib/mock-api.ts, shared with the wallet's sign-up), and the details screen's countries. */
+export { GEO_COUNTRY };
 export const ID_COUNTRIES = ["United States", "Nigeria", "United Kingdom", "Ghana", "Canada"];
 
 /** Age from a date of birth (the details screen's age()); null until the date is complete. */

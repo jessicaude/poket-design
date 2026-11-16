@@ -9,6 +9,7 @@ import { useAccount } from "@/store/account";
 import { useConvert } from "../convert/useConvert";
 import { CheckoutPaymentRow, RefundRow } from "../disputes/DisputeScreens";
 import { DEMO_TXNS, type DemoTx } from "../home/homeData";
+import { useIsDemoUser } from "../useWalletSession";
 import { Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { fmtCurrency } from "../payout/payoutMath";
@@ -56,9 +57,11 @@ export function useActivity(): HistoryItem[] {
   const payments = useAccount((s) => s.account?.payments) ?? [];
   const deposits = useDeposit((s) => s.records);
   const cardSpend = useCards((s) => s.purchases);
+  // The reference's own records (S.txns) are Ada's: a new account's wallet has none
+  const demoTxns = useIsDemoUser() ? DEMO_TXNS : [];
   return [
     // The reference's records are USD: a top-up only under card-funded USD (the reference's matching rule)
-    ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
+    ...demoTxns.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
       keys: t.type === "deposit" ? ["cash:USD:fiat"] : ["cash:USD:open", "cash:USD:fiat"], el: <DemoTxRow key={t.id} t={t} /> })),
     // A payment by card or bank transfer doesn't move a balance; a refund into the NGN balance does
     ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, dir: "out" as const, keys: [] as string[], el: <CheckoutPaymentRow key={p.id} p={p} /> })),

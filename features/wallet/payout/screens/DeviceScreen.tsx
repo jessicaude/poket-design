@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
 import { useWalletToast } from "../../useWalletToast";
 import { BackRow } from "../parts";
+import { CodeBoxes } from "../../CodeBoxes";
 import { usePayout } from "../usePayout";
 
 /**
@@ -36,51 +36,9 @@ export function DeviceScreen() {
         <span className="id-val" id="deviceEmail">{maskEmail(email)}</span>
       </div>
       <label className="lbl">Enter the 6-digit code we sent you</label>
-      <CodeBoxes onComplete={deviceCode} />
+      <CodeBoxes id="deviceOtp" statusId="deviceStatus" onComplete={deviceCode} />
       <div style={{ textAlign: "center" }}>
         <span className="btn-ghost" id="deviceResend" role="button" tabIndex={0} onClick={() => useWalletToast.getState().showToast("Code sent again")}>Resend code</span>
-      </div>
-    </>
-  );
-}
-
-/** Checkout's Otp: six boxes that verify themselves once full; paste fills all six; a wrong code clears them. */
-function CodeBoxes({ onComplete }: { onComplete: (code: string) => Promise<void> }) {
-  const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
-  const [status, setStatus] = useState<{ text: string; err?: boolean; busy?: boolean }>({ text: "" });
-  const boxes = useRef<(HTMLInputElement | null)[]>([]);
-  useEffect(() => { boxes.current[0]?.focus(); }, []);
-  async function verify(code: string) {
-    setStatus({ text: "Verifying…", busy: true });
-    try { await onComplete(code); }
-    catch (e) {
-      setDigits(["", "", "", "", "", ""]); setStatus({ text: (e as Error).message, err: true });
-      setTimeout(() => boxes.current[0]?.focus(), 0);
-    }
-  }
-  function setAt(i: number, v: string) {
-    const d = v.replace(/\D/g, "").slice(0, 1);
-    const next = digits.map((x, k) => (k === i ? d : x));
-    setDigits(next);
-    if (status.err) setStatus({ text: "" });
-    if (d && boxes.current[i + 1]) boxes.current[i + 1]?.focus();
-    if (next.every((x) => /\d/.test(x))) verify(next.join(""));
-  }
-  return (
-    <>
-      <div className="otp" id="deviceOtp" onPaste={(e) => {
-        const d = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 6);
-        if (d.length === 6) { e.preventDefault(); setDigits(d.split("")); verify(d); }
-      }}>
-        {digits.map((v, i) => (
-          <input key={i} ref={(el) => { boxes.current[i] = el; }} inputMode="numeric" maxLength={1} aria-label={`Digit ${i + 1}`}
-            autoComplete={i === 0 ? "one-time-code" : "off"} value={v} disabled={status.busy}
-            onChange={(e) => setAt(i, e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Backspace" && !v && i > 0) boxes.current[i - 1]?.focus(); }} />
-        ))}
-      </div>
-      <div className={`otp-status ${status.err ? "err" : ""}`} id="deviceStatus" role="status" aria-live="polite">
-        {status.busy && <span className="mini-spin" />}{status.text}
       </div>
     </>
   );

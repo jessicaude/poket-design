@@ -35,6 +35,9 @@ export const DIRECTORY: Record<string, Account> = {
 export const DEMO_USER_EMAIL = "ada@osun.co";
 export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
 
+/** Where the sign-up location check puts a new account (the reference's GEO_COUNTRY), in Checkout and the wallet. */
+export const GEO_COUNTRY = "Nigeria";
+
 /** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */
 export function registerAccount(a: Account) {
   DIRECTORY[a.email.trim().toLowerCase()] = structuredClone(a);
@@ -881,3 +884,44 @@ conversionServer.list.push(...ADA_HISTORY.conversions);
 }
 /** Ada's seeded ledger lines (the NGN balance's statements start from them). */
 export const adaLedgerSeed = (): HistoryLine[] => ADA_HISTORY.lines.map((l) => ({ ...l }));
+
+/* ---------- Whose wallet ----------
+   The wallet's server-side records belong to the signed-in account: Ada's seeded history, or a new account's empty
+   wallet. Signing in as someone else puts the current owner's records aside and brings back theirs (empty the first
+   time). Recipients' own balances and activity (poketBalances, poketActivity) and the demo switches stay shared. */
+type WalletServerData = {
+  credits: NgnCredit[]; withdrawals: Withdrawal[]; conversions: Conversion[];
+  recipients: PayoutRecipient[]; pin: string | null; pinAttempts: number;
+  ngn: typeof ngnServer; reservations: [string, Reservation][];
+  poketUsers: PoketUser[]; wallets: StablecoinWallet[];
+};
+const walletServers: Record<string, WalletServerData> = {};
+let walletOwner: string = DEMO_USER_EMAIL;
+const emptyWalletServer = (): WalletServerData => ({
+  credits: [], withdrawals: [], conversions: [], recipients: [], pin: null, pinAttempts: 0,
+  ngn: { temp: null, verifiedId: null, dedicated: null }, reservations: [], poketUsers: [], wallets: [],
+});
+/** Demo: the wallet's records now belong to `email` (put the current owner's aside; bring back theirs, or none). */
+export function switchWalletOwner(email: string) {
+  const next = email.trim().toLowerCase();
+  if (next === walletOwner) return;
+  walletServers[walletOwner] = {
+    credits: ngnCredits.splice(0), withdrawals: withdrawals.splice(0), conversions: conversionServer.list,
+    recipients: payoutServer.recipients, pin: payoutServer.pin, pinAttempts: payoutServer.pinAttempts,
+    ngn: { ...ngnServer }, reservations: [...reservations], poketUsers: POKET_USERS.splice(0), wallets: STABLECOIN_WALLETS.splice(0),
+  };
+  const d = walletServers[next] ?? emptyWalletServer();
+  delete walletServers[next];
+  ngnCredits.push(...d.credits);
+  withdrawals.push(...d.withdrawals);
+  conversionServer.list = d.conversions;
+  Object.assign(payoutServer, { recipients: d.recipients, pin: d.pin, pinAttempts: d.pinAttempts });
+  Object.assign(ngnServer, d.ngn);
+  reservations.clear();
+  for (const [k, v] of d.reservations) reservations.set(k, v);
+  POKET_USERS.push(...d.poketUsers);
+  STABLECOIN_WALLETS.push(...d.wallets);
+  walletOwner = next;
+}
+/** Whose records the wallet's server calls use now. */
+export const walletOwnerEmail = () => walletOwner;

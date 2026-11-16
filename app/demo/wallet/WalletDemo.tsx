@@ -18,7 +18,9 @@ import { useNgnLedger } from "@/features/wallet/history/ledger";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccount } from "@/store/account";
-import { DEMO_USER_EMAIL, findAccount } from "@/lib/mock-api";
+import { findAccount } from "@/lib/mock-api";
+import { useWalletSession } from "@/features/wallet/useWalletSession";
+import { useOnboarding } from "@/features/wallet/onboarding/useOnboarding";
 
 /**
  * The body is the open flow (Send, NGN, Convert), else the wallet home (WalletBody).
@@ -38,10 +40,12 @@ export function WalletDemo({ css }: { css: string }) {
   };
   useEffect(() => {
     // Demo/test hooks: e2e tests set state (tier, dedicated account, PIN...) through window.__ngn and window.__payout.
-    // WGT-12: the wallet is the demo user's (Ada Osun): her account, with any Checkout payments she made
-    const ada = findAccount(DEMO_USER_EMAIL);
-    if (ada && useAccount.getState().account?.email !== ada.email) useAccount.getState().signIn(structuredClone(ada));
-    Object.assign(window, { __account: useAccount, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents, __deposit: useDeposit, __cards: useCards, __ledger: useNgnLedger });
+    // WGT-12: the wallet is the demo user's (Ada Osun) unless it has signed out or in as someone else (Session): that
+    // account, with any Checkout payments it made (Checkout may have signed another account in meanwhile)
+    const email = useWalletSession.getState().email;
+    const a = email ? findAccount(email) : null;
+    if (a && useAccount.getState().account?.email !== a.email) useAccount.getState().signIn(structuredClone(a));
+    Object.assign(window, { __account: useAccount, __session: useWalletSession, __onboarding: useOnboarding, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents, __deposit: useDeposit, __cards: useCards, __ledger: useNgnLedger });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");
     if (isNgnStage(s)) open(s);

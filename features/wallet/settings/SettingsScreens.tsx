@@ -1,4 +1,5 @@
 "use client";
+import { signOutWallet } from "../session";
 import { useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
@@ -71,7 +72,7 @@ export function SettingsScreen() {
         <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren’t ported yet.")} />
         <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren’t ported yet.")} />
         <SettingsRow id="openSecurity" icon={WICON.shieldIc} title="Security" sub={`Passcode delivery · ${devices.length} signed-in device${devices.length === 1 ? "" : "s"}`} onClick={() => push({ name: "security" })} />
-        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={() => showNotPorted("Logging out isn’t ported yet.")} />
+        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={signOutWallet} />
       </div>
     </>
   );

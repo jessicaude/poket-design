@@ -16,6 +16,9 @@ import { useSend } from "./send/useSend";
 import { useConvert } from "./convert/useConvert";
 import { usePayout } from "./payout/usePayout";
 import { useNgn } from "./ngn/useNgn";
+import { useWalletSession } from "./useWalletSession";
+import { OnboardingBody } from "./onboarding/OnboardingScreens";
+import { useOnboarding } from "./onboarding/useOnboarding";
 
 export type WalletTab = "home" | "card" | "activity";
 
@@ -48,11 +51,13 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
   const bodyRef = useRef<HTMLDivElement>(null);
   const navTop = useWalletNav((s) => s.stack.length + ":" + JSON.stringify(s.stack[s.stack.length - 1] ?? null));
   const flows = [useSend((s) => s.stage), useConvert((s) => s.stage), usePayout((s) => s.stage), useNgn((s) => s.stage),
-    useDeposit((s) => `${s.stage}:${s.vaStage}`), useCards((s) => `${s.creating}:${s.stepUp}:${s.cards.length}`)].join("|");
+    useDeposit((s) => `${s.stage}:${s.vaStage}`), useCards((s) => `${s.creating}:${s.stepUp}:${s.cards.length}`), useOnboarding((s) => s.screen), useWalletSession((s) => s.email)].join("|");
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [navTop, flows, tab]);
   const notifs = useNotifications((s) => s.list);
   const unread = notifs.some((n) => !n.read);
   const signInPrompt = useSettings((s) => s.signInPrompt);
+  // Signed out: onboarding (welcome, sign up, log in), with no bell or gear and an empty tab bar, as in the reference
+  const signedIn = useWalletSession((s) => s.email !== null);
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -79,7 +84,7 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       <div className="panel-brand">
                         <Raw html={WALLET_LOCKUP} />
                       </div>
-                      <div className="panel-actions" id="panelActions">
+                      <div className="panel-actions" id="panelActions" style={signedIn ? undefined : { display: "none" }}>
                         {/* The bell shows once there are notifications, with a dot while any are unread (as in the reference). */}
                         <span className="panel-settings-btn" id="openNotifHeader" role="button" tabIndex={0} aria-label="Notifications"
                           style={{ position: "relative", display: notifs.length ? undefined : "none" }}
@@ -97,10 +102,10 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                       </div>
                     </div>
                     <div className="panel-body" id="panelBody" ref={bodyRef}>
-                      {signInPrompt ? <SignedOutScreen /> : children ?? <WalletBody />}
+                      {!signedIn ? <OnboardingBody /> : signInPrompt ? <SignedOutScreen /> : children ?? <WalletBody />}
                     </div>
                     <div className="tabbar" id="tabbar">
-                      {tab !== null &&
+                      {tab !== null && signedIn &&
                         TABS.map((t) => (
                           <button key={t.id} className={`tab-item ${tab === t.id ? "on" : ""}`} id={t.btnId} onClick={() => onTab?.(t.id)}>
                             <Raw html={TAB_ICON[t.id]} />
