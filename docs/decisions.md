@@ -69,10 +69,10 @@ Agreed rules. Follow them when building; change them only when the team agrees, 
 
 ## Fees
 - **Deposit** (a bank transfer to a temporary account or the account details): 0.40%, capped at $4.00 for USD and ₦5,000.00 for NGN. It comes out of what arrives. Stablecoin deposits are free.
-- **Card top-up** (*to confirm*: the deposit fee covers bank transfers only): the reference's card funding fee, 2.9% + $0.30 (30¢ at the demo rate for EUR, GBP and GHS), charged to the card on top of the amount.
+- **Card top-up** (USD, EUR, GBP and GHS; naira can't be funded by card): 2.9% + $0.30, charged to the card on top of the amount.
 - **Convert:** from USD or a stablecoin, $2.00 (2.00 in the coin) + 0.40%; from NGN, ₦2,000.00 + 0.40%. Charged in the source, out of the amount converted.
 - **Send to an external account** (bank, debit card, stablecoin wallet): $6.00 for USD, 6.00 in the coin for stablecoins, ₦25.00 for NGN, on top of the amount. **To a Poket (CentryOS) user:** free, end to end: naira that converts to USD on receipt (a recipient who can't hold naira) pays no conversion fee.
-- **EUR, GBP and GHS** (*to confirm*): the dollar fees converted at the demo rates: conversions $2.00 + 0.40% (€1.85, £1.57, GH₵31.00 + 0.40%), sends to external accounts $6.00 (€5.56, £4.72, GH₵93.00; UK bank sends included), deposits 0.40% capped at $4.00 (€3.70, £3.15, GH₵62.00; the EUR, GBP and GHS account cards say so).
+- **EUR, GBP and GHS** (*to confirm*): the dollar fees converted at the demo rates: conversions $2.00 + 0.40% (€1.85, £1.57, GH₵31.00 + 0.40%), sends to external accounts $6.00 (€5.56, £4.72, GH₵93.00; UK bank sends included), deposits 0.40% capped at $4.00 (€3.70, £3.15, GH₵62.00; the EUR, GBP and GHS account cards say so), card top-ups 2.9% + $0.30 (€0.28, £0.24, GH₵4.65).
 - Fees count in every total, Max and balance. They show on the amount screen, review, receipt and statement (each fee is its own statement line, with its transaction's reference).
 - **Checkout** is unchanged: the payer pays no fee; the merchant covers conversion fees.
 

@@ -7,16 +7,31 @@ import { test, expect, type Page } from "@playwright/test";
  * a Paused chip and "Transfers may arrive late."; sends to Nigerian banks can’t be reviewed and the name enquiry is
  * unavailable; sends already Sending stay Sending; Checkout’s naira bank transfer is Paused. Poket users, Convert,
  * cards and balances are unaffected. Back up, everything is as before.
+ *
+ * Reliability: the partner state lives in each page's memory (store/partner.ts), so every test (its own browser
+ * context) starts Up and no other test can change it; the tests check that. What they share is the dev server, so
+ * the Checkout test compiles its route first and waits for what's on screen. Where a test checks that nothing
+ * happens for a while, it moves the page's clock forward (page.clock) rather than sleeping.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/** How long a released send takes to move on (RELEASE_SEND_MS in features/wallet/payout/useWithdrawals.ts). */
+const RELEASE_SEND_MS = 1500;
 const COPY = "Naira bank transfers are paused. Your balance is safe, and sending to Poket users, converting and card payments still work.";
 const banner = (page: Page) => page.locator("#panelBody #nairaPaused");
 const title = (page: Page) => page.locator("#panelBody .step-title").first();
-const partner = (page: Page, v: "up" | "down") => page.getByLabel("Naira partner").selectOption(v);
-async function start(page: Page, path = "/demo/wallet") {
+/** Set the partner, and wait until the bar shows it. */
+async function partner(page: Page, v: "up" | "down") {
+  await page.getByLabel("Naira partner").selectOption(v);
+  await expect(page.getByLabel("Naira partner")).toHaveValue(v);
+}
+/** The wallet, with the PIN set. `clock`: the page's timers can be moved forward (page.clock.runFor). */
+async function start(page: Page, path = "/demo/wallet", opts: { clock?: boolean } = {}) {
+  if (opts.clock) await page.clock.install();
   await page.goto(path);
   await expect(page.locator("#panelBody")).toBeVisible();
+  // Each test's own state: the partner starts Up
+  await expect(page.getByLabel("Naira partner")).toHaveValue("up");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
 }
 async function ngnBalance(page: Page) {
@@ -187,7 +202,7 @@ test("adding a Nigerian bank: the name enquiry shows its unavailable state", asy
 });
 
 test("a send already Sending stays Sending until the partner is back", async ({ page }) => {
-  await start(page);
+  await start(page, "/demo/wallet", { clock: true });
   await toAmount(page, "bank:r6", "500000"); // a first payment to Ngozi: scheduled, then released
   await sendWithPin(page);
   await page.locator("#viewPayoutTx").click();
@@ -199,7 +214,7 @@ test("a send already Sending stays Sending until the partner is back", async ({ 
   await expect(banner(page)).toHaveText(COPY);
   await expect(page.getByRole("button", { name: "Mark paid" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Fail" })).toBeDisabled();
-  await page.waitForTimeout(2500); // longer than the release’s usual 1.5s
+  await page.clock.runFor(RELEASE_SEND_MS + 1000); // past the release’s usual 1.5s
   await expect(chip).toHaveText("Sending");
   await partner(page, "up");
   await expect(chip).toHaveText("Paid");
@@ -246,17 +261,23 @@ test("Checkout: naira bank transfer is marked Paused and can’t be chosen; nair
 });
 
 test("one partner state for both widgets: set Down in the wallet, Checkout’s bar shows Down", async ({ page }) => {
+  // Compile Checkout's page first: under load its first compile can outlast a navigation's wait
+  expect((await page.request.get("/demo/ile-living")).ok()).toBe(true);
   await start(page);
   await partner(page, "down");
+  // The state is carried by the in-app navigation (the page's memory): mark the page to tell a full reload apart
+  await page.evaluate(() => { (window as any).__sameDocument = true; });
   await page.locator("#demoToCheckout").click();
   await expect(page).toHaveURL(/\/demo\/ile-living$/);
+  await expect(page.getByLabel("Order currency")).toBeVisible(); // Checkout is on screen
+  expect(await page.evaluate(() => (window as any).__sameDocument), "an in-app navigation, not a full page load").toBe(true);
   await expect(page.getByLabel("Naira partner")).toHaveCount(0); // a USD order: the control isn’t shown
   await page.getByLabel("Order currency").selectOption("NGN");
   await expect(page.getByLabel("Naira partner")).toHaveValue("down");
 });
 
 test("recovery: the banner clears, transfers that arrived while down are credited with a notification each, Sending sends are Paid", async ({ page }) => {
-  await start(page);
+  await start(page, "/demo/wallet", { clock: true });
   const balance = () => page.evaluate(() => (window as any).__ngn.getState().ngnBalance as number);
   // A send to the Naira account (paid before): Sending at once
   await toAmount(page, "bank:lb2", "500000");
@@ -271,7 +292,7 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await page.locator("#demoQueuedArrival").click();
   await page.locator("#demoQueuedArrival").click();
   await expect(page.locator("#demoQueuedArrival")).toHaveText("Transfer arrived while down (2)");
-  await page.waitForTimeout(500);
+  await page.clock.runFor(RELEASE_SEND_MS + 1000);
   expect(await balance()).toBe(before); // nothing credited while down
   await expect(page.locator("#openNotifHeader")).toBeHidden();
   await expect(chip).toHaveText("Sending");
@@ -288,7 +309,7 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   // Down and up again with nothing queued: no new credit or notification
   await partner(page, "down");
   await partner(page, "up");
-  await page.waitForTimeout(300);
+  await page.clock.runFor(RELEASE_SEND_MS + 1000);
   expect(await balance()).toBe(before + 2 * 2490000);
   await expect(notes).toHaveCount(2);
 });
