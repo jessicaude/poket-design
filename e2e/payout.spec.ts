@@ -1,5 +1,5 @@
 import { press } from "./keypad";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /** Sending to a Nigerian bank account (tPayout’s amount, review and done), with the checkout’s PIN steps, in the wallet demo. */
 

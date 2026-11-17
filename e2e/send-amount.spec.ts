@@ -1,6 +1,6 @@
 import { press } from "./keypad";
 import { passSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Send’s amount screen: "You send" (the balance chip and Max), "They get" in the recipient’s currency, inline

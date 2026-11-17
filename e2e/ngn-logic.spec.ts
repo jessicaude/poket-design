@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { formatNaira } from "@/lib/money";
 import { checkId } from "@/lib/mock-api";
 import { useNgn } from "@/features/wallet/ngn/useNgn";

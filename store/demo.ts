@@ -11,9 +11,10 @@ export type MerchantAccepts = { ngnCard: boolean; ngnBank: boolean; conversion: 
 export type BankTransferAccount = "dynamic" | "pool";
 /**
  * Result of the next ID check. "pass" and "declined" are Checkout's own (pId in reference/poket-widgets.html); the others
- * are the prototype's sign-up outcomes (SIGNUP_OUTCOMES: veriffReview, veriffRetry, under18, sanctions).
+ * are the prototype's sign-up outcomes (SIGNUP_OUTCOMES: veriffReview, veriffRetry, under18, docUnder18, sanctions).
+ * Shared by Checkout and the wallet's identity verification.
  */
-export type IdOutcome = "pass" | "review" | "retry" | "declined" | "under18" | "sanctions";
+export type IdOutcome = "pass" | "review" | "retry" | "declined" | "under18" | "docUnder18" | "sanctions";
 /** The prototype's Order control (pOrder): the large order adds a $598.00 rug, taking the total over $500. */
 export type OrderSize = "small" | "large";
 

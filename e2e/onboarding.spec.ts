@@ -1,11 +1,12 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, toCheckout, toWallet } from "./fixtures";
 
 /**
  * The wallet's onboarding: the welcome screen (reference/poket-unified.html: Sign Up, Log In); then Checkout's sign-up
  * screen (reference/poket-widgets.html SCREENS['signup'], shared with Checkout): email or phone, legal name, terms and
  * Continue, with the 6-digit code in place (Edit, Resend). A known email or phone logs in from the same screen. After
- * the code, a new account gets the location check (onboard-geo, onboard-geo-blocked) and the age check (onboard-age,
- * age-blocked), then starts at Tier 0 with empty balances on the wallet home. Logging in checks the location each time.
+ * the code, a new account gets the location check (onboard-geo, onboard-geo-blocked), then starts at Tier 0 with empty
+ * balances on the wallet home (no age question: the date of birth is asked for at identity verification, e2e/
+ * wallet-identity.spec.ts). Logging in checks the location each time.
  * Accounts are shared with Checkout, both ways. Demo bar: "Session", "Location".
  */
 
@@ -42,20 +43,11 @@ async function logInForm(page: Page, email: string) {
   await expect(page.locator("#suGo")).toHaveText("Continue to log in");
   await page.locator("#suGo").click();
 }
-async function dob(page: Page, m: string, d: string, y: string) {
-  await expect(title(page)).toHaveText("Confirm your age");
-  await page.locator("#dobMonthInput").fill(m);
-  await page.locator("#dobDayInput").fill(d);
-  await page.locator("#dobYearInput").fill(y);
-  await page.locator("#ageConfirmCheck").check();
-  await page.locator("#ageContinue").click();
-}
 /** A full sign-up to the wallet home. */
 async function signUp(page: Page, email: string, first = "Kemi", last = "Adeyemi") {
   await signUpForm(page, email, first, last);
   await code(page, "123456");
   await expect(title(page)).toHaveText("Checking your location");
-  await dob(page, "04", "12", "1994");
   await expect(page.locator("#totalBalance")).toBeVisible();
 }
 
@@ -72,7 +64,7 @@ test("signed out: the welcome screen, with no bell or settings and an empty tab 
   await expect(page.locator("#demoPoketTransfer")).toHaveCount(0);
 });
 
-test("sign up: one screen (email, legal name, terms with both links); the code in place; location; age; a Tier 0 account with empty balances on the home", async ({ page }) => {
+test("sign up: one screen (email, legal name, terms with both links); the code in place; location; no age question; a Tier 0 account with empty balances on the home", async ({ page }) => {
   await signedOut(page);
   await page.locator("#goSignup").click();
   await expect(heading(page)).toHaveText("Verify your email");
@@ -109,15 +101,9 @@ test("sign up: one screen (email, legal name, terms with both links); the code i
   await page.locator("#suGo").click();
   await code(page, "123456");
 
-  // Location, then age
+  // Location, then straight to the home: the date of birth waits for identity verification
   await expect(title(page)).toHaveText("Checking your location");
   await expect(body(page).locator(".step-sub")).toHaveText("Poket confirms your location matches where account services are allowed.");
-  await expect(title(page)).toHaveText("Confirm your age");
-  await expect(body(page).locator(".step-sub")).toHaveText("You must be at least 18 to use Poket. Self-attested now, verified against your ID later.");
-  // The reference's input rules: digits only, month up to 12
-  await page.locator("#dobMonthInput").fill("13");
-  await expect(page.locator("#dobMonthInput")).toHaveValue("12");
-  await dob(page, "04", "12", "1994");
 
   // The wallet home: Tier 0, nothing in it
   await expect(page.locator("#totalBalance")).toHaveText("$0.00 USD");
@@ -172,7 +158,6 @@ test("sign up with a phone: Use phone, the country code sheet, the code texted; 
   await page.locator("#otpResend").click();
   await expect(page.locator("#toastEl")).toHaveText("New code texted to +233 ••• ••• 4567");
   await code(page, "123456");
-  await dob(page, "03", "03", "1990");
   await expect(page.locator("#totalBalance")).toHaveText("$0.00 USD");
   await expect(page.getByLabel("Session").locator("option:checked")).toHaveText("Session: Signed in as Kofi");
   // No email: the home shows the number; Settings has no email
@@ -204,23 +189,6 @@ test("location not supported: no account is made; Back to start", async ({ page 
   await page.locator("#onboardGeoBlockedClose").click();
   await expect(title(page)).toHaveText("Welcome to Poket");
   expect(await page.evaluate(() => (window as any).__account.getState().account)).toBeNull();
-});
-
-test("under 18: We can’t create this account; Back to start", async ({ page }) => {
-  await signedOut(page);
-  await signUpForm(page, "young@example.com");
-  await code(page, "123456");
-  const y = new Date().getFullYear() - 17;
-  await dob(page, "01", "01", String(y));
-  await expect(title(page)).toHaveText("We can’t create this account");
-  await expect(body(page).locator(".step-sub")).toHaveText("Poket accounts require the account holder to be at least 18 years old. Based on the date of birth entered, this account can’t be created.");
-  await page.locator("#ageBlockedClose").click();
-  await expect(title(page)).toHaveText("Welcome to Poket");
-  // The account wasn't made: the email is still new
-  await page.locator("#goLogin").click();
-  await page.locator("#idInput").fill("young@example.com");
-  await expect(page.locator("#suKnown")).toBeHidden();
-  await expect(page.locator("#suGo")).toHaveText("Continue");
 });
 
 test("a known email or phone, as it's typed: the note, no names or terms, Continue to log in; Log In opens the same screen", async ({ page }) => {
@@ -298,8 +266,7 @@ test("an account made in the wallet logs in at Checkout", async ({ page }) => {
   await signedOut(page);
   await signUp(page, "wallet.made@example.com", "Amara", "Okafor");
   // To Checkout by the demo bar's link (no reload): the same mock directory
-  await page.locator("#demoToCheckout").click();
-  await expect(page).toHaveURL(/\/demo\/ile-living$/);
+  await toCheckout(page);
   await page.locator("#payWithPoket").click();
   const widget = page.getByTestId("checkout-widget");
   await widget.locator("#idInput").fill("wallet.made@example.com");
@@ -325,8 +292,7 @@ test("an account made at Checkout logs in to the wallet", async ({ page }) => {
   await page.keyboard.type("123456");
   await expect(widget.locator("#otp")).toHaveCount(0);
   await expect(events(page).locator("li", { hasText: "user.account_created" })).toContainText('"widget":"checkout"');
-  await page.locator("#demoToWallet").click();
-  await expect(page).toHaveURL(/\/demo\/wallet$/);
+  await toWallet(page);
   await page.getByLabel("Session").selectOption("out");
   await logInForm(page, "checkout.made@example.com");
   await code(page, "123456");

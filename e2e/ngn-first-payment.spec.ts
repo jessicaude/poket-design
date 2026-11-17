@@ -1,7 +1,7 @@
 import { press } from "./keypad";
 import { HELD_NGN_BALANCE, HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
 import { passSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * NGN withdrawal: a first payment of $500 or more to a new account shows the first-payment notice on amount and

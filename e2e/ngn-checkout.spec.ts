@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "./fixtures";
 
 /**
  * NGN checkout on the Ilé Living demo: the demo bar’s order currency and merchant settings, the naira rails on
@@ -184,7 +184,8 @@ test("bank transfer (Dynamic): a one-time account for the exact amount; the tran
   await expect(widget.locator('[data-transfercopy="1"]')).toHaveText("Copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(num);
   await widget.locator('[data-transfercopy="3"]').click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Ilé Living via Poket");
+  // The copy is written asynchronously: wait for it
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Ilé Living via Poket");
 
   await page.locator("#demoTransferArrives").click();
   await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 to Ilé Living" })).toBeVisible();
@@ -484,7 +485,7 @@ test("$500 rule (Tier 0): a naira total worth under $500 needs no ID check", asy
 test("$500 rule (Tier 0): a naira total worth $500 or more goes to the ID check", async ({ page }) => {
   let widget = await newUserNgnOrder(page, 77500000); // ₦775,000.00 = $500.00
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();
-  await expect(widget.locator("#dGo")).toHaveText("Continue to ID check"); // identity verification (checkout-id.spec.ts)
+  await expect(widget.locator("#dGo")).toHaveText("Continue to ID verification"); // identity verification (checkout-id.spec.ts)
 
   widget = await newUserNgnOrder(page, 155000000); // ₦1,550,000.00 = $1,000
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();

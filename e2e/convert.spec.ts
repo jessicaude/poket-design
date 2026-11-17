@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 import { cvPress } from "./keypad";
 
 /**
@@ -217,7 +218,7 @@ test("limit and tier check: Tier 0 steps up before converting; Cancel returns to
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#cvQuoteCard")).toBeVisible();
   await page.locator("#cvConfirm").click();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your USDC on Base balance");
   expect(await state(page)).toMatchObject({ ngn: 4000000, usdcBase: 514 });
 });

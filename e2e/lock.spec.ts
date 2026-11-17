@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, toCheckout, toWallet } from "./fixtures";
 
 /**
  * Too many wrong verification codes lock the account for 2 hours: after [n] wrong codes in a row (demo value 5,
@@ -165,8 +165,7 @@ test("across both widgets: 3 wrong device codes in the wallet, then 2 at Checkou
     await expect(page.locator("#deviceStatus")).toHaveText("That code isn’t right. Check it and try again.");
   }
   // To Checkout by the demo bar’s link (no reload), so the one mock (and its count) carries over, as one account would
-  await page.locator("#demoToCheckout").click();
-  await expect(page).toHaveURL(/\/demo\/ile-living$/);
+  await toCheckout(page);
   await page.locator("#payWithPoket").click();
   const widget = page.getByTestId("checkout-widget");
   await widget.locator("#suTerms").check();
@@ -178,8 +177,7 @@ test("across both widgets: 3 wrong device codes in the wallet, then 2 at Checkou
   await expect(events(page).locator("li", { hasText: "account.locked" })).toContainText('"widget":"checkout"');
 
   // Back in the wallet: the send left at its device step shows the lock; closed, a new Send does too
-  await page.locator("#demoToWallet").click();
-  await expect(page).toHaveURL(/\/demo\/wallet$/);
+  await toWallet(page);
   await expect(page.locator("#accountLocked")).toBeVisible();
   await expect(page.locator("#lockCountdown")).toHaveText(/^1:59:[0-5]\d$/);
   await page.locator("#lockedClose").click();

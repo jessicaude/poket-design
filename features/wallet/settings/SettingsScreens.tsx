@@ -169,8 +169,8 @@ export function ComplianceScreen() {
 }
 
 /**
- * The step-up from Compliance (tStepupIntro, then back to Compliance). Demo stand-in: Continue raises the tier by
- * one in place of the verification steps, which aren’t ported yet.
+ * The step-up from Compliance (tStepupIntro, then back to Compliance), raising the tier by one. From Tier 0 that's
+ * identity verification (StepUpIntro); above it, Continue stands in for the later tiers' steps, which aren’t ported yet.
  */
 export function ComplianceStepUpScreen() {
   const back = useWalletNav((s) => s.back);

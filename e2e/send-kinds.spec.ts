@@ -1,6 +1,6 @@
 import { press } from "./keypad";
 import { expectSelfie, passSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Every kind of send uses the same amount, review, PIN, reservation and status screens. CentryLink users arrive instantly

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * WGT-11, NGN history, receipts and statements. History: the reference’s activity rows, grouped by day, with status

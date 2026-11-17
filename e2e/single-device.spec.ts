@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Demo bar "Single active device: Off / On" (to confirm: not in the PRD). On: binding a new device signs out the other

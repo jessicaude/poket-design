@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, toCheckout } from "./fixtures";
 import { HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
 import { passSelfie } from "./selfie";
 
@@ -271,14 +271,11 @@ test("Checkout: naira bank transfer is marked Paused and can’t be chosen; nair
 });
 
 test("one partner state for both widgets: set Down in the wallet, Checkout’s bar shows Down", async ({ page }) => {
-  // Compile Checkout's page first: under load its first compile can outlast a navigation's wait
-  expect((await page.request.get("/demo/ile-living")).ok()).toBe(true);
   await start(page);
   await partner(page, "down");
   // The state is carried by the in-app navigation (the page's memory): mark the page to tell a full reload apart
   await page.evaluate(() => { (window as any).__sameDocument = true; });
-  await page.locator("#demoToCheckout").click();
-  await expect(page).toHaveURL(/\/demo\/ile-living$/);
+  await toCheckout(page);
   await expect(page.getByLabel("Order currency")).toBeVisible(); // Checkout is on screen
   expect(await page.evaluate(() => (window as any).__sameDocument), "an in-app navigation, not a full page load").toBe(true);
   await expect(page.getByLabel("Naira partner")).toHaveCount(0); // a USD order: the control isn’t shown

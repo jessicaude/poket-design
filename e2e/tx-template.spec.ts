@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * One look for every transaction (docs/decisions.md, History and receipts): the direction icon (+ in, ↗ out, ⇄ a

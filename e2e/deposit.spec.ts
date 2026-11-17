@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 
 /**
  * Deposit (reference/poket-unified.html: tCardFund 'select', tDepositMethod, tVa, tCardFund, tAddMoney) for
@@ -53,7 +54,7 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(title(page)).toHaveText("Verify your identity first");
   await page.locator("#vaVerify").click();
   await expect(page.locator("#stepupWarning")).toHaveText("Account details are in your verified name.");
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(title(page)).toHaveText("Get USD account details");
   await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "Receive by", "Arrives", "Fees"]);
   await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "ACH or wire", "ACH 1-3 business days", "0.40% fee, up to $4.00"]);
@@ -155,7 +156,7 @@ test("USD by card: the amount, the card fee on top, a saved card, the passcode, 
   await page.locator("#verify3ds").click();
   // Tier 0: over the limit, so the step-up first
   await expect(page.locator("#stepupWarning")).toBeVisible();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(title(page)).toHaveText("Authorizing payment");
   await expect(page.locator("#depositDoneAmount")).toHaveText("$25.00 USD");
   await expect(body(page)).toContainText("Added to your USD balance");

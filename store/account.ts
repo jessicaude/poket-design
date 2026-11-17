@@ -54,7 +54,7 @@ export type Account = {
   /** Failed ID checks so far: Veriff's limit of 3 attempts is shared across checks and checkouts. */
   idFailures?: number;
   /** Identity verification ended in a block (under 18, declined or out of attempts, sanctions): never offered again. */
-  idBlocked?: "age" | "id_declined" | "sanctions";
+  idBlocked?: "age" | "doc_age" | "id_declined" | "sanctions";
   methods: PaymentMethod[];
   payments: Payment[];
   /** Disputes raised (at most 2 counted): at 2 the account can't raise more (the reference's disputeStrikes). */

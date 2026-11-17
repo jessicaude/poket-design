@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * The Card tab (tCard in reference/poket-unified.html): locked below Tier 3 with what each tier takes and "Increase

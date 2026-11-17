@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /** Temporary account stages (tVaNgn in reference/poket-unified.html), in the wallet demo. */
 

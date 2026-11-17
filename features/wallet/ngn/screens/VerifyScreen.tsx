@@ -4,7 +4,7 @@ import { useNgn } from "../useNgn";
 
 /**
  * 'verify': Tier 0 tapping the NGN balance's "Get NGN account details". The wallet's step-up (tStepupIntro), with the
- * reference's reason from tVa's 'locked' stage. Continue stands in for verification (not ported): Tier 1, then the
+ * reference's reason from tVa's 'locked' stage. Continue runs identity verification (StepUpIntro): Tier 1, then the
  * account choice. Cancel returns to the balance.
  */
 export function VerifyScreen() {

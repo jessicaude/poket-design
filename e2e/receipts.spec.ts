@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { readFileSync } from "node:fs";
 
 /**
@@ -90,6 +90,7 @@ test("pending, held and failed sends say so on the receipt", async ({ page }) =>
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
   await page.locator("#receiptShare").click();
+  await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text.split("\n").slice(0, 3)).toEqual(["Poket receipt", "Failed", "Failed: this payment wasn’t sent. The money was returned to your balance."]);
 });
@@ -178,6 +179,7 @@ test("white-label: the merchant’s name and colours, still Payments by Poket", 
   await expect(page.locator("#receiptFooter")).toHaveText("Payments by Poket");
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
   await page.locator("#receiptShare").click();
+  await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text.split("\n")[0]).toBe("Ilé Living receipt");
   expect(text.split("\n").at(-1)).toBe("Payments by Poket");
@@ -246,6 +248,7 @@ test("a deposit’s receipt has the Session ID after the Reference: in the text,
     const labels = await page.locator("#receiptCard .rc-row > span:first-child").allTextContents();
     await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
     await page.locator("#receiptShare").click();
+    await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
     const text = await page.evaluate(() => navigator.clipboard.readText());
     const [pdf] = await Promise.all([page.waitForEvent("download"), page.locator("#receiptPdf").click()]);
     const s = readFileSync((await pdf.path())!).toString("latin1");

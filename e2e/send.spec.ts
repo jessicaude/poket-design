@@ -1,5 +1,5 @@
 import { press } from "./keypad";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Send: the recipients screen and "+ New recipient" (bank account by currency, CentryLink user, stablecoin wallet), from

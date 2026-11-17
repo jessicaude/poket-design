@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 import { cvPress } from "./keypad";
 
 /**
@@ -174,7 +175,7 @@ test("lowering while a raise is pending replaces it", async ({ page }) => {
   await expect(page.locator("#instantLimit")).toHaveText("₦30,000.00 NGN");
   await expect(page.locator("#instantPending")).toHaveCount(0);
 });
-test("the tier link opens Compliance; Increase my limits steps up (demo: the tier rises) and raises the maximum", async ({ page }) => {
+test("the tier link opens Compliance; Increase my limits verifies the identity (Tier 1) and raises the maximum", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openInstantTransfers").click();
   await page.locator("#instantRaiseTier").click();
@@ -184,7 +185,7 @@ test("the tier link opens Compliance; Increase my limits steps up (demo: the tie
   await page.locator("#startStepupFromAccount").click();
   await expect(title(page)).toHaveText("Verify your identity");
   await expect(body(page).locator(".alert")).toHaveCount(0); // asked for, not over a limit
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(page.locator("#currentLevel")).toHaveText("Tier 1: Basic");
   await expect(body(page).locator(".info-card").nth(1)).toContainText("Tier 1: Basic limits");
   await page.locator("#backFromAccountTier").click();

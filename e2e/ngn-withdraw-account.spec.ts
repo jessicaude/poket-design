@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Adding a Nigerian bank account (from Send: + New recipient → Bank account → NGN): searchable bank, 10-digit account

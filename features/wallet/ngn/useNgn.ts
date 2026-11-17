@@ -95,7 +95,7 @@ type State = {
   openBankTransfer: () => void;
   /** The NGN balance's account card (vaOpen from the balance screen): Tier 0 verifies first; else the account flow. */
   openAccountDetails: () => void;
-  /** 'verify' Continue: stands in for identity verification (not ported): Tier 1, then the account choice. */
+  /** 'verify' Continue, once identity verification passes (StepUpIntro): Tier 1, then the account choice. */
   verifyContinue: () => void;
   /** ngnPickDedicated: the intro if the ID is already matched, else choose an ID. */
   pickDedicated: () => void;

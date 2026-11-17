@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { fmtCurrency, fmtFee } from "@/features/wallet/payout/payoutMath";
 import { sendSummary } from "@/features/wallet/send/sendSummary";
 import { asSendRecipient, sourceAllowed } from "@/features/wallet/send/sources";

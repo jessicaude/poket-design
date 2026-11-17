@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * The wallet's frame: a fixed-size panel (400px wide, min(720px, the viewport minus the demo bar minus 48px) tall)

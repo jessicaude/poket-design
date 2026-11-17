@@ -1,7 +1,7 @@
 import { press } from "./keypad";
 import { HELD_NGN_BALANCE, HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
 import { expectSelfie, passSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * NGN withdrawal statuses (status screen, activity rows, chips), "₦X on hold", the demo bar’s status actions, and

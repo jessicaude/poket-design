@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * "Report a problem" on a Paid send to a Nigerian bank (send-report in reference/poket-widgets.html). "I sent it to
@@ -145,7 +145,7 @@ test("wrong account: Not recovered: the receiving bank didn’t return it; the b
   await page.locator("#demoRecallNot").click();
   await expect(page.locator("#recallStatus")).toHaveText("Not recovered");
   await expect(page.locator("#recallMsg")).toHaveText("We couldn’t recover this transfer. The receiving bank didn’t return it.");
-  await page.waitForTimeout(300);
+  // The recall's answer is applied in the same update that shows it (no later credit to wait for)
   expect(await ngn(page)).toBe(before);
   await expect(page.locator("#demoRecallRecovered")).toBeDisabled();
   await page.locator("#openNotifHeader").click();

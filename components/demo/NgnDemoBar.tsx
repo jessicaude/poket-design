@@ -20,6 +20,12 @@ import { useDeposit } from "@/features/wallet/deposit/useDeposit";
 import { signInWallet, signOutWallet } from "@/features/wallet/session";
 import { useWalletSession } from "@/features/wallet/useWalletSession";
 import { useOnboarding } from "@/features/wallet/onboarding/useOnboarding";
+import { useIdentity } from "@/features/wallet/identity/useIdentity";
+import { useDemo, type IdOutcome } from "@/store/demo";
+import { ID_OUTCOMES } from "./DemoBar";
+
+/** The ID check outcomes the wallet's identity verification acts on (the others are Checkout's). */
+const WALLET_ID_OUTCOMES = ID_OUTCOMES.filter(([v]) => v === "pass" || v === "under18" || v === "docUnder18");
 import { DEMO_USER_EMAIL, findAccount } from "@/lib/mock-api";
 import { DEMO_ACCOUNT_TRANSFER_KOBO, DEMO_POKET_TRANSFER_KOBO, receiveNaira } from "@/features/wallet/history/credits";
 
@@ -64,6 +70,8 @@ export function NgnDemoBar() {
   const session = useWalletSession((s) => s.email);
   const sessionName = session && session !== DEMO_USER_EMAIL ? findAccount(session)?.first || session : null;
   const { geoBlocked, set: setOnboarding } = useOnboarding();
+  const idStage = useIdentity((s) => s.stage), idPhone = useIdentity((s) => s.phone);
+  const idOutcome = useDemo((s) => s.idOutcome);
   const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
@@ -99,6 +107,13 @@ export function NgnDemoBar() {
           </select>
         </label>
       )}
+      <label className="opt-lbl"><span>ID check</span>
+        {/* Identity verification (Tier 0 to 1): shared with Checkout's ID check control */}
+        <select aria-label="ID check" value={WALLET_ID_OUTCOMES.some(([v]) => v === idOutcome) ? idOutcome : "pass"}
+          onChange={(e) => useDemo.getState().set({ idOutcome: e.target.value as IdOutcome })}>
+          {WALLET_ID_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </label>
       <label className="opt-lbl"><span>PIN</span>
         <select aria-label="PIN" value={pinSet ? "set" : "none"} onChange={(e) => seedPin(e.target.value === "set" ? DEMO_PIN : null)}>
           <option value="none">PIN: Not set</option><option value="set">PIN: Set ({DEMO_PIN})</option>
@@ -168,6 +183,10 @@ export function NgnDemoBar() {
       {payStage === "selfie" && !locked && (selfiePhone
         ? <button className="pbtn" id="demoSelfieFinish" onClick={() => usePayout.getState().selfieFinish()}>Finish on phone</button>
         : <button className="pbtn" id="demoSelfieOpen" onClick={() => usePayout.getState().selfieOpenPhone()}>Open on phone</button>)}
+      {/* Identity verification's handoff (as Checkout's DEMO pill on its vendor screen) */}
+      {idStage === "vendor" && !locked && (idPhone
+        ? <button className="pbtn" id="demoIdFinish" onClick={() => useIdentity.getState().finishOnPhone()}>Finish on phone</button>
+        : <button className="pbtn" id="demoIdOpen" onClick={() => useIdentity.getState().openOnPhone()}>Open on phone</button>)}
       {/* Single active device: another device is bound, which signs this one out (its next tap asks it to sign in) */}
       {singleDevice && !signedOut && <button className="pbtn" id="demoOtherDeviceBinds" onClick={otherDeviceBinds}>Sign in on another device</button>}
       {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}

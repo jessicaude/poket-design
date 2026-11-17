@@ -12,13 +12,13 @@ Status: **ported**, matching `reference/poket-widgets.html`. Demo: `/demo/ile-li
 | `processing` | `screens/StatusScreens.tsx` | Paying the merchant: the order amount, or the dollars charged when converted. |
 | `declined` | `screens/StatusScreens.tsx` | Card declined; "Choose another way to pay". |
 | `done` | `screens/StatusScreens.tsx` | Paid with, order, reference, total; converted adds "You paid $X USD" and the rate. Protection note. |
-| `details` | `screens/IdentityScreens.tsx` | Orders of $500 or more (an NGN order: the USD value of the naira total), before Tier 1: "Verify your identity". Country (a new account starts in Nigeria, the location check), prefilled legal name, date of birth; United States adds an SSN (masked, Show / Hide) and "I don't have an SSN". Under 18 is blocked. "Finish later" closes. |
+| `details` | `screens/IdentityScreens.tsx` (`features/auth/IdentityDetailsForm.tsx`, shared with the wallet) | Orders of $500 or more (an NGN order: the USD value of the naira total), before Tier 1: "Verify your identity" (tKycDetails). Country (a new account starts in Nigeria, the location check), prefilled legal name, date of birth (DD, Month picker, YYYY); United States adds an SSN (masked, Show / Hide, "Check your SSN. This number isn't valid.") and "I don't have an SSN". "Continue to selfie check" (Plaid) or "Continue to ID verification" (Veriff). Under 18 by this date is blocked. "Finish later" closes. |
 | `vendor` | `screens/IdentityScreens.tsx` | The ID handoff: Veriff (ID and selfie), or Plaid (selfie) for a US SSN. QR code, then "Continue on your phone". DEMO pill: Open on phone, Finish on phone. |
 | `verifying` | `screens/IdentityScreens.tsx` | "Checking your ID", then the demo bar's ID check outcome. |
 | `id-review` | `screens/IdentityScreens.tsx` | Manual review (copy from the reference's wallet engine, tVfSlow): "Your ID needs a closer look", Finish later. DEMO pill: Approve review. |
 | `id-retry` | `screens/IdentityScreens.tsx` | Needs retry (tVfRetry): the reason and tries left out of Veriff's 3, Try again. |
 | `id-done` | `screens/IdentityScreens.tsx` | "You're verified" (Tier 1); Continue goes back to paying (Pay, or add a method first). |
-| `blocked` | `screens/IdentityScreens.tsx` | Under 18, ID declined (including the 3rd failed check), or a sanctions match (copy from tSanctionsDeclined). "You haven’t been charged." Back to the merchant. |
+| `blocked` | `screens/IdentityScreens.tsx` | Under 18 by the date of birth given, the ID shows under 18 (after the ID check; copy from tDocAgeBlocked), ID declined (including the 3rd failed check), or a sanctions match (copy from tSanctionsDeclined). "You haven’t been charged." Back to the merchant. |
 | `locked` | `screens/LockedScreen.tsx` | Too many wrong sign-up or log-in codes (counted with the wallet's device codes): "Account locked", "Too many incorrect codes. Try again in 2 hours.", a live countdown, Back to the merchant. Opening the widget during the lock shows it. Sends `account.locked`. DEMO pill: Skip lock time. |
 
 Flow logic: `features/checkout/useCheckout.ts`; conversion quote and which methods can pay: `features/checkout/quote.ts`.
@@ -38,14 +38,14 @@ Identity verification (Tier 1), for orders of $500 or more:
 - In the product, the wallet's naira ID matches and Checkout's ID checks share **one** Veriff attempt count (3) per
   person. The demo has separate users (the wallet demo's user isn't a Checkout account), so here each keeps its own
   count: `useNgn.attempts` in the wallet, the account's `idFailures` in Checkout.
-- Events: `user.verified` (`tier: 1`), `user.blocked` (`reason`: `age`, `id_declined`, `sanctions`).
+- Events: `user.verified` (`tier: 1`), `user.blocked` (`reason`: `age`, `doc_age`, `id_declined`, `sanctions`); the wallet sends both too, with `widget: "wallet"`.
 
 Naira: running text (titles, buttons, notes, the merchant page) shows "₦36,270.00" without the code; amount rows and
 cards keep the grey code. Rate: ₦1,550 per $1. Full NGN rules: `.cursor/rules/ngn.mdc` (Checkout).
 
 Demo controls (the bar wraps onto a second row when needed):
-- Customer (new / Ada), ID check (passes, manual review, needs retry, declined, under 18 at date of birth, sanctions
-  match), Card (approved / declined), Order (under $500 / over $500: adds the $598.00 rug, $621.40 or ₦963,170.00),
+- Customer (new / Ada), ID check (passes, manual review, needs retry, declined, under 18 at date of birth, ID shows
+  under 18, sanctions match; the wallet's bar offers passes and the two under-18 outcomes), Card (approved / declined), Order (under $500 / over $500: adds the $598.00 rug, $621.40 or ₦963,170.00),
   Details (shared / not), Theme (Poket / CentryOS).
 - Screen actions show in the prototype's DEMO pill: Open on phone, Finish on phone (vendor), Approve review.
 - Order currency (USD / NGN), Merchant accepts (NGN card, NGN bank transfer, Conversion), Bank transfer account

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 
 /** Dedicated NGN account: ngnChoice, ngnRoute, ngnId, ngnChecking, ngnLocked, ngnUnavailable, intro, creating, details. */
 
@@ -237,11 +238,11 @@ test("NGN balance at Tier 0: verify first (the step-up), then the account choice
   await page.locator("#detailDeposit").click();
   await page.locator("#dmBank").click();
   await expect(title(page)).toHaveText("Add naira");
-  // Continue stands in for verification: Tier 1, then the account choice
+  // Identity verification: Tier 1, then the account choice
   await page.evaluate(() => (window as any).__ngn.getState().close()); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(page.locator("#balanceAmount")).toBeVisible();
   await card.click();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(title(page)).toHaveText("Bank transfer");
   expect(await page.evaluate(() => (window as any).__ngn.getState().tier)).toBe(1); // eslint-disable-line @typescript-eslint/no-explicit-any
 });

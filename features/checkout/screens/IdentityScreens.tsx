@@ -1,76 +1,24 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- the vendor logos are inline data URIs, as in the prototype */
-import { useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW, ICON, IDCARD_ICON, WICON } from "@/lib/icons";
 import { VENDOR_LOGOS } from "@/lib/vendor-logos";
 import { useAccount } from "@/store/account";
 import { maskAccount } from "@/features/auth/identifier";
-import { GEO_COUNTRY, ID_COUNTRIES, ID_MAX_TRIES, ID_RETRY_REASONS, ageFrom, ssnOk, useCheckout } from "../useCheckout";
+import { IdentityDetailsForm } from "@/features/auth/IdentityDetailsForm";
+import { GEO_COUNTRY, ID_MAX_TRIES, ID_RETRY_REASONS, useCheckout } from "../useCheckout";
 
 /** Tier 1 identity, once. Ported from SCREENS['details'], ['vendor'], ['verifying'], ['id-done'] and ['blocked'] in
  * reference/poket-widgets.html. Manual review and retry use the reference's wallet engine copy (tVfSlow, tVfRetry). */
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/></svg>';
-/** kemi.adeyemi@gmail.com -> k••••i@gmail.com */
-
-/** SCREENS['details']: country, prefilled legal name, date of birth; US residents add an SSN. */
+/** SCREENS['details']: the shared "Verify your identity" (features/auth/IdentityDetailsForm.tsx), prefilled from the
+ * account; Checkout's own journey steps show above it. */
 export function DetailsScreen() {
-  const { idv, setIdv, submitDetails, finishLater } = useCheckout();
+  const { idv, submitDetails, finishLater } = useCheckout();
   const account = useAccount((s) => s.account);
-  const [country, setCountry] = useState(account?.country ?? GEO_COUNTRY);
-  const [first, setFirst] = useState(account?.first ?? "");
-  const [last, setLast] = useState(account?.last ?? "");
-  const [showSsn, setShowSsn] = useState(false);
   if (!account) return null;
-  const d = idv.det;
-  const setDet = (patch: Partial<typeof d>) => setIdv({ det: { ...d, ...patch } });
-  const us = country === "United States" && !idv.noSsn;
-  const age = ageFrom(d.d, d.m, d.y);
-  const ok = !!first.trim() && !!last.trim() && age !== null && (!us || ssnOk(d.ssn));
-  const fmtSsn = (v: string) => { const x = v.replace(/\D/g, "").slice(0, 9); return x.length > 5 ? `${x.slice(0, 3)}-${x.slice(3, 5)}-${x.slice(5)}` : x.length > 3 ? `${x.slice(0, 3)}-${x.slice(3)}` : x; };
-  return (
-    <>
-      <h2 className="title">Verify your identity</h2>
-      <label className="lbl" htmlFor="dCountry">Country</label>
-      <select className="field" id="dCountry" value={country} onChange={(e) => { setCountry(e.target.value); setIdv({ noSsn: false }); }}>
-        {ID_COUNTRIES.map((c) => <option key={c}>{c}</option>)}
-      </select>
-      <div className="row c2">
-        <div><label className="lbl" htmlFor="dFirst">Legal first name</label><input className="field" id="dFirst" value={first} onChange={(e) => setFirst(e.target.value)} /></div>
-        <div><label className="lbl" htmlFor="dLast">Legal last name</label><input className="field" id="dLast" value={last} onChange={(e) => setLast(e.target.value)} /></div>
-      </div>
-      <label className="lbl">Date of birth</label>
-      <div className="row c3">
-        <input className="field" id="dD" inputMode="numeric" maxLength={2} placeholder="DD" aria-label="Day" value={d.d} onChange={(e) => setDet({ d: e.target.value })} />
-        {/* The prototype's picker shows an empty choice grey (.field.pick .ph); native select here */}
-        <select className="field" id="dM" aria-label="Month" value={d.m} style={d.m ? undefined : { color: "#9ba3b5" }} onChange={(e) => setDet({ m: e.target.value })}>
-          <option value="">Month</option>
-          {MONTHS.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
-        </select>
-        <input className="field" id="dY" inputMode="numeric" maxLength={4} placeholder="YYYY" aria-label="Year" value={d.y} onChange={(e) => setDet({ y: e.target.value })} />
-      </div>
-      {us && (
-        <>
-          <label className="lbl" htmlFor="dSsn">Social Security number</label>
-          <div className="id-field">
-            <span className="id-ic"><Raw html={LOCK} /></span>
-            <input className="mono" id="dSsn" inputMode="numeric" maxLength={11} placeholder="000-00-0000" type={showSsn ? "text" : "password"} autoComplete="off"
-              value={d.ssn} onChange={(e) => setDet({ ssn: fmtSsn(e.target.value) })} />
-            <button type="button" className="id-switch" id="dSsnShow" aria-controls="dSsn" onClick={() => setShowSsn(!showSsn)}>{showSsn ? "Hide" : "Show"}</button>
-          </div>
-        </>
-      )}
-      {country === "United States" && (
-        <p className="hint"><button className="link" id="dNoSsn" onClick={() => setIdv({ noSsn: !idv.noSsn })}>{idv.noSsn ? "Use my SSN instead" : "I don’t have an SSN"}</button></p>
-      )}
-      <button className="btn" id="dGo" disabled={!ok} onClick={() => submitDetails({ first: first.trim(), last: last.trim(), country, age: age ?? 0 })}>
-        {us ? "Continue to selfie check" : "Continue to ID check"}
-      </button>
-      <div className="center"><button className="btn ghost" id="dLater" onClick={() => finishLater("canceled")}>Finish later</button></div>
-    </>
-  );
+  return <IdentityDetailsForm initial={{ first: account.first ?? "", last: account.last ?? "", country: account.country ?? GEO_COUNTRY, ...idv.det, noSsn: idv.noSsn }}
+    onSubmit={submitDetails} onLater={() => finishLater("canceled")} />;
 }
 
 /** qr(): the reference's seeded QR pattern (decorative). */
@@ -164,9 +112,11 @@ export function IdRetryScreen() {
   );
 }
 
-/** SCREENS['blocked']: age and id_declined from the checkout; sanctions uses tSanctionsDeclined's copy. */
+/** SCREENS['blocked']: age and id_declined from the checkout; an ID that shows under 18 uses tDocAgeBlocked's copy,
+ * sanctions tSanctionsDeclined's. */
 const BLOCK_COPY = {
   age: ["You must be 18 or older", "Poket accounts are for people aged 18 and over."],
+  doc_age: ["We can’t verify this account", "The date of birth on your government ID doesn’t meet Poket’s minimum age requirement. Self-attestation isn’t relied on once a document is verified, so this account has been blocked and flagged for compliance review. No funds can be added."],
   id_declined: ["We couldn’t verify your identity", "If you think this is a mistake, contact Poket support."],
   sanctions: ["We couldn’t verify this account", "Contact Poket support."],
 } as const;
