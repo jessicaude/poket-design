@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
+import { COMPLETE, WAITING, expectTrack } from "./waiting";
 
 /**
  * The wallet's identity verification (Tier 0 to Tier 1), from the step-up: "Verify your identity" (reference/
@@ -72,6 +73,8 @@ test("Verify your identity: the steps, country, the name from sign-up, the date 
   await expect(body(page).locator(".vendor .vt")).toHaveText("Continue on your phone");
   await page.locator("#demoIdFinish").click();
   await expect(title(page)).toHaveText("Checking your ID");
+  await expect(page.locator("#idVerifying .wait-icon svg")).toBeVisible();
+  await expectTrack(page, "#idVerifying", ["Submitted", "Checking", "Result"], WAITING);
 
   // Identity verified: Tier 1, shared with Checkout
   await expect(title(page)).toHaveText("Identity verified");

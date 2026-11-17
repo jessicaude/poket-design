@@ -16,6 +16,7 @@ import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
 import { useWalletNav } from "../useWalletNav";
+import { Tracker, WaitingScreen } from "../WaitingScreen";
 import { paymentFields, paymentStatusChip, refundFields } from "../history/fields";
 import { TxDetailView, TxIcon, TxNotFound } from "../history/TxView";
 import { paymentReceipt, refundReceipt } from "../receipt/receipt";
@@ -79,6 +80,18 @@ export function RefundDetailScreen({ id }: { id: string }) {
   );
 }
 
+/** A dispute's waiting steps: submitted, under review while it's open, then the decision (refund, release, reversal). */
+export const DISPUTE_STEPS = [{ label: "Submitted" }, { label: "Under review" }, { label: "Decision" }];
+
+/** Where a dispute stands, on its transaction's detail (the demo bar's Resolve buttons complete it). */
+export function DisputeProgress({ resolved }: { resolved: boolean }) {
+  return (
+    <div className="info-card" id="disputeProgress" style={{ marginTop: "14px" }}>
+      <Tracker flat id="disputeTrack" steps={DISPUTE_STEPS} current={resolved ? 3 : 1} />
+    </div>
+  );
+}
+
 /** The detail's dispute row (extChip('Open · under review','err')). */
 export function DisputeRow() {
   return (
@@ -119,6 +132,7 @@ export function PaymentDetailScreen({ id }: { id: string }) {
       rows={p.status === "disputed" ? <DisputeRow /> : undefined}>
       {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
       {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{withoutCode(fmtCurrency(refundLeft(p), p.currency))} held while we review.</span></div>}
+      {p.dispute && <DisputeProgress resolved={!!p.dispute.outcome} />}
       {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}
       {canRaiseDispute(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
     </TxDetailView>
@@ -294,16 +308,13 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
       <div className="step-title" style={{ marginTop: "18px" }}>Submitting dispute&hellip;</div>
     </div>
   );
+  // The dispute's wait: submitted, under review now
   return (
-    <>
-      <div className="center-col" style={{ paddingTop: "30px" }} id="disputeDone">
-        <div className="check-circle"><Raw html={CHECK_DRAW} /></div>
-        <div className="step-title">Dispute submitted</div>
-        <p className="step-sub">If resolved in your favor, funds return to your balance.</p>
-      </div>
+    <WaitingScreen id="disputeDone" icon graphic={WICON.shieldIc} title="Dispute submitted" line="If resolved in your favor, funds return to your balance."
+      steps={DISPUTE_STEPS} current={1}>
       {/* The review's rows */}
-      <div className="info-card" id="disputeDoneRows" style={{ marginTop: "16px" }}>{reviewRows}</div>
+      <div className="info-card" id="disputeDoneRows">{reviewRows}</div>
       <button className="btn-primary" id="extDisputeDone" style={{ marginTop: "18px" }} onClick={() => { nav.home(); useWalletHome.getState().set({ tab: "activity" }); }}>Back to activity</button>
-    </>
+    </WaitingScreen>
   );
 }

@@ -123,16 +123,20 @@
 .receipt-row.total{margin-bottom:-2px}
 .receipt-row.total:first-child{margin-bottom:-2px}
 
-/* The waiting state (features/wallet/WaitingScreen.tsx): the subject's flag with a clock badge, a title and a line,
+/* The waiting state (features/wallet/WaitingScreen.tsx): the subject's flag (or an icon) with a clock badge, a title and a line,
    then a vertical tracker. Done and current in the wallet's brand colour, upcoming in grey. */
 .wait-screen{text-align:center;padding-top:16px}
 .wait-graphic{position:relative;width:48px;height:48px;margin:0 auto 14px}
 .wait-flag{width:48px;height:48px;border-radius:50%;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .wait-flag>svg{width:100%;height:100%;display:block}
+.wait-icon{width:48px;height:48px;border-radius:50%;background:var(--brand-50);color:var(--brand-600);display:flex;align-items:center;justify-content:center}
+.wait-icon>svg{width:22px;height:22px}
 .wait-badge{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:50%;background:var(--brand-500);color:#fff;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;box-sizing:border-box}
 .wait-badge svg{width:12px;height:12px}
 .wait-screen .step-sub{margin-bottom:0}
 .track{list-style:none;margin:20px 0 22px;padding:16px;text-align:left;border:1px solid var(--bdr);border-radius:var(--r-lg)}
+.track.flat{margin:12px 0 4px;padding:0;border:0;border-radius:0}
+#disputeProgress .track.flat{margin:12px 0}
 .track-step{position:relative;display:flex;gap:12px;padding-bottom:18px}
 .track-step:last-child{padding-bottom:0}
 .track-step:not(:last-child)::before{content:"";position:absolute;left:11px;top:26px;bottom:2px;width:2px;border-radius:1px;background:var(--n-200);transition:background .2s ease}

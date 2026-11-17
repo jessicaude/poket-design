@@ -1,5 +1,5 @@
 "use client";
-import { DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
+import { DisputeProgress, DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
 import { History, useActivity } from "../history/History";
 import { demoTxFields } from "../history/fields";
 import { TxDetailView, TxNotFound } from "../history/TxView";
@@ -258,6 +258,7 @@ export function DemoTxDetailScreen({ id }: { id: string }) {
     <TxDetailView dir={t.positive ? "in" : "out"} amount={fmtUsd(t.amount)} title={t.title} tag={t.details.find(([k]) => k === "Funding tag")?.[1]}
       f={demoTxFields(t)} receipt={demoTxReceipt(t)} rows={disputed ? <DisputeRow /> : undefined}>
       {/* extDisputable: only a payment to a store can be disputed (not a deposit, top-up or refund) */}
+      {disputed && <DisputeProgress resolved={false} />}
       {t.type === "payment" && !disputed && <RaiseDispute at={t.ts} merchant={t.details.find(([k]) => k === "Merchant")?.[1] ?? t.title} target={{ kind: "demo", id: t.id }} />}
     </TxDetailView>
   );

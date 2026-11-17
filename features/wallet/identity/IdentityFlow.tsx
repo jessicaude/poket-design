@@ -6,6 +6,7 @@ import { VendorHandoff } from "@/features/checkout/screens/IdentityScreens";
 import { TIERS } from "../limits";
 import { BackRow } from "../payout/parts";
 import { plaidFor, useIdentity } from "./useIdentity";
+import { CheckingIdScreen } from "./CheckingId";
 
 /**
  * The wallet's identity verification screens (useIdentity), in place of the step-up while it runs. The details are
@@ -26,12 +27,7 @@ export function IdentityFlow({ onLater }: { onLater: () => void }) {
       <VendorHandoff plaid={plaidFor(det)} phone={phone} />
     </>
   );
-  if (stage === "verifying") return (
-    <div className="center-col" style={{ paddingTop: "40px" }} id="idVerifying">
-      <div className="spinner" />
-      <div className="step-title" style={{ marginTop: "16px" }}>Checking your ID</div>
-    </div>
-  );
+  if (stage === "verifying") return <CheckingIdScreen id="idVerifying" />;
   // tOnboardVerified
   return (
     <div className="center-col" style={{ paddingTop: "24px" }} id="idVerified">

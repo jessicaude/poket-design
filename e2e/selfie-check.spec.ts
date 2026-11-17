@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
+import { COMPLETE, WAITING, expectTrack } from "./waiting";
 import { expectSelfie, passSelfie } from "./selfie";
 
 /**
@@ -41,6 +42,7 @@ test("at or under ₦[step-up]: no selfie check; Flag as unusual asks for one on
   await expect(page.locator("#panelBody .vendor .wait")).toHaveText("Take a short selfie video on your phone. Keep this window open.");
   await page.locator("#demoSelfieFinish").click();
   await expect(title(page)).toHaveText("Checking your ID");
+  await expectTrack(page, "#selfieChecking", ["Submitted", "Checking", "Result"], WAITING);
   await expect(title(page)).toHaveText("Enter your PIN");
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");

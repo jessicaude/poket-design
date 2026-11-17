@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page, toCheckout, toWallet } from "./fixtures";
+import { COMPLETE, WAITING, expectTrack } from "./waiting";
 
 /**
  * WGT-12, refunds and disputes. The demo user’s (Ada Osun’s) Checkout payments (three seeded, as the reference
@@ -220,6 +221,10 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await page.locator("#extSubmitDispute").click();
   await expect(body.locator(".step-title")).toHaveText("Submitting dispute…");
   await expect(page.locator("#disputeDone .step-title")).toHaveText("Dispute submitted");
+  // The waiting state: an icon with the clock badge, the same line, then where the dispute is
+  await expect(page.locator("#disputeDone .wait-icon svg")).toBeVisible();
+  await expect(page.locator("#disputeDone .step-sub")).toHaveText("If resolved in your favor, funds return to your balance.");
+  await expectTrack(page, "#disputeDone", ["Submitted", "Under review", "Decision"], WAITING);
   await expect(page.getByTestId("events").locator("li", { hasText: "payment.dispute_opened" })).toContainText('"widget":"wallet","poket_reference"');
   await page.locator("#extDisputeDone").click();
   await expect(body.locator(".step-title").first()).toHaveText("Activity");
@@ -228,6 +233,7 @@ test("wallet: raise a dispute (tDispute); Checkout shows it open too; the mercha
   await expect(detailRow(page, "Status")).toContainText("Dispute open");
   await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 held while we review.");
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0);
+  await expectTrack(page, "#disputeTrack", ["Submitted", "Under review", "Decision"], WAITING);
 
   // Checkout’s account shows it open
   await toCheckout(page);
@@ -315,6 +321,7 @@ test("two disputes use up the account’s disputes: the third says it can’t be
   await page.locator("#extDisputeDone").click();
   await page.locator('[data-txid="t2"]').click();
   await expect(page.locator("#disputeChip")).toHaveText("Open · under review");
+  await expectTrack(page, "#disputeTrack", ["Submitted", "Under review", "Decision"], WAITING); // the wallet's own payment too
 
   // Another payment: restricted
   await page.evaluate(() => (window as any).__account.getState().update((a: any) => ({ ...a, payments: [{ id: "pay_x", merchant: "Ilé Living", amount: 2340, currency: "USD", method: "Visa ••• 4242", at: new Date().toISOString(), status: "paid", order: "ILV-1" }] })));
@@ -490,9 +497,12 @@ test("resolve: refund. A naira bank transfer’s dispute refunded to the NGN bal
   await expect(detailRow(page, "Status")).toContainText("Dispute open");
   await expect(page.locator("#disputeHeld")).toHaveText("₦36,270.00 held while we review.");
   await expect(page.locator("#demoRefundFull")).toHaveCount(0); // while a dispute is open, it’s resolved instead
+  await expectTrack(page, "#disputeTrack", ["Submitted", "Under review", "Decision"], WAITING);
   await page.locator("#demoResolveRefund").click();
   await expect(detailRow(page, "Status")).toContainText("Refunded");
   await expect(page.locator("#disputeHeld")).toHaveCount(0);
+  // The decision: the tracker completes (the demo's Resolve buttons)
+  await expectTrack(page, "#disputeTrack", ["Submitted", "Under review", "Decision"], COMPLETE);
   await expect(page.locator("#extRaiseDispute")).toHaveCount(0); // can’t be reopened
   await expect(page.locator("#demoResolveRefund")).toHaveCount(0);
   await expect.poll(ngn).toBe(before + 3627000);

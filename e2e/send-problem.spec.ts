@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
+import { COMPLETE, WAITING, expectTrack } from "./waiting";
 
 /**
  * "Report a problem" on a Paid send to a Nigerian bank (send-report in reference/poket-widgets.html). "I sent it to
@@ -101,6 +102,13 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await page.locator("#reportGo").click();
   await page.locator("#requestRecall").click();
   await expect(page.locator("#reportDone .step-title")).toHaveText("Recall requested");
+  // The waiting state: an icon with the clock badge, the same line, then where the recall is
+  await expect(page.locator("#reportDone .wait-icon svg")).toBeVisible();
+  // A return arrow curving back (WICON.recall), not the send icon
+  await expect(page.locator('#reportDone .wait-icon svg path[d="M9 14 4 9l5-5"]')).toHaveCount(1);
+  await expect(page.locator("#reportDone .wait-badge svg")).toBeVisible();
+  await expect(page.locator("#reportDone .step-sub")).toHaveText("We’ll let you know when the receiving bank responds.");
+  await expectTrack(page, "#reportDone", ["Requested", "Bank reviewing", "Outcome"], WAITING);
   // The request's rows, repeated on its done screen
   await expect(page.locator("#recallDoneRows .info-row > span:first-child")).toHaveText(["Amount", "To", "Reference"]);
   await expect(page.locator("#recallDoneRows .info-row").first()).toContainText("₦5,000.00");
@@ -109,11 +117,15 @@ test("wrong account: a recall request, said up front it may not work; Submitted,
   await expect(page.locator("#recallStatus")).toHaveText("Submitted");
   await expect(page.locator("#recallMsg")).toHaveText("We’ve asked the receiving bank to return it. Bank transfers can’t always be recovered.");
   await expect(page.locator("#reportProblem")).toHaveCount(0);
+  // On the send: the same tracker, moved on by the demo's recall buttons
+  await expectTrack(page, "#recallTrack", ["Requested", "Bank reviewing", "Outcome"], WAITING);
   await page.locator("#demoRecallProgress").click();
   await expect(page.locator("#recallStatus")).toHaveText("In progress");
+  await expectTrack(page, "#recallTrack", ["Requested", "Bank reviewing", "Outcome"], WAITING);
   await expect(page.locator("#demoRecallProgress")).toBeDisabled();
   await page.locator("#demoRecallRecovered").click();
   await expect(page.locator("#recallStatus")).toHaveText("Recovered");
+  await expectTrack(page, "#recallTrack", ["Requested", "Bank reviewing", "Outcome"], COMPLETE);
   await expect(page.locator("#recallMsg")).toHaveText("₦5,000.00 is back in your NGN balance.");
   await expect.poll(() => ngn(page)).toBe(before + 500000);
   for (const id of ["#demoRecallProgress", "#demoRecallRecovered", "#demoRecallNot"]) await expect(page.locator(id)).toBeDisabled();
@@ -144,6 +156,7 @@ test("wrong account: Not recovered: the receiving bank didn’t return it; the b
   await recall(page);
   await page.locator("#demoRecallNot").click();
   await expect(page.locator("#recallStatus")).toHaveText("Not recovered");
+  await expectTrack(page, "#recallTrack", ["Requested", "Bank reviewing", "Outcome"], COMPLETE); // an outcome either way
   await expect(page.locator("#recallMsg")).toHaveText("We couldn’t recover this transfer. The receiving bank didn’t return it.");
   // The recall's answer is applied in the same update that shows it (no later credit to wait for)
   expect(await ngn(page)).toBe(before);
