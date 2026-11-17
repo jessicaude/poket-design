@@ -61,11 +61,25 @@ test("a match leads to the account terms, then the NGN account details", async (
   await page.getByRole("button", { name: "Fill a matching number" }).click();
   await page.locator("#ngnIdGo").click();
 
-  // intro: account terms
+  // intro: the same layout as the other currencies (left-aligned, the flag in the title row, rows without icons)
   await expect(title(page)).toHaveText("Get NGN account details");
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "0.40% fee, up to ₦5,000.00"]);
-  await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket’s partner bank, [Partner bank]");
+  await expect(page.locator("#vaIntroFlag svg")).toBeVisible();
+  await expect(body.locator(".convert-visual")).toHaveCount(0);
+  await expect(title(page)).toHaveCSS("text-align", "start");
+  await expect(body.locator(".step-sub").first()).toHaveText("Get paid by employers, clients or your bank. Money lands in your NGN balance.");
+  await expect(body.locator("#vaIntroRows .r-ic")).toHaveCount(0);
+  await expect(body.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "Bank transfer", "Fee"]);
+  await expect(body.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "Usually within seconds", "0.40%, up to ₦5,000.00"]);
+  // The partner's terms: unticked; the link opens them without ticking the box
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(body.locator(".consent-row label")).toHaveText("I accept [Partner bank]’s account terms");
+  await page.locator("#vaTermsLink").click();
+  await expect(page.locator("#vaTermsTitle")).toHaveText("[Partner bank] account terms");
+  await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+  await page.locator("#vaTermsClose").click();
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
   await page.locator("#vaCreate").click();

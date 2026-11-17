@@ -35,6 +35,8 @@ const SYMBOL: Record<FeeCurrency, string> = { USD: "$", NGN: "₦", EUR: "€", 
 const plain = (minor: number, cur: FeeCurrency) => SYMBOL[cur] + (minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** "0.40% fee, up to ₦5,000.00": the deposit fee as the account cards say it. */
 export const depositFeeText = (cur: FeeCurrency) => `0.40% fee, up to ${plain(depositCap(cur), cur)}`;
+/** The same, in a row labelled Fee: "0.40%, up to $4.00". */
+export const depositFeeShort = (cur: FeeCurrency) => `0.40%, up to ${plain(depositCap(cur), cur)}`;
 
 /** The conversion fee's parts for a source: $2.00 (or its demo equivalent; ₦2,000.00 from NGN) + 0.40%. */
 export function convertFeeSpec(source: { k: "cash"; cur: FeeCurrency } | { k: "coin" }): { pct: number; flat: number } {

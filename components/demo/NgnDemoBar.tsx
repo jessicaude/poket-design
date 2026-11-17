@@ -211,6 +211,8 @@ export function NgnDemoBar() {
       {session && !flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
       {session && !flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a CentryLink user</button>}
       {vaCur && va?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => dep.vaApprove(vaCur)}>Account approved</button>}
+      {/* An NGN account under review (NGN's are ready at once today; the same approval if one is pending) */}
+      {stage === "details" && dedicated?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => set({ dedicated: { ...dedicated, status: "ready" } })}>Account approved</button>}
       {vaCur && va?.status === "ready" && <button className="pbtn" id="demoVaTransfer" onClick={() => dep.vaReceive(vaCur)}>Transfer to {vaCur} account details</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}

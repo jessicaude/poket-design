@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    // Browser extensions add attributes to <html> before React loads (e.g. Scribe's data-scribe-recorder-ready); this
+    // only stops React reporting those on this one element. Mismatches inside the app are still reported.
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

@@ -55,15 +55,45 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await page.locator("#vaVerify").click();
   await expect(page.locator("#stepupWarning")).toHaveText("Account details are in your verified name.");
   await verifyIdentity(page); // Tier 0: identity verification first
+  // Left-aligned under Back, the flag starting the title row; no centred hero or bank badge
   await expect(title(page)).toHaveText("Get USD account details");
-  await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "Receive by", "Arrives", "Fees"]);
-  await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "ACH or wire", "ACH 1-3 business days", "0.40% fee, up to $4.00"]);
+  await expect(page.locator("#vaIntroFlag svg")).toBeVisible();
+  await expect(page.locator("#panelBody .convert-visual")).toHaveCount(0);
+  await expect(title(page)).toHaveCSS("text-align", "start");
+  const flag = (await page.locator("#vaIntroFlag").boundingBox())!, back = (await page.locator("#vaBack").boundingBox())!;
+  expect(Math.abs(flag.x - back.x)).toBeLessThanOrEqual(8); // starts where Back does
+  await expect(body(page).locator(".step-sub").first()).toHaveText("Get paid by employers, clients or your bank. Money lands in your USD balance.");
+  // Rows without icons: the name, each rail with its timing, the fee
+  await expect(page.locator("#vaIntroRows .r-ic")).toHaveCount(0);
+  await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "ACH", "Wire", "Fee"]);
+  await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "1 to 3 business days", "Same day", "0.40%, up to $4.00"]);
+  await expect(body(page)).not.toContainText("Money you receive here can be converted to stablecoins.");
+  // The terms: unticked, with the link on "account terms"; Create stays disabled until ticked
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(page.locator('label[for="vaAgree"]')).toHaveText("I accept Lead Bank’s account terms");
+  await expect(page.locator('label[for="vaAgree"] .consent-link')).toHaveText("account terms");
+  // "account terms" opens them in a sheet, without ticking the box; Close (or Escape) closes it
+  await page.locator("#vaTermsLink").click();
+  await expect(page.getByRole("dialog", { name: "Lead Bank account terms" })).toBeVisible();
+  await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+  await expect(page.locator("#vaTermsClose")).toHaveText("Close");
+  await page.locator("#vaTermsClose").click();
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await page.locator("#vaTermsLink").press("Enter");
+  await expect(page.locator("#vaTerms")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(page.locator("#vaCreate")).toBeDisabled();
+  await page.locator("#vaAgree").check();
+  await expect(page.locator("#vaCreate")).toBeEnabled();
+  await page.locator("#vaAgree").uncheck();
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
   await page.locator("#vaCreate").click();
   await expect(title(page)).toHaveText("Creating your USD account");
-  // USD isn't instant: the partner bank reviews it
-  await expect(title(page)).toHaveText("We’re setting up your USD account");
+  // USD isn't instant: the partner bank reviews it (the setup screen: e2e/account-setup.spec.ts)
+  await expect(title(page)).toHaveText("Setting up your USD account");
   await expect(page.locator("#demoVaTransfer")).toHaveCount(0);
   await page.locator("#demoVaApprove").click();
   await expect(title(page)).toHaveText("USD account details");
@@ -71,7 +101,8 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(page.locator("#vaDetails [data-vacopy]")).toHaveCount(5); // not the account type
   await page.locator('[data-vacopy="1"]').click();
   await expect(page.locator('[data-vacopy="1"]')).toHaveText("Copied");
-  await expect(page.locator("#vaNote")).toHaveText("Anyone can send to these details. Money you receive can be converted to stablecoins. 0.40% fee, up to $4.00, out of what arrives.");
+  await expect(page.locator("#vaNote")).toHaveText("Anyone can send to these details. 0.40% fee, up to $4.00, out of what arrives.");
+  await expect(body(page)).not.toContainText("converted to stablecoins");
   // $500.00 arrives: the $2.00 fee comes out of it
   await page.locator("#demoVaTransfer").click();
   expect((await holdings(page)).cash.USD).toBe(6560 + 50000 - 200);
@@ -103,12 +134,28 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(page.locator("#panelBody .settings-row-sub").first()).toHaveText("$498.00 from Ada Osun added to your USD balance.");
 });
 
-test("EUR and GHS account details are ready at once; the account card opens them", async ({ page }) => {
+test("EUR, GBP and GHS: their own rails, timings and bank on the intro; ready at once; the account card opens them", async ({ page }) => {
   await wallet(page);
   await page.getByLabel("Tier").selectOption("1");
-  for (const [cur, fee, first] of [["EUR", "0.40% fee, up to €3.70", "IBAN"], ["GHS", "0.40% fee, up to GH₵62.00", "Account number"]]) {
+  for (const [cur, fee, first, rows, bank] of [
+    ["EUR", "0.40%, up to €3.70", "IBAN", [["SEPA", "1 business day"], ["SEPA Instant", "Seconds"]], "Banking Circle"],
+    ["GBP", "0.40%, up to £3.15", "Account number", [["Faster Payments", "Usually within seconds"], ["Bacs", "3 business days"]], "ClearBank"],
+    ["GHS", "0.40%, up to GH₵62.00", "Account number", [["GhIPSS bank transfer", "Usually within minutes"]], "Zenith Bank Ghana"],
+  ] as const) {
     await page.locator(`[data-holdcur="${cur}"][data-holdbucket="open"] .tx-title`).click();
     await page.locator("#vaOpen").click();
+    // Its own rails and timings, and its own bank's terms
+    await expect(title(page)).toHaveText(`Get ${cur} account details`);
+    await expect(body(page).locator(".step-sub").first()).toHaveText(`Get paid by employers, clients or your bank. Money lands in your ${cur} balance.`);
+    await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", ...rows.map((r) => r[0]), "Fee"]);
+    await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", ...rows.map((r) => r[1]), fee]);
+    await expect(page.locator('label[for="vaAgree"]')).toHaveText(`I accept ${bank}’s account terms`);
+    await expect(page.locator("#vaAgree")).not.toBeChecked();
+    await page.locator("#vaTermsLink").click();
+    await expect(page.locator("#vaTermsTitle")).toHaveText(`${bank} account terms`);
+    await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+    await page.locator("#vaTermsClose").click();
+    await expect(page.locator("#vaAgree")).not.toBeChecked();
     await expect(page.locator("#vaFee")).toHaveText(fee);
     await page.locator("#vaAgree").check();
     await page.locator("#vaCreate").click();

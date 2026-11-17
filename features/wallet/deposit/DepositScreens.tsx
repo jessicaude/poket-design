@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { detectBrand, cardLen, cvcLen } from "@/lib/card";
-import { CARD_FUND_RATE, cardFundFee, cardFundFlat, depositFeeText } from "@/lib/fees";
+import { CARD_FUND_RATE, cardFundFee, cardFundFlat, depositFeeShort, depositFeeText } from "@/lib/fees";
 import { BRANDS, WICON } from "@/lib/icons";
 import { fmtAsset } from "../convert/convertMath";
 import { ASSET_NAME, CURRENCY_ICON, CURRENCY_NAME } from "../home/homeData";
@@ -17,6 +17,8 @@ import { useWalletNav } from "../useWalletNav";
 import { useWalletToast } from "../useWalletToast";
 import { DEPOSIT_ADDRESS, NETWORK_INFO, useDeposit, type DepositChoice } from "./useDeposit";
 import { VA_SPEC, type VaCurrency } from "./vaSpec";
+import { AccountIntro } from "./AccountIntro";
+import { AccountSetup } from "./AccountSetup";
 
 const ASSET_ICON: Record<CoinAsset, "usdc" | "usdt"> = { USDC: "usdc", USDT: "usdt" };
 const toast = (t: string) => useWalletToast.getState().showToast(t);
@@ -126,11 +128,14 @@ function DepositMethod() {
 
 /** tVa (not NGN): verify first, then the intro, creating, and the account details (or "setting up"). */
 function DepositAccount() {
-  const { choice, vas, vaStage, vaAgree, set, back, vaCreate } = useDeposit();
+  const { choice, vas, vaStage, vaAgree, set, back, vaCreate, card } = useDeposit();
   const tier = useNgn((s) => s.tier);
   const [verifying, setVerifying] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const cur = cashCur(choice), spec = VA_SPEC[cur], va = vas[cur];
+  // Seen pending here: the setup screen stays until its tracker completes, then the details
+  const [waiting, setWaiting] = useState(false);
+  if (va?.status === "pending" && !waiting) setWaiting(true);
   const backRow = <BackRow id="vaBack" onClick={back} />;
   if (verifying) return <StepUpIntro current={tier} target={1} reason="Account details are in your verified name." onCancel={() => setVerifying(false)}
     onContinue={() => { useNgn.getState().set({ tier: 1 as Tier }); setVerifying(false); set({ vaStage: va ? "details" : "intro" }); }} />;
@@ -145,25 +150,12 @@ function DepositAccount() {
       </div>
     </>
   );
+  // The intro shared with NGN's (AccountIntro): this currency's rails and timings, and its partner bank's terms
   if (vaStage === "intro") return (
     <>
       {backRow}
-      <div className="convert-visual" style={{ marginTop: "4px" }}><div className="badge"><Raw html={WICON[CURRENCY_ICON[cur]]} /></div><span className="convert-arrow"><Raw html={WICON.bank} /></span></div>
-      <div className="step-title" style={{ textAlign: "center", marginTop: "10px" }}>Get {cur} account details</div>
-      <p className="step-sub" style={{ textAlign: "center" }}>Share them with your bank, employer or clients. Money sent to them lands in your {cur} balance.</p>
-      <div className="receipt-card" id="vaIntroRows">
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.user} /></span><span className="r-label">Name on account</span><span className="r-value">{holderName()}</span></div>
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.bank} /></span><span className="r-label">Receive by</span><span className="r-value">{spec.rails}</span></div>
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.info} /></span><span className="r-label">Arrives</span><span className="r-value">{spec.arrives.split(" · ")[0]}</span></div>
-        {/* The deposit fee (lib/fees.ts), in place of the reference's "Free to receive" */}
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fees</span><span className="r-value" id="vaFee">{depositFeeText(cur)}</span></div>
-      </div>
-      <p className="step-sub" style={{ fontSize: "11.5px", marginTop: "10px" }}>Money you receive here can be converted to stablecoins.</p>
-      <div className="consent-row" style={{ marginTop: "12px" }}>
-        <input type="checkbox" id="vaAgree" checked={vaAgree} onChange={(e) => set({ vaAgree: e.target.checked })} />
-        <label htmlFor="vaAgree">Accept the <span className="consent-link">account terms</span> of Poket&rsquo;s partner bank, {spec.bank}</label>
-      </div>
-      <button className="btn-primary" id="vaCreate" disabled={!vaAgree} onClick={vaCreate}>Create account details</button>
+      <AccountIntro cur={cur} flag={WICON[CURRENCY_ICON[cur]]} bank={spec.bank} agree={vaAgree} onAgree={(on) => set({ vaAgree: on })} onCreate={vaCreate}
+        rows={[["Name on account", holderName()], ...spec.timings, ["Fee", depositFeeShort(cur)]]} />
     </>
   );
   if (vaStage === "creating" || !va) return (
@@ -173,15 +165,10 @@ function DepositAccount() {
       <p className="step-sub">This usually takes a few seconds.</p>
     </div>
   );
-  if (va.status === "pending") return (
+  if (va.status === "pending" || waiting) return (
     <>
       {backRow}
-      <div className="center-col" style={{ paddingTop: "20px" }} id="vaPending">
-        <div className="check-circle" style={{ background: "var(--brand-50)", color: "var(--brand-600)" }}><Raw html={WICON.info} /></div>
-        <div className="step-title">We&rsquo;re setting up your {cur} account</div>
-        <p className="step-sub">{spec.bank} is reviewing it. This usually takes 1-2 business days. We&rsquo;ll notify you when it&rsquo;s ready.</p>
-        <p className="step-sub" style={{ fontSize: "12px" }}>You can still deposit by card in the meantime.</p>
-      </div>
+      <AccountSetup cur={cur} flag={WICON[CURRENCY_ICON[cur]]} ready={va.status === "ready"} onDone={() => setWaiting(false)} onCard={card} />
     </>
   );
   const fields: [string, string][] = [["Account name", holderName()], ...spec.fields(va.num)];
@@ -217,7 +204,7 @@ function DepositAccount() {
         <button className="btn-secondary" id="vaShare" onClick={share}>Share details</button>
         <button className="btn-secondary" id="vaLetter" onClick={letter}>Confirmation letter</button>
       </div>
-      <div className="va-note" id="vaNote">Anyone can send to these details. Money you receive can be converted to stablecoins. {depositFeeText(cur)}, out of what arrives.</div>
+      <div className="va-note" id="vaNote">Anyone can send to these details. {depositFeeText(cur)}, out of what arrives.</div>
     </>
   );
 }

@@ -47,6 +47,9 @@ function closeFlows() {
   useWalletHome.setState({ tab: "home" });
 }
 
+/** "Back to wallet" (waiting screens): close whatever is open, on the wallet's home. */
+export const backToWallet = () => closeFlows();
+
 /** Put the signed-in account's wallet aside. */
 function putAside() {
   const email = useWalletSession.getState().email;
