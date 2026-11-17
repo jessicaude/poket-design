@@ -5,6 +5,7 @@ import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW, ICON, IDCARD_ICON, WICON } from "@/lib/icons";
 import { VENDOR_LOGOS } from "@/lib/vendor-logos";
 import { useAccount } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { GEO_COUNTRY, ID_COUNTRIES, ID_MAX_TRIES, ID_RETRY_REASONS, ageFrom, ssnOk, useCheckout } from "../useCheckout";
 
 /** Tier 1 identity, once. Ported from SCREENS['details'], ['vendor'], ['verifying'], ['id-done'] and ['blocked'] in
@@ -13,7 +14,6 @@ import { GEO_COUNTRY, ID_COUNTRIES, ID_MAX_TRIES, ID_RETRY_REASONS, ageFrom, ssn
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/></svg>';
 /** kemi.adeyemi@gmail.com -> k••••i@gmail.com */
-const maskEmail = (v: string) => { const [u, d] = v.split("@"); return u.length <= 2 ? `${u[0]}••••@${d}` : `${u[0]}••••${u[u.length - 1]}@${d}`; };
 
 /** SCREENS['details']: country, prefilled legal name, date of birth; US residents add an SSN. */
 export function DetailsScreen() {
@@ -137,7 +137,7 @@ export function IdReviewScreen() {
       <div className="center">
         <div className="badge info"><Raw html={IDCARD_ICON} /></div>
         <h2 className="title">Your ID needs a closer look</h2>
-        <p className="sub">A specialist is reviewing it. This usually takes up to 24 hours. We&rsquo;ll email <b>{maskEmail(account.email)}</b> as soon as it&rsquo;s done.</p>
+        <p className="sub">A specialist is reviewing it. This usually takes up to 24 hours. We&rsquo;ll email <b>{maskAccount(account)}</b> as soon as it&rsquo;s done.</p>
       </div>
       <button className="btn" id="idReviewLater" onClick={() => finishLater("id_review")}>Finish later</button>
       <p className="sub" id="idReviewCart" style={{ textAlign: "center", fontSize: "12px", marginTop: "10px" }}>Your {order.merchant} cart is saved. The email links back to it.</p>

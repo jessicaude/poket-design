@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CHECKOUT_LOCK_MARK, CHECKOUT_TICK_MARK } from "@/lib/icons";
 import { useAccount } from "@/store/account";
+import { accountContact } from "@/features/auth/identifier";
 import { BackRow } from "../parts";
 import { usePayout } from "../usePayout";
 
@@ -89,7 +90,7 @@ export function PinLockedScreen() {
 /** tPinResetOtp: the 6-digit passcode emailed to you, before a new PIN. */
 export function PinResetOtpScreen() {
   const { otpError, pinResetCode } = usePayout();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const email = useAccount((s) => (s.account ? accountContact(s.account) : "")) || "ada@osun.co";
   const [sent, setSent] = useState(false);
   return (
     <>

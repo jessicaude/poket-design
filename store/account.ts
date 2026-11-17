@@ -43,7 +43,10 @@ export type Refund = { id: string; amount: number; at: string; to: "method" | "n
 /** How an open dispute was resolved (demo "Resolve: …"). */
 export type DisputeOutcome = "refund" | "release" | "reversal";
 export type Account = {
+  /** Empty for an account made with a phone number and no email (the wallet's phone sign-up). */
   email: string;
+  /** The phone number it can sign in with: country code (DIALS name) and local digits. */
+  phone?: { dial: string; num: string };
   first: string;
   last: string;
   tier: 0 | 1 | 2;  // Checkout payments under $500 need no ID check

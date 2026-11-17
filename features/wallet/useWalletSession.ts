@@ -3,7 +3,8 @@ import { DEMO_USER_EMAIL } from "@/lib/mock-api";
 
 /**
  * Who the wallet is signed in as (the reference's POKET.identity.exists / session): Ada, the demo user, by default;
- * null shows onboarding (welcome, sign up, log in). Sign in and out with ./session.ts.
+ * null shows onboarding (welcome, sign up, log in). Sign in and out with ./session.ts. `email` is the account's key in
+ * the directory (lib/mock-api accountKey): its email, or "phone:…" for an account made with a phone number alone.
  */
 export const useWalletSession = create<{ email: string | null }>(() => ({ email: DEMO_USER_EMAIL }));
 

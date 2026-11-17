@@ -18,7 +18,7 @@ import { useNgnLedger } from "@/features/wallet/history/ledger";
 import { isSendStage, useSend } from "@/features/wallet/send/useSend";
 import { useSettings } from "@/features/wallet/settings/useSettings";
 import { useAccount } from "@/store/account";
-import { findAccount } from "@/lib/mock-api";
+import { accountKey, findAccount } from "@/lib/mock-api";
 import { useWalletSession } from "@/features/wallet/useWalletSession";
 import { useOnboarding } from "@/features/wallet/onboarding/useOnboarding";
 
@@ -44,7 +44,8 @@ export function WalletDemo({ css }: { css: string }) {
     // account, with any Checkout payments it made (Checkout may have signed another account in meanwhile)
     const email = useWalletSession.getState().email;
     const a = email ? findAccount(email) : null;
-    if (a && useAccount.getState().account?.email !== a.email) useAccount.getState().signIn(structuredClone(a));
+    const signedIn = useAccount.getState().account;
+    if (a && (!signedIn || accountKey(signedIn) !== accountKey(a))) useAccount.getState().signIn(structuredClone(a));
     Object.assign(window, { __account: useAccount, __session: useWalletSession, __onboarding: useOnboarding, __ngn: useNgn, __payout: usePayout, __withdrawals: useWithdrawals, __nav: useWalletNav, __convert: useConvert, __holdings: useHoldings, __send: useSend, __home: useWalletHome, __settings: useSettings, __events: useEvents, __deposit: useDeposit, __cards: useCards, __ledger: useNgnLedger });
     const q = new URLSearchParams(window.location.search);
     const s = q.get("ngn"), c = q.get("convert"), sd = q.get("send");

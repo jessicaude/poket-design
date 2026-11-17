@@ -16,7 +16,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
 /** People who already have a Poket account (from the prototype's DIRECTORY). */
 export const DIRECTORY: Record<string, Account> = {
   "ada@osun.co": {
-    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1,
+    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1, phone: { dial: "Nigeria", num: "8031234567" },
     // WGT-12: her Checkout payments, as the reference seeds them: a recent naira card payment, a naira bank transfer
     // from 10 days ago and a dollar card payment from 76 days ago (outside the 60-day dispute window)
     payments: [
@@ -33,18 +33,28 @@ export const DIRECTORY: Record<string, Account> = {
 
 /** The demo user: the wallet is hers, and Checkout's "Ada (remembered)" customer. */
 export const DEMO_USER_EMAIL = "ada@osun.co";
-export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
+/** An account's key in DIRECTORY: its email, or "phone:{dial}:{digits}" when it was made with a phone number alone. */
+export const accountKey = (a: Pick<Account, "email" | "phone">) =>
+  a.email.trim() ? a.email.trim().toLowerCase() : `phone:${a.phone?.dial ?? ""}:${a.phone?.num ?? ""}`.toLowerCase();
+/** The account behind a key (an email, or accountKey's "phone:" key). */
+export const findAccount = (key: string) => DIRECTORY[key.trim().toLowerCase()] ?? null;
+/** POST /v1/accounts/lookup: the account an email or phone number signs in to, or null (sign-up's known check). */
+export function lookupAccount(id: { method: "email" | "phone"; email: string; dial: string; phone: string }): Account | null {
+  if (id.method === "email") return findAccount(id.email);
+  const num = id.phone.replace(/\D/g, "");
+  return Object.values(DIRECTORY).find((a) => a.phone && a.phone.num === num && a.phone.dial === id.dial) ?? null;
+}
 
 /** Where the sign-up location check puts a new account (the reference's GEO_COUNTRY), in Checkout and the wallet. */
 export const GEO_COUNTRY = "Nigeria";
 
 /** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */
 export function registerAccount(a: Account) {
-  DIRECTORY[a.email.trim().toLowerCase()] = structuredClone(a);
+  DIRECTORY[accountKey(a)] = structuredClone(a);
 }
 /** The account as the server keeps it (tier, failed ID checks, a block, methods, payments) after a change in a widget. */
 export function saveAccount(a: Account) {
-  const key = a.email.trim().toLowerCase();
+  const key = accountKey(a);
   if (DIRECTORY[key]) DIRECTORY[key] = structuredClone(a);
 }
 

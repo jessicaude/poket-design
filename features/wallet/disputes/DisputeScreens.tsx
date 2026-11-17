@@ -10,6 +10,7 @@ import {
   addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { allRefunds, refundDest, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
@@ -147,7 +148,7 @@ function WarnBox({ title, body, tone }: { title: string; body: string; tone?: "e
 export function DisputeScreen({ target }: { target: DisputeTarget }) {
   const nav = useWalletNav();
   const t = useDisputeTx(target);
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const email = useAccount((s) => (s.account ? s.account.email || maskAccount(s.account) : "")) || "ada@osun.co";
   const [stage, setStage] = useState<"start" | "form" | "review" | "submitting" | "done">("start");
   const [d, setD] = useState<DisputeForm>(NEW_DISPUTE);
   const [dateTouched, setDateTouched] = useState(false);

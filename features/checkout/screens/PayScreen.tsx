@@ -6,6 +6,7 @@ import { formatOrder, money } from "@/lib/money";
 import { isBlockedMethod, isConverting, nairaOnlyText, newQuote, QUOTE_SECONDS, quoteLeft, quoteRateText, quoteUsdCents } from "../quote";
 import type { OrderCurrency } from "@/store/demo";
 import { useAccount, type PaymentMethod } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { useCheckout } from "../useCheckout";
 
 /** Card brand mark or bank icon, as in the prototype's methodMark() */
@@ -38,7 +39,7 @@ export function PayScreen() {
   const expired = converting && !!quote && left <= 0;
   const usd = converting && quote ? quoteUsdCents(order.amount, quote) : 0;
   const C = 2 * Math.PI * 7;
-  const masked = (() => { const [u, d] = account.email.split("@"); return `${u[0]}••••${u[u.length - 1]}@${d}`; })();
+  const masked = maskAccount(account);
   return (
     <>
       <h2 className="title">Pay {formatOrder(order.amount, order.currency)} to {order.merchant}</h2>

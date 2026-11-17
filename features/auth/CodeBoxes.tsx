@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Checkout's code entry (features/checkout/screens/SignupScreen.tsx Otp): six boxes that verify themselves once full;
- * paste fills all six; a wrong code clears them and says why. Its classes (.otp, .otp-status, .mini-spin) are copied
- * into styles/wallet-overrides.css. Used by "Confirm this device" and the sign-up and log-in code (onboard-phone-otp).
+ * The reference's otpBlock / bindOtp: six boxes that verify themselves once full; paste fills all six; a wrong code
+ * clears them and says why. Shared by Checkout's and the wallet's sign-up (SignupForm) and the wallet's "Confirm this
+ * device". Checkout's styles are in styles/prototype.css; the wallet's copies are in wallet-overrides.css and
+ * wallet-signup.css.
  */
-export function CodeBoxes({ id, statusId, onComplete }: { id: string; statusId: string; onComplete: (code: string) => Promise<void> }) {
+export function CodeBoxes({ id = "otp", statusId = "otpStatus", onComplete }: { id?: string; statusId?: string; onComplete: (code: string) => Promise<void> }) {
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [status, setStatus] = useState<{ text: string; err?: boolean; busy?: boolean }>({ text: "" });
   const boxes = useRef<(HTMLInputElement | null)[]>([]);

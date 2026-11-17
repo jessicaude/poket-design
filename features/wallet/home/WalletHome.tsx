@@ -8,6 +8,7 @@ import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { FILTER_ICON, WICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
+import { accountContact } from "@/features/auth/identifier";
 import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
@@ -123,7 +124,8 @@ function SettingsPanel({ id }: { id: string }) {
 export function WalletHome() {
   useBalances();
   const { walletTab, masked, hideZero, settingsOpen, set } = useWalletHome();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  // A phone-only account (wallet sign-up by phone) shows its number
+  const email = useAccount((s) => (s.account ? accountContact(s.account) : "")) || "ada@osun.co";
   const push = useWalletNav((s) => s.push);
   const isCash = walletTab === "cash";
   const cash = isCash ? cashRows(hideZero) : [];

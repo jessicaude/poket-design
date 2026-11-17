@@ -1,5 +1,5 @@
 import type { StoreApi, UseBoundStore } from "zustand";
-import { findAccount, listPayoutRecipients, switchWalletOwner } from "@/lib/mock-api";
+import { accountKey, findAccount, listPayoutRecipients, switchWalletOwner } from "@/lib/mock-api";
 import { useAccount, type Account } from "@/store/account";
 import { useNgn, type Tier } from "./ngn/useNgn";
 import { useHoldings } from "./useHoldings";
@@ -75,11 +75,11 @@ function startEmpty(a: Account) {
   useNgnLedger.setState({ entries: [] });
 }
 
-/** Sign the wallet in as `email` (an account in the directory): its own wallet, or a new empty one. */
-export function signInWallet(email: string) {
-  const a = findAccount(email);
+/** Sign the wallet in as `key` (an account's email or phone key, lib/mock-api accountKey): its own wallet, or a new empty one. */
+export function signInWallet(key: string) {
+  const a = findAccount(key);
   if (!a) return;
-  const key = a.email.trim().toLowerCase();
+  key = accountKey(a);
   if (useWalletSession.getState().email === key) { useAccount.getState().signIn(structuredClone(a)); return; }
   closeFlows();
   putAside();

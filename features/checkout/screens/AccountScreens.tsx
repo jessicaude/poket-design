@@ -8,6 +8,7 @@ import {
 } from "@/lib/disputes";
 import { formatOrder } from "@/lib/money";
 import { useAccount, type Payment, type Refund } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { allRefunds, paymentStatus, refundDest, refundLeft, refundNote, refundTitle, refundedTotal, reversedTotal } from "@/lib/refunds";
 import { useCheckout } from "../useCheckout";
 import { MoneyU } from "./PayScreen";
@@ -198,7 +199,7 @@ function WarnBox({ title, body, tone }: { title: string; body: string; tone?: "e
 export function AccountDisputeScreen() {
   const { viewPay, go, showToast } = useCheckout();
   const p = useAccount((s) => s.account?.payments.find((x) => x.id === viewPay));
-  const email = useAccount((s) => s.account?.email) ?? "";
+  const email = useAccount((s) => (s.account ? s.account.email || maskAccount(s.account) : ""));
   const [stage, setStage] = useState<"start" | "form" | "review" | "submitting" | "done">("start");
   const [d, setD] = useState<DisputeForm>(NEW_DISPUTE);
   const [dateTouched, setDateTouched] = useState(false);

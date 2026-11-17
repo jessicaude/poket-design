@@ -1,18 +1,20 @@
 import { create } from "zustand";
-import { GEO_COUNTRY, findAccount, registerAccount, verifyCode } from "@/lib/mock-api";
-import { handleCodeError } from "@/store/lock";
+import { GEO_COUNTRY, accountKey, registerAccount } from "@/lib/mock-api";
 import { useEvents } from "@/store/events";
+import type { SignupDetails, SignupResult } from "@/features/auth/SignupForm";
 import { signInWallet } from "../session";
 
 /**
- * The wallet's onboarding, from reference/poket-unified.html: the welcome screen (Sign Up, Log In), sign-up's name,
- * email and terms (onboard-email), the 6-digit email code (onboard-phone-otp, with Checkout's code entry), the location
- * check (onboard-geo, onboard-geo-blocked) and the age check (onboard-age, age-blocked); log in (onboard-login, the same
- * code, login-geo, login-geo-blocked). A new account is made only once both checks pass: Tier 0, empty balances, on the
- * wallet home. Accounts are the shared directory (lib/mock-api.ts), so Checkout's accounts log in here and back.
+ * The wallet's onboarding. The welcome screen (Sign Up, Log In) is reference/poket-unified.html's tOnboardWelcome. Both
+ * buttons open Checkout's sign-up screen (reference/poket-widgets.html SCREENS['signup'], features/auth/SignupForm.tsx):
+ * the email or phone, legal name and terms, and the 6-digit code in place. An email or phone that already has an
+ * account logs in there. After the code: for a new account the location check (onboard-geo, onboard-geo-blocked) and
+ * the age check (onboard-age, age-blocked), and the account is made only once both pass: Tier 0, empty balances, on
+ * the wallet home. Logging in checks the location each time (login-geo, login-geo-blocked). Accounts are the shared
+ * directory (lib/mock-api.ts), so Checkout's accounts log in here and back.
  */
 export type OnboardScreen =
-  | "onboard-welcome" | "onboard-email" | "onboard-login" | "onboard-phone-otp"
+  | "onboard-welcome" | "signup"
   | "onboard-geo" | "onboard-geo-blocked" | "onboard-age" | "age-blocked"
   | "login-geo" | "login-geo-blocked";
 
@@ -21,33 +23,23 @@ export const MIN_AGE = 18;
 /** How long the location check takes (the reference's 1100 ms). */
 export const GEO_CHECK_MS = 1100;
 
-const FORM = {
-  email: "", first: "", last: "", terms: false, loginEmail: "", notice: null as string | null, preVerified: null as string | null,
-  dobMonth: "", dobDay: "", dobYear: "", ageConfirmed: false,
-};
+const FORM = { dobMonth: "", dobDay: "", dobYear: "", ageConfirmed: false, pending: null as SignupDetails | null };
 type Form = typeof FORM;
 
 type State = Form & {
   screen: OnboardScreen;
-  /** Whose code the code screen checks: sign-up's email or log-in's. */
-  mode: "signup" | "login";
   /** Demo bar "Location: Not supported": the next location check fails (the reference's simulateGeoBlock). */
   geoBlocked: boolean;
-  set: (p: Partial<Form & { geoBlocked: boolean }>) => void;
+  set: (p: Partial<Omit<Form, "pending"> & { geoBlocked: boolean }>) => void;
   go: (screen: OnboardScreen) => void;
-  /** Sign Up: the code is sent (or, for an email confirmed at log-in, straight to the checks). */
-  signUp: () => void;
-  /** Send passcode (log in). */
-  sendLoginCode: () => void;
-  /** The code screen's 6 digits; throws the message to show for a wrong code. */
-  verify: (code: string) => Promise<void>;
+  /** The sign-up screen's code was right: log in, or check a new account's location and age. */
+  verified: (r: SignupResult) => void;
   /** Confirm your age: Continue. */
   ageContinue: () => void;
   /** "Back to start": the welcome screen, with sign-up's answers cleared. */
   backToStart: () => void;
 };
 
-const norm = (v: string) => v.trim().toLowerCase();
 /** The reference's ageFromDob. */
 export function ageFromDob(y: number, m: number, d: number) {
   const today = new Date();
@@ -71,53 +63,33 @@ export const useOnboarding = create<State>((set, get) => {
       next();
     }, GEO_CHECK_MS);
   };
-  /** Log in to an account that exists: the location is checked each time, then the wallet home. */
-  const logIn = (email: string) => geoCheck("login-geo", () => { signInWallet(email); set({ ...FORM, screen: "onboard-welcome" }); });
 
   return {
     ...FORM,
     screen: "onboard-welcome",
-    mode: "signup",
     geoBlocked: false,
     set: (p) => set(p),
-    go: (screen) => {
-      // Leaving sign-up for log in drops the notice (goLoginFromSignup)
-      set(screen === "onboard-login" ? { screen, notice: null } : { screen });
-    },
-    signUp: () => {
-      const s = get();
-      if (s.preVerified && s.preVerified === norm(s.email)) {
-        set({ preVerified: null, notice: null, mode: "signup" });
-        geoCheck("onboard-geo", () => set({ screen: "onboard-age" }));
+    go: (screen) => set({ screen }),
+    verified: (r) => {
+      // An account that exists: the location is checked each time, then the wallet home
+      if ("account" in r) {
+        const key = accountKey(r.account);
+        geoCheck("login-geo", () => { signInWallet(key); set({ ...FORM, screen: "onboard-welcome" }); });
         return;
       }
-      set({ mode: "signup", screen: "onboard-phone-otp" });
-    },
-    sendLoginCode: () => set({ mode: "login", screen: "onboard-phone-otp" }),
-    verify: async (code) => {
-      // Wrong codes count with Checkout's and the device codes; too many lock the account (the code screen shows it)
-      try { await verifyCode(code); }
-      catch (e) { if (handleCodeError(e, "wallet")) return; throw e; }
-      const s = get();
-      const email = s.mode === "login" ? s.loginEmail : s.email;
-      if (findAccount(email)) { logIn(email); return; }
-      if (s.mode === "login") {
-        // No account yet: the email is confirmed, so sign-up only asks for the rest (the reference's signupNotice)
-        set({ screen: "onboard-email", mode: "signup", email: email.trim(), preVerified: norm(email),
-          notice: "No Poket account uses this email yet. You’ve confirmed it, so just accept the terms to create your account." });
-        return;
-      }
+      set({ pending: r.details });
       geoCheck("onboard-geo", () => set({ screen: "onboard-age" }));
     },
     ageContinue: () => {
       const s = get();
       const age = ageFromDob(parseInt(s.dobYear, 10), parseInt(s.dobMonth, 10), parseInt(s.dobDay, 10));
       if (!(age >= MIN_AGE)) { set({ screen: "age-blocked" }); return; }
+      if (!s.pending) return;
       // Both checks passed: the account exists now (Tier 0), shared with Checkout
-      const email = s.email.trim();
-      registerAccount({ email, first: s.first.trim(), last: s.last.trim(), tier: 0, country: GEO_COUNTRY, methods: [], payments: [] });
+      const account = { ...s.pending, tier: 0 as const, country: GEO_COUNTRY, methods: [], payments: [] };
+      registerAccount(account);
       useEvents.getState().emit("user.account_created", { widget: "wallet" });
-      signInWallet(email);
+      signInWallet(accountKey(account));
       set({ ...FORM, screen: "onboard-welcome" });
     },
     backToStart: () => {

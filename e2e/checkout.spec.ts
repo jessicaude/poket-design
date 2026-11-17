@@ -64,6 +64,29 @@ test("an existing email logs in instead of signing up", async ({ page }) => {
   await expect(widget).toContainText("Signed in as a••••a@osun.co");
 });
 
+test("Use phone: a known number logs in; Edit and Resend on the code", async ({ page }) => {
+  await page.goto("/demo/ile-living");
+  await page.locator("#payWithPoket").click();
+  const widget = page.getByTestId("checkout-widget");
+  await widget.locator("#idSwitch").click();
+  await expect(widget.getByRole("heading", { name: "Verify your phone number" })).toBeVisible();
+  await expect(widget.locator("#idDialBtn")).toHaveText(/\+234/);
+  await widget.locator("#idInput").fill("8031234567");
+  await expect(widget.locator("#idInput")).toHaveValue("803 123 4567");
+  await expect(widget.locator("#suKnownT")).toHaveText("This number already has a Poket account.");
+  await widget.getByRole("button", { name: "Continue to log in" }).click();
+  await expect(widget.locator(".id-val")).toHaveText("+234 ••• ••• 4567");
+  await widget.locator("#otpResend").click();
+  await expect(widget.locator("#otpResend")).toHaveText("Code sent");
+  // Edit: back to the number, then on again
+  await widget.locator("#idEdit").click();
+  await expect(widget.locator("#idInput")).toHaveValue("803 123 4567");
+  await widget.locator("#suGo").click();
+  await enterCode(page);
+  await expect(widget.getByRole("heading", { name: "Pay $23.40 to Ilé Living" })).toBeVisible();
+  await expect(widget).toContainText("Signed in as a••••a@osun.co");
+});
+
 test("a returning user pays in one tap", async ({ page }) => {
   await page.goto("/demo/ile-living");
   await page.getByLabel("Customer", { exact: true }).selectOption("returning");

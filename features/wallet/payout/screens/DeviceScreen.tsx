@@ -2,9 +2,10 @@
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { useWalletToast } from "../../useWalletToast";
 import { BackRow } from "../parts";
-import { CodeBoxes } from "../../CodeBoxes";
+import { CodeBoxes } from "@/features/auth/CodeBoxes";
 import { usePayout } from "../usePayout";
 
 /**
@@ -13,11 +14,10 @@ import { usePayout } from "../usePayout";
  * you", six boxes that verify themselves, Resend code); its classes are copied into styles/wallet-overrides.css.
  * A correct code binds the device and the action carries on; 000000 is a wrong code in the demo.
  */
-const maskEmail = (v: string) => { const [u, d] = v.split("@"); return u.length <= 2 ? `${u[0]}••••@${d}` : `${u[0]}••••${u[u.length - 1]}@${d}`; };
 
 export function DeviceScreen() {
   const { deviceCode, cancelDevice } = usePayout();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const account = useAccount((s) => s.account);
   return (
     <>
       <BackRow id="deviceCancel" label="Cancel" onClick={cancelDevice} />
@@ -30,10 +30,10 @@ export function DeviceScreen() {
       </div>
       <div className="step-title" style={{ textAlign: "center" }}>Confirm this device</div>
       {/* NEW copy */}
-      <p className="step-sub" style={{ textAlign: "center" }}>It&rsquo;s the first time money moves from this device. We sent a code to your email.</p>
+      <p className="step-sub" style={{ textAlign: "center" }}>It&rsquo;s the first time money moves from this device. {account && !account.email.trim() ? "We texted a code to your phone." : "We sent a code to your email."}</p>
       <div className="id-summary">
         <span className="id-ic"><Raw html={WICON.mail} /></span>
-        <span className="id-val" id="deviceEmail">{maskEmail(email)}</span>
+        <span className="id-val" id="deviceEmail">{account ? maskAccount(account) : maskAccount({ email: "ada@osun.co" })}</span>
       </div>
       <label className="lbl">Enter the 6-digit code we sent you</label>
       <CodeBoxes id="deviceOtp" statusId="deviceStatus" onComplete={deviceCode} />

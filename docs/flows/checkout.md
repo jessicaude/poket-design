@@ -4,7 +4,7 @@ Status: **ported**, matching `reference/poket-widgets.html`. Demo: `/demo/ile-li
 
 | Screen | File | What happens |
 | --- | --- | --- |
-| `signup` | `screens/SignupScreen.tsx` | Email, legal name, terms (prefilled when the store shares details). Then the 6-digit code appears in place and verifies itself. An existing email switches to "Continue to log in". `000000` is a wrong code. |
+| `signup` | `screens/SignupScreen.tsx` (`features/auth/SignupForm.tsx`, shared with the wallet) | Email or phone ("Use phone" / "Use email"; the phone has a country-code sheet with search), legal name, terms (prefilled when the store shares details). Then the 6-digit code appears in place and verifies itself, with Edit and Resend ("Code sent" for 30 s). An existing email or phone switches to "Continue to log in". `000000` is a wrong code. |
 | `add-method` | `screens/AddMethodScreen.tsx` | USD order: Card, Pay by Bank, Apple Pay, Google Pay, Cash App Pay. NGN order: the naira rails the merchant accepts ("Card", "Bank transfer"), then, with Conversion on, the USD rails marked "Paid in USD, converted". None accepted: "{merchant} can’t take payment for this order right now." Ported: Card (both), Bank transfer. |
 | `add-card` | `screens/AddCardScreen.tsx` | Number with brand mark (Verve supported), expiry MM / YYYY, CVC, ZIP; "Save this card for next time". A naira card has no ZIP. |
 | `bank-transfer` | `screens/BankTransferScreen.tsx` | NGN order: the account card (amount to send exactly, account number, [Partner bank], "{merchant} via Poket", Copy). One-time ("Dynamic"): countdown from 30:00 [time] and "Use it once…" note; Merchant pool: no countdown. States: getting the account, waiting ("We’ll confirm as soon as it arrives"), paid (goes to `done`), underpaid / overpaid ("We received ₦X. [handling]" with Close), expired (one-time only: "This account expired", "Get a new account"). |
@@ -66,6 +66,5 @@ naira orders of $500 or more).
 - The prototype's picker sheet for selects (the details screen uses native selects)
 - Pay by Bank: `add-bank`, `bank-verify`, `bank-pick`, `bank-login`, `bank-accounts`
 - Apple Pay, Google Pay, Cash App Pay: `connect-wallet`
-- Phone sign-up ("Use phone")
 - Your Poket account: `acct-home`, `activity`, `pay-detail` (View receipt), `merchant`, `methods`, `notifications`, `settings` and more
 - Subscriptions and disputes

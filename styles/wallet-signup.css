@@ -1,0 +1,123 @@
+/* Sign-up in the wallet (features/auth/SignupForm.tsx inside .su): Checkout's own rules for SCREENS['signup'], copied
+   from styles/prototype.css and styles/overrides.css (in that order) with each selector scoped under .su, so the
+   wallet's sign-up renders exactly as Checkout's does. Its tokens are the prototype's :root values, set on .su.
+   Edit Checkout's rules there first, then copy the change here. */
+.su{
+  --brand-25:#f3faf7; --brand-75:#dff0e9; --brand-rgb:10,92,72;
+  --dur-fast:100ms; --dur-base:160ms; --dur-slow:220ms; --ease-out:cubic-bezier(.16,1,.3,1); --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --brand:#0a5c48; --brand-600:#074435; --brand-50:#eaf5f1; --brand-100:#cbe2da; --brand-400:#4ea488;
+  --n-50:#fbfbfc; --n-100:#f3f4f6; --n-200:#e5e7eb; --n-300:#d1d5db; --n-400:#9ca3af; --n-500:#6b7280;
+  --txt:#1d1e20; --txt2:#5a6278; --txt3:#8d95a8; --bdr:rgba(0,0,0,.09); --bdr2:rgba(0,0,0,.05);
+  --ok:#0f7a4d; --ok-50:#ecfdf3; --err:#c2362b; --err-50:#fdecea;
+  /* the fonts as styles/overrides.css maps them for Checkout (next/font's Geist) */
+  --sans:var(--font-geist-sans),-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; --mono:var(--font-geist-mono),'SF Mono',Consolas,monospace;
+  font-family:var(--sans);color:var(--txt);line-height:normal;
+}
+.su button{font:inherit;color:inherit}
+/* wallet.css sizes every .badge svg to fill a 32px coin badge; Checkout's badge icon keeps its own size */
+.su .badge>svg,.su .badge svg{width:auto;height:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sheetIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.su .icon-btn{width:32px;height:32px;border-radius:8px;border:0;background:none;display:flex;align-items:center;justify-content:center;color:var(--txt2);cursor:pointer}
+.su .icon-btn:hover{background:var(--n-100)}
+.su .title{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
+.su .sub{font-size:13.5px;line-height:1.5;color:var(--txt2);margin:0 0 16px}
+.su .center{text-align:center}
+.su .lbl{display:block;font-size:12.5px;font-weight:500;color:var(--txt2);margin:0 0 6px}
+.su .field{width:100%;height:44px;border:1px solid var(--n-300);border-radius:10px;padding:0 12px;font:15px var(--sans);color:var(--txt);background:#fff;margin-bottom:14px}
+.su .field:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(var(--brand-rgb),.12)}
+.su .field.mono{font-family:var(--mono)}
+.su select.field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+.su .row{display:grid;gap:10px}
+.su .row > *,.su .row .field{min-width:0}
+.su .row.c2{grid-template-columns:1fr 1fr}
+.su .btn{width:100%;height:48px;border:0;border-radius:999px;background:var(--brand);color:#fff;font-weight:600;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.su .btn:hover{background:var(--brand-600)}
+.su .btn:disabled{background:var(--n-200);color:var(--n-500);cursor:not-allowed}
+.su .btn.ghost{background:none;color:var(--brand);height:auto;padding:12px 0 0;font-size:13.5px}
+.su .btn.ghost:hover{background:none;text-decoration:underline}
+.su .link{border:0;background:none;color:var(--brand);font-weight:600;font-size:13px;cursor:pointer;padding:0}
+.su .check{display:flex;gap:10px;align-items:center;font-size:13px;line-height:1.4;color:var(--txt2);margin:2px 0 16px}
+.su .check input{margin:0;flex:none;accent-color:var(--brand);width:16px;height:16px}
+.su .otp{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.su .otp input{width:100%;min-width:0;height:52px;text-align:center;font:600 20px var(--mono);border:1px solid var(--n-300);border-radius:10px}
+.su .id-field{display:flex;align-items:center;gap:8px;height:46px;border:1px solid var(--n-300);border-radius:10px;padding:0 10px 0 12px;margin-bottom:14px;background:#fff}
+.su .id-field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(var(--brand-rgb),.12)}
+.su .id-field .id-ic{color:var(--txt3);display:flex;flex:none}
+.su .id-field input{flex:1;min-width:0;border:0;outline:none;font:15px var(--sans);color:var(--txt);background:none;height:100%}
+.su .id-field input.mono{font-family:var(--mono)}
+.su .id-summary{display:flex;align-items:center;gap:8px;height:46px;padding:0 10px 0 12px;border-radius:10px;background:var(--brand-50);margin-bottom:16px}
+.su .id-summary .id-ic{color:var(--brand);display:flex}
+.su .id-summary .id-val{font-size:14px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.su .id-edit{border:0;background:none;color:var(--txt2);display:flex;padding:6px;border-radius:6px;cursor:pointer}
+.su .id-edit:hover{background:rgba(0,0,0,.05)}
+.su .id-switch{border:0;background:none;color:var(--brand);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;flex:none;padding:6px 2px}
+.su .dial{position:relative;display:flex;align-items:center;gap:4px;padding-right:8px;border-right:1px solid var(--n-200);color:var(--txt2);font-size:14px;flex:none;cursor:pointer}
+.su .dial select{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.su .dial:focus-within{outline:2px solid var(--brand-400);outline-offset:3px;border-radius:4px}
+.su .otp-status{min-height:22px;margin:-4px 0 6px;font-size:13px;color:var(--txt2);display:flex;align-items:center;justify-content:center;gap:8px}
+.su .otp-status.err{color:var(--err)}
+.su .otp input:disabled{background:var(--n-50);color:var(--txt2)}
+.su .mini-spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--n-200);border-top-color:var(--brand);animation:spin .8s linear infinite}
+.su .otp input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(var(--brand-rgb),.12)}
+.su .badge{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:6px auto 14px}
+.su .badge.ok{background:var(--ok-50);color:var(--ok)}
+.su .badge.err{background:var(--err-50);color:var(--err)}
+.su .badge.info{background:var(--brand-50);color:var(--brand)}
+.su .icon-btn{border-radius:999px;color:#5a6278}
+.su .title{font-size:19px;font-weight:600;line-height:1.5;letter-spacing:-.02em;margin:0 0 4px}
+.su .sub{font-size:12.5px;line-height:1.55;color:#5a6278;margin:0 0 18px}
+.su .lbl{font-size:12px;font-weight:500;color:#5a6278;margin:0 0 6px}
+.su .field{height:42px;font-size:13.5px;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px}
+.su select.field{padding-right:32px}
+.su .id-field{height:44px;padding:0 6px 0 12px;border-color:#d1d5db}
+.su .id-field input{font-size:13.5px}
+.su .id-switch{font-size:12.5px;font-weight:600;color:var(--brand-600);padding:6px;border-radius:6px}
+.su .id-switch:hover{background:var(--brand-50)}
+.su .id-summary{height:auto;padding:12px 10px 12px 14px;border-radius:14px}
+.su .check{font-size:12.5px;color:#5a6278}
+.su .btn{height:auto;padding:13px 20px;font-size:14.5px;font-weight:600}
+.su .btn:disabled{background:#d1d5db;color:#6b7280}
+.su .btn.ghost{font-size:12.5px;font-weight:600;padding:12px 0 0}
+.su .link{font-size:12.5px;font-weight:600}
+.su .badge{width:52px;height:52px;margin:0 auto 14px}
+.su .badge.ok,.su .badge.info{background:var(--brand-50);color:var(--brand-600)}
+.su .otp{gap:8px}
+.su .otp input{height:53px;font-size:18px;font-weight:600;border-radius:10px;border-color:#d1d5db}
+.su .otp input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-100)}
+.su .title.center,.su .sub.center{text-align:center}
+.su .protect-ic{color:#5a6278;display:flex;flex:none}
+.su .dial{border:0;background:none;font:inherit;cursor:pointer;padding:0 8px 0 0}
+.su .dial{font-size:13.5px;gap:5px}
+.su .dial .flag{font-size:15px;line-height:1}
+.su .dial .mono{font-family:var(--mono);font-size:13.5px;color:var(--txt)}
+.su .sheet{position:absolute;inset:0;z-index:5;background:#fff;display:flex;flex-direction:column;border-radius:20px;animation:sheetIn .16s ease-out}
+@media (prefers-reduced-motion:reduce){.su .sheet{animation:none}}
+.su .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px;font-size:15px}
+.su .sheet-search{display:flex;align-items:center;gap:8px;margin:0 20px 8px;height:42px;padding:0 12px;border:1px solid #d1d5db;border-radius:10px;color:#9ba3b5}
+.su .sheet-search:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px rgba(var(--brand-rgb),.12)}
+.su .sheet-search input{flex:1;border:0;outline:none;font:13.5px var(--sans);color:var(--txt);background:none;min-width:0}
+.su .sheet-list{flex:1;overflow:auto;padding:0 12px 14px}
+.su .sheet-group{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9ba3b5;padding:12px 8px 6px}
+.su .sheet-row{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:10px 8px;border-radius:8px;font:13.5px var(--sans);color:var(--txt);cursor:pointer;text-align:left}
+.su .sheet-row:hover{background:#f6f7f9}
+.su .sheet-row.on{background:var(--brand-50)}
+.su .sheet-row .flag{font-size:18px;line-height:1;width:22px;text-align:center}
+.su .sr-name{flex:1}
+.su .sr-code{font-family:var(--mono);font-size:12.5px;color:#5a6278}
+.su .sr-check{color:var(--brand);display:flex}
+.su .sheet-empty{font-size:12.5px;color:#9ba3b5;padding:14px 8px}
+.su .known-note{display:flex;gap:8px;padding:10px 12px;border-radius:10px;background:var(--brand-50);font-size:12.5px;line-height:1.5;color:#1f2937;margin:-4px 0 14px}
+.su .known-note[hidden]{display:none}
+.su .check[hidden]{display:none}
+.su .known-note .protect-ic{color:var(--brand-600);margin-top:2px}
+.su .btn,.su .sheet-row{transition:transform var(--dur-fast) var(--ease-out),background-color var(--dur-fast),border-color var(--dur-fast),box-shadow var(--dur-fast)}
+.su .btn:active:not(:disabled){transform:scale(.985);transition-duration:60ms}
+.su .sub:empty{display:none}
+.su .sheet-row .flag svg{width:16px;height:16px;color:#5a6278}
+.su .known-note .protect-ic svg{width:14px;height:14px}
+@media (prefers-reduced-motion:reduce){.su .btn:active{transform:none}}
+.su .id-field input{padding:10px 0}
+.su .otp input{color:var(--txt);padding:0}
+.su .icon-btn{padding:0}
+.su .btn{border-radius:9999px}
