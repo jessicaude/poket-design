@@ -25,13 +25,17 @@ for (const size of [{ width: 1280, height: 1000 }, { width: 1280, height: 640 }]
     const want = await expected(page);
     const panel = async () => box(page, "#walletHost .panel");
     expect((await panel()).width).toBe(400);
-    expect(Math.abs((await panel()).height - want)).toBeLessThanOrEqual(1);
+    // Each screen measured once it's on screen and has settled (screens animate in)
+    const settled = () => expect.poll(async () => Math.abs((await panel()).height - want)).toBeLessThanOrEqual(1);
+    await settled();
     // A short screen (Settings) and a long one (Activity) are the same height
     await page.locator("#openSettingsHeader").click();
-    expect(Math.abs((await panel()).height - want)).toBeLessThanOrEqual(1);
+    await expect(page.locator("#backFromSettings")).toBeVisible();
+    await settled();
     await page.locator("#backFromSettings").click();
     await page.locator("#tabActivity").click();
-    expect(Math.abs((await panel()).height - want)).toBeLessThanOrEqual(1);
+    await expect(page.locator("#tabActivity")).toHaveClass(/\bon\b/);
+    await settled();
     // Only the body scrolls: the header and the tab bar don't move
     const head = await box(page, "#walletHost .panel-head"), tabs = await box(page, "#tabbar");
     const scrolled = await page.locator("#panelBody").evaluate((el) => { el.scrollTop = 400; return el.scrollTop; });

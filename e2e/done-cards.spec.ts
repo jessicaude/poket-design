@@ -21,11 +21,12 @@ async function totalLast(page: Page, card: string, before: "Confirmation" | "Ref
   await expect(page.locator(`#panelBody ${card} .receipt-row.total`)).toHaveCount(1);
   const labels = await rows.locator(".r-label").allTextContents();
   expect(labels.at(-2)).toBe(before);
-  const c = (await page.locator(`#panelBody ${card}`).boundingBox())!, t = (await rows.last().boundingBox())!;
-  // Flush: the card's 1px border on each side
-  expect(Math.abs(t.x - c.x)).toBeLessThanOrEqual(1.5);
-  expect(Math.abs(t.x + t.width - (c.x + c.width))).toBeLessThanOrEqual(1.5);
-  expect(Math.abs(t.y + t.height - (c.y + c.height))).toBeLessThanOrEqual(1.5);
+  // Flush: the card's 1px border on each side. Measured once the screen has settled (it animates in), so measured again
+  // until it does; a card that never ends flush still fails.
+  await expect.poll(async () => {
+    const c = (await page.locator(`#panelBody ${card}`).boundingBox())!, t = (await rows.last().boundingBox())!;
+    return Math.max(Math.abs(t.x - c.x), Math.abs(t.x + t.width - (c.x + c.width)), Math.abs(t.y + t.height - (c.y + c.height)));
+  }).toBeLessThanOrEqual(1.5);
 }
 async function sendWithPin(page: Page, selfie = false) {
   await page.locator("#payoutReview").click();

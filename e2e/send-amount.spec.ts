@@ -257,7 +257,7 @@ test("keypad: hidden until You send’s amount is tapped; Done or a tap elsewher
     const box = await page.locator("#theyGetBox").boundingBox(), review = await page.locator("#payoutReview").boundingBox();
     return Math.round(review!.y - (box!.y + box!.height));
   };
-  expect(await below()).toBeLessThan(120);
+  await expect.poll(below).toBeLessThan(120);
 
   await page.locator("#youSend").click();
   await expect(keypad).toBeVisible();
@@ -265,7 +265,7 @@ test("keypad: hidden until You send’s amount is tapped; Done or a tap elsewher
   for (const d of "2500") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
   await expect(page.locator("#youSend")).toHaveText("25.00");
   await expect(page.locator("#theyGet")).toHaveText("25.00");
-  expect(await below()).toBeGreaterThan(250); // the keypad is between them
+  await expect.poll(below).toBeGreaterThan(250); // the keypad is between them (it opens animated)
   await page.locator("#keypadDone").click();
   await expect(keypad).toHaveCount(0);
 
