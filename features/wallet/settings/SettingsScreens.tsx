@@ -9,16 +9,15 @@ import { useAccount } from "@/store/account";
 import { StepUpIntro } from "../StepUpIntro";
 import { TIERS, spentThisMonth, spentToday, tierName } from "../limits";
 import { holderName, useNgn, type Tier } from "../ngn/useNgn";
-import { BackRow, Grey, Keypad } from "../payout/parts";
+import { BackRow, Grey } from "../payout/parts";
 import { fmtCurrency } from "../payout/payoutMath";
 import { showNotPorted } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
 import { turnOnInstantTransfers } from "./instant";
 import { COOLING_OFF_PLACEHOLDER, INSTANT_TIER_MAX_DEMO_KOBO, TIER_MAX_PLACEHOLDER, effectiveLimit, useSettings } from "./useSettings";
-import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
+import { AmountChip, AmountField, amountPlain, keyAmount } from "../AmountField";
 import { usePayout } from "../payout/usePayout";
 import { useWalletToast } from "../useWalletToast";
-import { cvBadgeHtml, cvParse } from "../convert/convertMath";
 
 /*
  * The wallet's Settings (the reference's tSettings with extSettingsRows), Security (tSecurity) and Compliance
@@ -71,8 +70,8 @@ export function SettingsScreen() {
         <SettingsRow id="openInstantTransfers" icon={WICON.send} title="Instant transfers" sub={instantSummaryHtml(instantOn, instantLimit, tier)} onClick={() => push({ name: "instant-transfers" })} />
         <SettingsRow id="openMethods" icon={WICON.card} title="Payment methods" sub={`${cards} card${cards === 1 ? "" : "s"} · ${banks} bank account${banks === 1 ? "" : "s"}`} onClick={() => showNotPorted("Payment methods aren’t ported yet.")} />
         <SettingsRow id="openSubscriptions" icon={WICON.calendar} title="Subscriptions" sub="None yet" onClick={() => showNotPorted("Subscriptions aren’t ported yet.")} />
-        <SettingsRow id="openSecurity" icon={WICON.shieldIc} title="Security" sub={`Passcode delivery · ${devices.length} signed-in device${devices.length === 1 ? "" : "s"}`} onClick={() => push({ name: "security" })} />
-        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a passcode" onClick={signOutWallet} />
+        <SettingsRow id="openSecurity" icon={WICON.shieldIc} title="Security" sub={`Code delivery · ${devices.length} signed-in device${devices.length === 1 ? "" : "s"}`} onClick={() => push({ name: "security" })} />
+        <SettingsRow id="settingsLogOut" icon={WICON.back} title="Log out" sub="Log back in with a code" onClick={signOutWallet} />
       </div>
     </>
   );
@@ -92,7 +91,7 @@ function useProfile() {
   return { name: [first, last].filter(Boolean).join(" ").trim(), email: email.trim() };
 }
 
-/** tSecurity: passcode delivery (email or text) and signed-in devices. */
+/** tSecurity: code delivery (email or text) and signed-in devices. */
 export function SecurityScreen() {
   const back = useWalletNav((s) => s.back);
   const { channel, setChannel, devices, signOutDevice } = useSettings();
@@ -109,7 +108,7 @@ export function SecurityScreen() {
     <>
       <BackRow id="extBackSettings" label="Settings" onClick={back} />
       <div className="step-title">Security</div>
-      <div className="section-title">Passcode delivery</div>
+      <div className="section-title">Code delivery</div>
       {row("email", "Email", email || NOT_ADDED, false)}
       {row("text", "Text message", phone || "Add a phone number first", !phone)}
       <div className="section-title" style={{ marginTop: "18px" }}>Signed-in devices</div>
@@ -264,8 +263,7 @@ export function InstantLimitScreen() {
   // The typed amount lives in the store, so it's still there after Back from the PIN screens
   const kobo = limitDraft ?? current;
   const setKobo = (f: (c: number) => number) => setLimitDraft(f(kobo));
-  const { open: keypad, setOpen: setKeypad, ref } = useKeypadOnDemand();
-  const key = (k: string) => setKobo((c) => (k === "back" ? Math.floor(c / 10) : c >= 1e12 ? c : c * 10 + Number(k)));
+  const key = (k: string) => setKobo((c) => keyAmount(c, k));
   const over = kobo > max;
   const save = () => {
     const raise = kobo > current;
@@ -280,34 +278,18 @@ export function InstantLimitScreen() {
     <>
       <BackRow id="backFromInstantLimit" label="Instant transfers" onClick={() => { setLimitDraft(null); back(); }} />
       <div className="step-title">Daily limit</div>
-      <div ref={ref} style={{ marginTop: "14px" }}>
-        <div className="cv-box" id="instantLimitBox" style={keypad ? { borderColor: "var(--brand-500)", boxShadow: "0 0 0 3px var(--brand-100)" } : undefined}>
-          <div className="cv-box-top"><span>Daily limit</span><span id="instantLimitMax">Up to {TIER_MAX_PLACEHOLDER} at your tier</span></div>
-          <div className="cv-box-row">
-            <span className="cv-pick" aria-disabled="true"><Raw html={cvBadgeHtml(cvParse("cash:NGN:open"), 28)} /><span className="cv-pick-name">NGN</span></span>
-            <span className={`cv-amt mono ${over ? "err" : ""}`} id="instantLimitAmt" role="button" tabIndex={0} aria-label="Daily limit amount" aria-expanded={keypad}
-              style={{ cursor: "text" }} onClick={() => setKeypad(true)} onKeyDown={(e) => { if (e.key === "Enter") setKeypad(true); }}>
-              {(kobo / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        </div>
+      <AmountField action={<button className="btn-primary" id="instantLimitSave" style={{ marginTop: "12px" }} disabled={kobo <= 0 || over || kobo === current} onClick={save}>Save</button>}
+        id="instantLimitBox" label="Daily limit" right={<span id="instantLimitMax">Up to {TIER_MAX_PLACEHOLDER} at your tier</span>}
+        chip={<AmountChip cur="NGN" />} amountId="instantLimitAmt" ariaLabel="Daily limit amount" text={amountPlain(kobo)} error={over}
+        dataKey="limitkey" keypadId="limitKeypad" doneId="limitKeypadDone" onKey={key} style={{ marginTop: "14px" }}>
         {over && <div className="cv-hint err" id="instantLimitErr">More than your tier allows ({TIER_MAX_PLACEHOLDER}).</div>}
-        {keypad && (
-          <div id="limitKeypad" style={{ marginTop: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
-              <button type="button" className="cv-max" id="limitKeypadDone" onClick={() => setKeypad(false)}>Done</button>
-            </div>
-            <Keypad dataKey="limitkey" onKey={key} />
-          </div>
+        {/* NEW copy: what Save does, raise or lower */}
+        {!over && kobo > 0 && kobo !== current && (
+          <p className="step-sub" id="instantLimitWhen" style={{ marginTop: "12px" }}>
+            {kobo > current ? `A higher limit starts in ${COOLING_OFF_PLACEHOLDER}.` : "A lower limit applies at once."}
+          </p>
         )}
-      </div>
-      {/* NEW copy: what Save does, raise or lower */}
-      {!over && kobo > 0 && kobo !== current && (
-        <p className="step-sub" id="instantLimitWhen" style={{ marginTop: "12px" }}>
-          {kobo > current ? `A higher limit starts in ${COOLING_OFF_PLACEHOLDER}.` : "A lower limit applies at once."}
-        </p>
-      )}
-      <button className="btn-primary" id="instantLimitSave" style={{ marginTop: "12px" }} disabled={kobo <= 0 || over || kobo === current} onClick={save}>Save</button>
+      </AmountField>
     </>
   );
 }

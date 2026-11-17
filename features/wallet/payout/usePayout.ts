@@ -78,7 +78,7 @@ type State = {
   /** The payout just made: its withdrawal id, amount, fee and status (scheduled for a first payment, else sending). */
   sent: { id: string; amount: number; fee: number; status: WithdrawalStatus } | null;
   pinStage: PinStage;
-  /** "reset" after Reset PIN with passcode (S.pinPurpose). "approve": a setting that needs the PIN (approveWithPin). */
+  /** "reset" after Reset PIN with a code (S.pinPurpose). "approve": a setting that needs the PIN (approveWithPin). */
   pinPurpose: "payout" | "reset" | "approve";
   /** "approve": what the PIN approves, under "Enter your PIN" (e.g. "Turns on instant transfers."). */
   pinReason: string;

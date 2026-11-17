@@ -26,3 +26,13 @@
 - NUBAN: don't use the word. Say "account number" (10 digits).
 - Name enquiry: don't use the term. Say "We check the name on the account."
 - NIP: don't use the term. Say "bank transfer".
+- PIN: the user's own 4 digits, for money leaving a Poket balance (a send, a setting that moves money). Never sent
+  to them.
+- Code: a one-time code Poket sends (sign-in, a new device, resetting the PIN). "Code delivery" in Security. Never say
+  "passcode".
+- Bank verification: the card's bank checking a card payment (3-D Secure), on the bank's own screen: "Confirm with your
+  bank", "Enter the code your bank sent you.", with the network's name for it ("Visa Secure") and the card's last four.
+  Don't say "3-D Secure" or "passcode" to users.
+- Single-use account: the NGN account made for one top-up of an exact amount, valid for 30 minutes [time]. Say
+  "single-use account" ("Single-use account" as a title, a choice or a method). Don't say "temporary account" or
+  "one-time account". Code keeps the `temp` names.

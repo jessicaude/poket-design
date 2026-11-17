@@ -12,7 +12,7 @@ export function NgnChoiceScreen() {
     <>
       <VaBack />
       <div className="step-title">Bank transfer</div>
-      <SelectRow id="ngnPickTemp" icon={WICON.bank} t1="Temporary account" t2={`For this transfer only, valid ${NGN_TEMP_MINUTES} minutes [time]`} onClick={() => go("tempAmount")} />
+      <SelectRow id="ngnPickTemp" icon={WICON.bank} t1="Single-use account" t2={`Valid for ${NGN_TEMP_MINUTES} minutes [time]`} onClick={() => go("tempAmount")} />
       <SelectRow id="ngnPickDedicated" icon={WICON.bank} t1="Your own NGN account" t2={ngnId ? "Reuse it for every transfer" : "Needs your BVN or NIN"} onClick={pickDedicated} />
     </>
   );

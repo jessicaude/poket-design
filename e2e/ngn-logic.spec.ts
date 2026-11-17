@@ -16,7 +16,7 @@ test("formatNaira: ₦ symbol, two decimals, thousands separators, NGN code; int
   expect(() => formatNaira(10.5)).toThrow();
 });
 
-test("Tier 0 tops up through a temporary account for one exact amount", async () => {
+test("Tier 0 tops up through a single-use account for one exact amount", async () => {
   ngn().open();
   ngn().openBankTransfer();
   expect(ngn().stage).toBe("tempAmount");
@@ -34,7 +34,7 @@ test("Tier 0 tops up through a temporary account for one exact amount", async ()
   expect(ngn().ngnBalance).toBe(5000000 + 2500000 - 10000); // the reference opens with ₦50,000.00; the deposit fee is ₦100.00
 });
 
-test("an expired temporary account can be replaced; Back follows the reference", async () => {
+test("an expired single-use account can be replaced; Back follows the reference", async () => {
   ngn().set({ tier: 1 });
   ngn().open();
   ngn().openBankTransfer();

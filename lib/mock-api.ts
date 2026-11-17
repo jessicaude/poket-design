@@ -604,7 +604,7 @@ export async function verifyPin(pin: string): Promise<{ ok: true } | { ok: false
 /** The reference resets the PIN's attempt count each time the PIN step opens (wdGo: S.pinAttempts = 0). */
 export function resetPinAttempts() { payoutServer.pinAttempts = 0; }
 
-/** POST /v1/pin/reset: checks the 6-digit passcode emailed to you, then clears the PIN so a new one can be created. */
+/** POST /v1/pin/reset: checks the 6-digit code emailed to you, then clears the PIN so a new one can be created. */
 export async function verifyPinResetCode(code: string): Promise<void> {
   if (!/^\d{6}$/.test(code)) throw new Error("invalid_code");
   payoutServer.pin = null;

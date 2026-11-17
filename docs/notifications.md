@@ -19,7 +19,7 @@ this table and the catalogue match.
 
 | Key | Trigger | Title | Body |
 |---|---|---|---|
-| `topUpReceived` | A temporary-account top-up arrives (Deposit, bank transfer) | Transfer received | {amount} added to your NGN balance. |
+| `topUpReceived` | A single-use account top-up arrives (Deposit, bank transfer) | Transfer received | {amount} added to your NGN balance. |
 | `transferReceived` | A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a CentryLink user, arrives | Transfer received | {amount} from {sender} added to your {currency} balance. |
 | `delayedTransferReceived` | The naira partner is back: each transfer that arrived while it was down is credited | Transfer received | {amount} from {sender} added to your NGN balance, after a delay. |
 | `refundReceived` | A merchant refunds a naira bank-transfer payment into the NGN balance (not from a dispute) | Refund received | {amount} from {merchant} added to your NGN balance. |

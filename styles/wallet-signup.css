@@ -1,5 +1,5 @@
-/* Sign-up and identity verification in the wallet (features/auth/SignupForm.tsx and IdentityDetailsForm.tsx inside .su):
-   Checkout's own rules for SCREENS['signup'] and SCREENS['details'], copied
+/* Sign-up and identity verification in the wallet (features/auth/SignupForm.tsx, IdentityDetailsForm.tsx and features/payments/CardForm.tsx inside .su):
+   Checkout's own rules for SCREENS['signup'], SCREENS['details'] and SCREENS['add-card'], copied
    from styles/prototype.css and styles/overrides.css (in that order) with each selector scoped under .su, so the
    wallet's screens render exactly as Checkout's do. Its tokens are the prototype's :root values, set on .su.
    Edit Checkout's rules there first, then copy the change here. */
@@ -147,3 +147,11 @@
 .su .field.bad{border-color:var(--err)}
 .su .field.bad:focus{box-shadow:0 0 0 3px rgba(194,54,43,.12)}
 .su .steps .done{color:var(--txt)}
+
+/* The card form (features/payments/CardForm.tsx): Checkout's card field with its brand mark, inline errors, scoped the same way */
+.su .err{font-size:12px;color:var(--err);margin:-8px 0 14px}
+.su .card-field{position:relative}
+.su .card-field .field{padding-right:52px}
+.su .card-brand{position:absolute;right:10px;top:10px;height:22px;display:flex;align-items:center;pointer-events:none}
+.su .card-brand svg{height:22px;width:auto;border-radius:3px}
+.su .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

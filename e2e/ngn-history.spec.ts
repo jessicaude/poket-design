@@ -5,7 +5,7 @@ import { test, expect, type Page } from "./fixtures";
  * chips and the filter All, Money in, Money out (a conversion shows under All only). Detail: every transaction has
  * the same rows in the same order (Status, Date, From, To, Method, You send, They get, Rate, Refunded, Reversed,
  * Fee, Reference, Session ID), a unique reference in the copyable chip and, for a bank transfer, the bank’s session
- * ID as "[session ID]". The audit found naira coming into the NGN balance with no record at all (temporary-account
+ * ID as "[session ID]". The audit found naira coming into the NGN balance with no record at all (single-use account
  * top-ups, transfers to the account details, delayed transfers, naira from CentryLink users, recovered recalls): each is
  * now its own record with a receipt.
  */
@@ -77,7 +77,7 @@ test("a payment’s row carries its status chip unless it’s completed", async 
 test("deposits and transfers in are records: top-up, account details, delayed, CentryLink user; their receipts", async ({ page }) => {
   await wallet(page);
   const before = await ngn(page);
-  // A temporary-account top-up (₦10,000.00), as the Deposit flow makes it
+  // A single-use account top-up (₦10,000.00), as the Deposit flow makes it
   await page.evaluate(async () => { const s = (window as any).__ngn.getState(); await s.createTemp(1000000); await s.transferArrives(); (window as any).__ngn.getState().close(); });
   // The NGN account details: a transfer in
   await page.evaluate(() => (window as any).__ngn.getState().set({ dedicated: { status: "ready", num: "0123456789" } }));
@@ -95,7 +95,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, C
   const h = page.locator("#balanceHistory");
   await expect(h.locator('[data-credit]:not([data-txid*="seed"])')).toHaveCount(4);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-title')).toHaveText(["From Chinedu Eze", "From Amara Okafor", "From Chinedu Eze", "Top-up · Bank transfer"]);
-  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "CentryLink", "NGN account details", "Temporary account"]);
+  await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-sub')).toHaveText(["NGN account details · Delayed", "CentryLink", "NGN account details", "Single-use account"]);
   await expect(h.locator('[data-credit]:not([data-txid*="seed"]) .tx-amt')).toHaveText(["+₦24,900.00 NGN", "+₦10,000.00 NGN", "+₦24,900.00 NGN", "+₦9,960.00 NGN"]); // deposits less their fee
   await expect(h.locator("[data-histday]").first()).toHaveText("Today");
   await h.locator('[data-histfilter="out"]').click();
@@ -111,7 +111,7 @@ test("deposits and transfers in are records: top-up, account details, delayed, C
     ["delayed", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
     ["poket", "Amara Okafor", "CentryLink", false, "Free"],
     ["account", "Chinedu Eze · Zenith Bank", "Bank transfer · NGN account details", true, "₦100.00 NGN"],
-    ["temp", "Ada Osun", "Bank transfer · Temporary account", true, "₦40.00 NGN"],
+    ["temp", "Ada Osun", "Single-use account", true, "₦40.00 NGN"],
   ];
   for (const [kind, from, method, bank, fee] of expectations) {
     await h.locator(`[data-credit="${kind}"]:not([data-txid*="seed"])`).click();

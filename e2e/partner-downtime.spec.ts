@@ -1,4 +1,5 @@
 import { test, expect, type Page, toCheckout } from "./fixtures";
+import { NGN_TOPUP, typeAmount } from "./keypad";
 import { HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
 import { passSelfie } from "./selfie";
 
@@ -80,13 +81,13 @@ test("down: the banner tops the home and the NGN balance screen, in the wallet�
   await expect(banner(page)).toHaveCount(0);
 });
 
-test("Deposit NGN > Bank transfer: paused, with Convert; no temporary account; back up, the step returns", async ({ page }) => {
+test("Deposit NGN > Bank transfer: paused, with Convert; no single-use account; back up, the step returns", async ({ page }) => {
   await start(page, "/demo/wallet?ngn=deposit-method");
   await partner(page, "down");
   await expect(title(page)).toHaveText("Deposit NGN");
   await expect(banner(page)).toHaveText(COPY);
   await page.locator("#dmBank").click();
-  await expect(title(page)).toHaveText("Add naira"); // Tier 0: straight to a temporary account’s amount, paused
+  await expect(title(page)).toHaveText("Add naira"); // Tier 0: straight to a single-use account’s amount, paused
   await expect(page.locator("#ngnPaused")).toHaveText("Bank transfers into naira are paused. Try again later, or convert from USD.");
   await expect(page.locator("#ngnAmt")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__ngn.getState().temp)).toBeNull();
@@ -147,10 +148,10 @@ test("an existing dedicated account: details stay, with Paused and 'Transfers ma
   await expect(page.locator("#pausedLate")).toHaveCount(0);
 });
 
-test("an existing temporary account: details stay, with Paused and 'Transfers may arrive late.'", async ({ page }) => {
+test("an existing single-use account: details stay, with Paused and 'Transfers may arrive late.'", async ({ page }) => {
   await start(page, "/demo/wallet?ngn=deposit-method");
   await page.locator("#dmBank").click();
-  await page.locator("#ngnAmt").fill("5000");
+  await typeAmount(page, NGN_TOPUP, "500000");
   await page.locator("#ngnTempGo").click();
   await expect(title(page)).toHaveText(/^Send exactly/);
   await partner(page, "down");
@@ -321,10 +322,10 @@ test("recovery: the banner clears, transfers that arrived while down are credite
   await expect(notes).toHaveCount(2);
 });
 
-test("while down, a temporary account’s 'Transfer arrives' gives way to 'Transfer arrived while down'", async ({ page }) => {
+test("while down, a single-use account’s 'Transfer arrives' gives way to 'Transfer arrived while down'", async ({ page }) => {
   await start(page, "/demo/wallet?ngn=deposit-method");
   await page.locator("#dmBank").click();
-  await page.locator("#ngnAmt").fill("5000");
+  await typeAmount(page, NGN_TOPUP, "500000");
   await page.locator("#ngnTempGo").click();
   await expect(title(page)).toHaveText(/^Send exactly/);
   await expect(page.getByRole("button", { name: "Transfer arrives", exact: true })).toBeVisible();

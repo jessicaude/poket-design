@@ -37,8 +37,8 @@ test("the header gear opens Settings: name and email, then the reference’s row
   await expect(body(page).locator(".settings-row-title")).toHaveText(["Compliance", "Instant transfers", "Payment methods", "Subscriptions", "Security", "Log out"]);
   await expect(sub(page, "openCompliance")).toHaveText("Tier 0: Registered");
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
-  await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 2 signed-in devices");
-  await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a passcode");
+  await expect(sub(page, "openSecurity")).toHaveText("Code delivery · 2 signed-in devices");
+  await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a code");
   // The chevron is each row’s last <svg> (.settings-row>svg:last-child)
   expect(await page.locator("#openSecurity > svg:last-child").count()).toBe(1);
   // Rows not ported say so
@@ -210,11 +210,11 @@ test("demo bar: Instant transfers default Off starts a new user with them off", 
   await expect(page.locator("#instantLimit")).toHaveText("₦50,000.00 NGN");
 });
 
-test("Security: passcode delivery (text needs a phone number) and signed-in devices", async ({ page }) => {
+test("Security: code delivery (text needs a phone number) and signed-in devices", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openSecurity").click();
   await expect(title(page)).toHaveText("Security");
-  await expect(body(page).locator(".section-title")).toHaveText(["Passcode delivery", "Signed-in devices"]);
+  await expect(body(page).locator(".section-title")).toHaveText(["Code delivery", "Signed-in devices"]);
   await expect(page.locator('[data-channel="email"]')).toHaveClass(/\bsel\b/);
   await expect(page.locator('[data-channel="email"] .t2')).toHaveText("ada@osun.co");
   await expect(page.locator('[data-channel="text"] .t2')).toHaveText("Add a phone number first");
@@ -227,7 +227,7 @@ test("Security: passcode delivery (text needs a phone number) and signed-in devi
   await page.locator('[data-signout="d2"]').click();
   await expect(body(page).locator("[data-device]")).toHaveCount(1);
   await page.locator("#extBackSettings").click();
-  await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 1 signed-in device");
+  await expect(sub(page, "openSecurity")).toHaveText("Code delivery · 1 signed-in device");
 });
 
 test("turning off asks to confirm (a sheet), then takes effect at once; Keep them on or a tap outside cancels", async ({ page }) => {

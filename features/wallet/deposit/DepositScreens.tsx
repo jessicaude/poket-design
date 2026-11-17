@@ -1,14 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
-import { detectBrand, cardLen, cvcLen } from "@/lib/card";
 import { CARD_FUND_RATE, cardFundFee, cardFundFlat, depositFeeShort, depositFeeText } from "@/lib/fees";
 import { BRANDS, WICON } from "@/lib/icons";
 import { fmtAsset } from "../convert/convertMath";
 import { ASSET_NAME, CURRENCY_ICON, CURRENCY_NAME } from "../home/homeData";
 import { TIERS } from "../limits";
 import { holderName, useNgn, type Tier } from "../ngn/useNgn";
-import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
+import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { fmtCurrency } from "../payout/payoutMath";
 import { DigitBoxes } from "../payout/screens/PinScreens";
 import { StepUpIntro } from "../StepUpIntro";
@@ -19,6 +18,8 @@ import { DEPOSIT_ADDRESS, NETWORK_INFO, useDeposit, type DepositChoice } from ".
 import { VA_SPEC, type VaCurrency } from "./vaSpec";
 import { AccountIntro } from "./AccountIntro";
 import { AccountSetup } from "./AccountSetup";
+import { CardForm as SharedCardForm } from "@/features/payments/CardForm";
+import { AmountChip, AmountField, amountPlain } from "../AmountField";
 
 const ASSET_ICON: Record<CoinAsset, "usdc" | "usdt"> = { USDC: "usdc", USDT: "usdt" };
 const toast = (t: string) => useWalletToast.getState().showToast(t);
@@ -209,30 +210,30 @@ function DepositAccount() {
   );
 }
 
-/** tCardFund 'amount': tap the amount for the keypad; the card fee and what the card is charged. */
+/**
+ * tCardFund 'amount': the wallet's amount field (AmountField: the currency chip, the amount, the keypad on tap); then
+ * the card fee and what the card is charged, and Continue.
+ */
 function CardAmount() {
-  const { choice, cents, keypadOpen, set, back, key } = useDeposit();
+  const { choice, cents, set, back, key } = useDeposit();
   const cur = cashCur(choice), fee = cardFundFee(cents, cur);
   return (
     <>
       <BackRow id="backToDepositSelect" onClick={back} />
-      <div className="center-col" style={{ padding: "4px 0 2px" }}><div className="badge" style={{ width: "36px", height: "36px" }}><Raw html={WICON[CURRENCY_ICON[cur]]} /></div></div>
-      <div className="step-title" style={{ textAlign: "center" }}>Add {cur}</div>
-      <div className="amount-display" id="amountTapTarget" role="button" tabIndex={0} style={{ cursor: "pointer", padding: keypadOpen ? "20px 0 6px" : "56px 0 6px" }} onClick={() => set({ keypadOpen: true })}>
-        <span className="amount-value"><Grey>{fmtCurrency(cents, cur)}</Grey></span>
-      </div>
-      {!keypadOpen ? <p className="step-sub" style={{ textAlign: "center" }}>Tap the amount to enter how much to add.</p> : (
-        <>
-          {/* The highlighted total last, as on every review */}
-          <div className="receipt-card" id="cardFundFeeCard">
+      <div className="step-title">Add {cur}</div>
+      <AmountField action={<SpinButton id="cardFundAmtContinue" delay={700} style={{ marginTop: "12px" }} disabled={cents <= 0} onClick={() => set({ stage: "select-card" })}>Continue</SpinButton>}
+        id="cardFundBox" label="Amount" chip={<AmountChip cur={cur} />} amountId="cardFundAmt" ariaLabel="Amount to add" text={amountPlain(cents)}
+        dataKey="fundkey" keypadId="cardFundKeypad" doneId="cardFundKeypadDone" onKey={key} style={{ marginTop: "14px" }}>
+        {cents <= 0 && <div className="cv-hint" id="cardFundHint">Tap the amount to enter how much to add.</div>}
+        {cents > 0 && (
+          // The highlighted total last, as on every review
+          <div className="receipt-card" id="cardFundFeeCard" style={{ marginTop: "12px" }}>
             <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">Amount</span><span className="r-value mono" id="cfAmtRow"><Grey>{fmtCurrency(cents, cur)}</Grey></span></div>
             <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Card funding fee ({(CARD_FUND_RATE * 100).toFixed(1)}% + {fmtCurrency(cardFundFlat(cur), cur).replace(/ [A-Z]{3}$/, "")})</span><span className="r-value mono" id="cfFeeRow"><Grey>{fmtCurrency(fee, cur)}</Grey></span></div>
             <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.check} /></span><span className="r-label">Total charged</span><span className="r-value mono" id="cfTotalRow"><Grey>{fmtCurrency(cents + fee, cur)}</Grey></span></div>
           </div>
-          <SpinButton id="cardFundAmtContinue" delay={700} style={{ marginBottom: "12px" }} disabled={cents <= 0} onClick={() => set({ stage: "select-card" })}>Continue</SpinButton>
-          <Keypad dataKey="key" onKey={key} />
-        </>
-      )}
+        )}
+      </AmountField>
     </>
   );
 }
@@ -253,7 +254,7 @@ function CardPick() {
           return (
             <div key={c.id} className={`select-row ${cardId === c.id ? "sel" : ""}`} data-cardpick={c.id} role="button" tabIndex={0} onClick={() => set({ cardId: c.id })}>
               <div className="badge badge-brand">{b ? <Raw html={BRANDS[b].mark} /> : <span style={{ display: "inline-flex", color: "var(--txt2)" }}><Raw html={WICON.card} /></span>}</div>
-              <div className="meta"><div className="t1">{c.nickname}</div><div className="t2 mono">{c.brand} · •••• {c.last4}</div></div>
+              <div className="meta"><div className="t1">{c.nickname}</div><div className="t2">{c.brand} · <span className="mono" data-cardlast4="">•••• {c.last4}</span></div></div>
               <div className="radio" />
             </div>
           );
@@ -265,69 +266,64 @@ function CardPick() {
   );
 }
 
-/** "MM/YYYY", valid until the end of that month. */
-const expiryValid = (v: string) => {
-  const m = /^(0[1-9]|1[0-2])\/(\d{4})$/.exec(v);
-  return !!m && new Date(+m[2], +m[1], 0, 23, 59) >= new Date();
-};
-
-/** tCardFund 'card': a new card, in the account holder's name. */
+/**
+ * tCardFund 'card': a new card, in the account holder's name. Checkout's card form (features/payments/CardForm.tsx,
+ * inside .su): brand and Luhn, MM / YY in the future, the CVC by brand, a ZIP code for US cards (USD), the cardholder
+ * name matching the account holder, and the authorisation.
+ */
 function CardForm() {
   const { choice, cents, back, addCard } = useDeposit();
   const cur = cashCur(choice);
-  const [f, setF] = useState({ num: "", exp: "", cvv: "", zip: "", name: "", terms: false });
-  const digits = f.num.replace(/\D/g, ""), b = detectBrand(digits);
-  const legal = holderName();
-  const nameMatch = !!f.name && f.name.trim().toLowerCase() === legal.toLowerCase();
-  const expFilled = f.exp.length === 7, expOk = !expFilled || expiryValid(f.exp);
-  const complete = !!b && digits.length === cardLen(b) && expFilled && expOk && f.cvv.length === cvcLen(b) && /^\d{5}(-\d{4})?$/.test(f.zip) && !!f.name;
-  const fmtNum = (d: string) => (b === "amex" ? [d.slice(0, 4), d.slice(4, 10), d.slice(10, 15)].filter(Boolean).join(" ") : d.slice(0, 16).replace(/(.{4})/g, "$1 ").trim());
   return (
     <>
       <BackRow id="backToCardSelect" onClick={back} />
       <div className="step-title">Add new card</div>
       <p className="step-sub"><Grey>{`${fmtCurrency(cents + cardFundFee(cents, cur), cur)} will be charged to this card.`}</Grey></p>
-      <label className="field-label" htmlFor="cardNumberInput">Card number</label>
-      <div className="card-num-wrap">
-        <input className="field-input mono" id="cardNumberInput" placeholder="4242 4242 4242 4242" value={f.num} maxLength={19} autoComplete="cc-number" inputMode="numeric"
-          onChange={(e) => setF({ ...f, num: fmtNum(e.target.value.replace(/\D/g, "")) })} />
-        <span className="card-num-mark" id="cardBrandMark">{b && <Raw html={BRANDS[b].mark} />}</span>
+      <div className="su" id="cardForm">
+        <SharedCardForm askZip={cur === "USD"} holder={holderName()} authorize="I authorize Poket to charge this card for this deposit."
+          submitId="cardContinue" submitLabel="Add money" onSubmit={(c) => addCard({ last4: c.last4, brand: BRANDS[c.brand].name })} />
       </div>
-      {digits.length >= 4 && !b && <div id="cardNumHint" style={{ margin: "-8px 0 14px", fontSize: "11.5px", color: "var(--err-600)" }}>We don&rsquo;t recognise this card. Poket accepts Visa, Mastercard, Amex, Discover and Verve.</div>}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
-        <input className="field-input mono" id="cardExpiryInput" placeholder="MM/YYYY" value={f.exp} maxLength={7} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 6); if (v.length >= 3) v = v.slice(0, 2) + "/" + v.slice(2); setF({ ...f, exp: v }); }} />
-        <input className="field-input mono" id="cardCvvInput" placeholder={b === "amex" ? "1234" : "CVC"} value={f.cvv} maxLength={cvcLen(b)} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => setF({ ...f, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })} />
-        <input className="field-input mono" id="cardZipInput" placeholder="ZIP" value={f.zip} maxLength={10} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 9); if (v.length > 5) v = v.slice(0, 5) + "-" + v.slice(5); setF({ ...f, zip: v }); }} />
-      </div>
-      {expFilled && !expOk && <div id="expiryHint" style={{ margin: "0 0 14px", fontSize: "11.5px", color: "var(--err-600)" }}>Card has expired</div>}
-      <label className="field-label" htmlFor="cardNameInput">Cardholder name</label>
-      <input className="field-input" id="cardNameInput" placeholder="Name on card" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value.replace(/[0-9]/g, "") })} />
-      {f.name && <div id="nameMatchHint" style={{ margin: "-8px 0 14px", fontSize: "11.5px", color: nameMatch ? "var(--ok-600)" : "var(--err-600)" }}>
-        {nameMatch ? "Matches verified account holder" : `Must match account holder: ${legal}`}</div>}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "16px" }}>
-        <input type="checkbox" id="termsCheck" style={{ marginTop: "3px" }} checked={f.terms} onChange={(e) => setF({ ...f, terms: e.target.checked })} />
-        <label htmlFor="termsCheck" style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I authorize Poket to charge this card for this deposit.</label>
-      </div>
-      <SpinButton id="cardContinue" delay={800} disabled={!(complete && nameMatch && f.terms)}
-        onClick={() => addCard({ last4: digits.slice(-4), brand: b ? BRANDS[b].name : "Card" })}>Add money</SpinButton>
     </>
   );
 }
 
-/** tCardFund '3ds': the bank's passcode. */
-function ThreeDs() {
-  const verify = useDeposit((s) => s.verify);
+/** The card network's own name for its bank check, shown on the bank's screen (other brands: "Bank verification"). */
+const BANK_CHECK: Partial<Record<keyof typeof BRANDS, string>> = { visa: "Visa Secure", mc: "Mastercard Identity Check", amex: "American Express SafeKey", discover: "Discover ProtectBuy" };
+
+/**
+ * tCardFund '3ds': bank verification (3-D Secure). The card's bank asks for the code it sent, in a sheet over Pay with
+ * that's styled as the bank's own screen, not Poket's: the network's name for it ("Visa Secure") and the card's last
+ * four on top, "Confirm with your bank", "Enter the code your bank sent you.", the code, Verify. Close (or Escape)
+ * goes back to Pay with.
+ */
+function BankVerification() {
+  const { verify, savedCards, cardId, set } = useDeposit();
   const [code, setCode] = useState("");
+  const card = savedCards.find((c) => c.id === cardId);
+  const b = card ? brandKey(card.brand) : undefined;
+  const close = () => set({ stage: "select-card" });
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") set({ stage: "select-card" }); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [set]);
   return (
-    <>
-      <div className="step-title">Enter passcode</div>
-      <p className="step-sub">Your bank sent a 6-digit code to your registered device to confirm this payment.</p>
-      <div id="threeDsRow"><DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={setCode} /></div>
-      <button className="btn-primary" id="verify3ds" disabled={code.length !== 6} onClick={verify}>Verify</button>
-    </>
+    <div className="rc-backdrop" id="bankVerify">
+      <div className="rc-sheet bank-sheet" role="dialog" aria-modal="true" aria-labelledby="bankVerifyTitle">
+        <div className="bank-head">
+          {b && <Raw html={BRANDS[b].mark} />}
+          <b id="bankVerifyBrand">{(b && BANK_CHECK[b]) ?? "Bank verification"}</b>
+          {card && <span className="mono" id="bankVerifyCard">•••• {card.last4}</span>}
+          <button type="button" className="bank-close" id="bankVerifyClose" aria-label="Close" onClick={close}><Raw html={WICON.closeIc} /></button>
+        </div>
+        <div className="bank-body">
+          <div className="bank-title" id="bankVerifyTitle">Confirm with your bank</div>
+          <p className="bank-sub">Enter the code your bank sent you.</p>
+          <div id="threeDsRow"><DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={setCode} /></div>
+          <button className="bank-btn" id="verify3ds" disabled={code.length !== 6} onClick={verify}>Verify</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -469,7 +465,8 @@ export function DepositBody() {
       {stage === "amount" && <CardAmount />}
       {stage === "select-card" && <CardPick />}
       {stage === "card" && <CardForm />}
-      {stage === "3ds" && <ThreeDs />}
+      {/* Bank verification: the bank's sheet over Pay with */}
+      {stage === "3ds" && <><CardPick /><BankVerification /></>}
       {stage === "authorizing" && <Working title="Authorizing payment" sub="Confirming with your card issuer." />}
       {stage === "card-done" && <CardDone />}
       {stage === "address" && <CoinAddress />}

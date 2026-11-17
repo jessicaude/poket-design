@@ -18,6 +18,7 @@ import { usePayout } from "./payout/usePayout";
 import { useNgn } from "./ngn/useNgn";
 import { useWalletSession } from "./useWalletSession";
 import { OnboardingBody } from "./onboarding/OnboardingScreens";
+import { setPanelDock } from "./panelDock";
 import { useOnboarding } from "./onboarding/useOnboarding";
 
 export type WalletTab = "home" | "card" | "activity";
@@ -104,6 +105,8 @@ export function WalletShell({ css, tab = "home", onTab, onSettings, children }: 
                     <div className="panel-body" id="panelBody" ref={bodyRef}>
                       {!signedIn ? <OnboardingBody /> : signInPrompt ? <SignedOutScreen /> : children ?? <WalletBody />}
                     </div>
+                    {/* An open amount keypad, with the screen's button, docked above the tab bar (panelDock.ts) */}
+                    <div className="panel-dock" id="panelDock" ref={setPanelDock} />
                     <div className="tabbar" id="tabbar">
                       {tab !== null && signedIn &&
                         TABS.map((t) => (

@@ -94,7 +94,7 @@ test("$500 or more: Account, Identity, Payment; details, Veriff handoff, verifie
   await expect(widget.locator('.steps [aria-current="step"]')).toHaveText("Payment");
   await widget.getByRole("button", { name: /^Card/ }).click();
   await widget.locator("#cNum").fill("4242424242424242");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -281,7 +281,7 @@ async function addCardAndPay(page: Page, total: string) {
   const widget = page.getByTestId("checkout-widget");
   await widget.getByRole("button", { name: /^Card/ }).first().click();
   await widget.locator("#cNum").fill("4242424242424242");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -438,8 +438,8 @@ test("a naira order of $500 or more completes after verification (naira card)", 
   await verify(page);
   await widget.locator("#idGo").click();
   await widget.locator('[data-addpm="ngn-card"]').click();
-  await widget.locator("#cNum").fill("5061020000000000");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cNum").fill("5061020000000003");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cGo").click();
   await expect(widget.locator("#payGo")).toHaveText("Pay ₦963,170.00");

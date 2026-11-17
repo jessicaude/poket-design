@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
-import { COMPLETE, WAITING, expectTrack } from "./waiting";
+import { WAITING, expectTrack } from "./waiting";
 import { expectSelfie, passSelfie } from "./selfie";
 
 /**

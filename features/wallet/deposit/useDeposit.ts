@@ -55,7 +55,6 @@ type State = {
   entry: "select" | "method" | "va";
   search: string;
   cents: number;
-  keypadOpen: boolean;
   savedCards: SavedCard[];
   cardId: string | null;
   vaStage: VaStage;
@@ -94,7 +93,7 @@ type State = {
   reset: () => void;
 };
 
-const BLANK = { stage: null, choice: null, entry: "select" as const, search: "", cents: 0, keypadOpen: false, cardId: null, vaStage: "intro" as VaStage, vaAgree: false, gate: null, last: null };
+const BLANK = { stage: null, choice: null, entry: "select" as const, search: "", cents: 0, cardId: null, vaStage: "intro" as VaStage, vaAgree: false, gate: null, last: null };
 let pending: "card" | "coin" | null = null;
 
 const usdOf = (minor: number, unit: string) => (minor * (unit in DEMO_USD_PER ? DEMO_USD_PER[unit as CashCurrency] : 1)) / 100;
@@ -162,7 +161,7 @@ export const useDeposit = create<State>((set, get) => {
       const prev: Partial<Record<DepositStage, DepositStage>> = {
         method: "select", va: "method", amount: "method", "select-card": "amount", card: "select-card", address: "select",
       };
-      set({ stage: prev[stage!] ?? "select", keypadOpen: false });
+      set({ stage: prev[stage!] ?? "select" });
     },
     set: (p) => set(p),
     pick: (c) => set({ choice: c, stage: c.k === "coin" ? "address" : "method" }),
@@ -170,7 +169,7 @@ export const useDeposit = create<State>((set, get) => {
       const c = get().choice;
       if (c?.k === "cash" && c.cur !== "NGN") set({ stage: "va", vaStage: vaStageFor(c.cur), vaAgree: false });
     },
-    card: () => set({ stage: "amount", cents: 0, keypadOpen: false }),
+    card: () => set({ stage: "amount", cents: 0 }),
     key: (k) => {
       const cents = get().cents;
       if (k === "back") return set({ cents: Math.floor(cents / 10) });

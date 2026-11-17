@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
-import { cvPress, press } from "./keypad";
+import { cvPress, press, CARD_TOPUP, NGN_TOPUP, typeAmount } from "./keypad";
 import { passSelfie } from "./selfie";
 
 /**
@@ -99,8 +99,7 @@ test("card deposit: Reference, then Total charged last", async ({ page }) => {
   await page.locator('[data-holdcur="USD"][data-holdbucket="open"] .tx-title').click();
   await page.locator("#detailDeposit").click();
   await page.locator("#dmCard").click();
-  await page.locator("#amountTapTarget").click();
-  for (const k of "2500") await page.locator(`[data-key="${k}"]`).click();
+  await typeAmount(page, CARD_TOPUP, "2500");
   await page.locator("#cardFundAmtContinue").click();
   await page.locator('[data-cardpick="card1"]').click();
   await page.locator("#cardPickContinue").click();
@@ -113,7 +112,7 @@ test("card deposit: Reference, then Total charged last", async ({ page }) => {
 test("NGN top-up: Reference, then You get last", async ({ page }) => {
   await wallet(page, "/demo/wallet?ngn=deposit-method");
   await page.locator("#dmBank").click();
-  await page.locator("#ngnAmt").fill("25000");
+  await typeAmount(page, NGN_TOPUP, "2500000");
   await page.locator("#ngnTempGo").click();
   await page.getByRole("button", { name: "Transfer arrives", exact: true }).click();
   await expect(page.locator("#ngnTempDoneCard")).toBeVisible();

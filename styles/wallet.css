@@ -518,7 +518,10 @@ select.field-input{
 
 .brand-mark{display:inline-flex;width:34px;height:24px;flex:none}
 .brand-mark svg{width:100%;height:100%;display:block}
-.select-row .badge.badge-brand{background:transparent;border:0}
+/* A card brand's mark (lib/icons.ts BRANDS[].mark, span.mk), as Checkout's method rows size it; in a picker row, the card's own shape */
+.mk{width:34px;height:24px;flex:none;display:flex}
+.mk svg{width:100%;height:100%;display:block}
+.select-row .badge.badge-brand{background:transparent;border:0;width:34px;height:24px;border-radius:0;overflow:visible}
 .settings-row-ic.ic-brand{background:transparent;border-radius:0;width:34px;height:24px;align-self:center}
 
 .asset-filter{position:relative;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:var(--txt3)}

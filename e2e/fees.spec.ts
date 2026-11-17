@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
-import { cvPress } from "./keypad";
+import { cvPress, NGN_TOPUP, typeAmount } from "./keypad";
 
 /**
  * Fees (lib/fees.ts; docs/decisions.md, Fees): deposits 0.40% capped ($4.00, ₦5,000.00) out of what arrives; Convert
@@ -60,7 +60,7 @@ async function wallet(page: Page) {
 test("deposit: the amount screen shows the fee and what you get; the account cards say the fee", async ({ page }) => {
   await page.goto("/demo/wallet?ngn=tempAmount");
   await page.waitForFunction(() => !!(window as any).__ngn);
-  await page.locator("#ngnAmt").fill("25000");
+  await typeAmount(page, NGN_TOPUP, "2500000");
   await expect(page.locator("#ngnTempFee .receipt-row")).toHaveText(["Fee₦100.00 NGN", "You get₦24,900.00 NGN"]);
   await wallet(page);
   await page.getByLabel("Tier").selectOption("1");

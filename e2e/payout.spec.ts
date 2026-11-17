@@ -66,7 +66,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   // First payout: create and confirm the PIN. A mismatch starts over.
   await expect(body.locator(".step-eyebrow")).toHaveText("One-time setup");
   await expect(title(page)).toHaveText("Create your PIN");
-  await expect(body.locator(".otp-hint")).toHaveText("Different from your passcode. Never sent to you.");
+  await expect(body.locator(".otp-hint")).toHaveText("Different from the codes we send you. Never sent to you.");
   await typePin(page, "1234");
   await expect(title(page)).toHaveText("Confirm your PIN");
   await typePin(page, "9999");
@@ -90,7 +90,7 @@ test("to your own account: amount, review, create the PIN, done", async ({ page 
   await expect(page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"] .tx-amt')).toHaveText("₦37,475.00 NGN");
 });
 
-test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode", async ({ page }) => {
+test("wrong PIN: attempts left, locked after 3, reset with the emailed code", async ({ page }) => {
   await toAmount(page, "other:r6");
   await page.getByLabel("PIN", { exact: true }).selectOption("set"); // demo: PIN 1234
   await typeAmount(page, "500000");
@@ -111,12 +111,12 @@ test("wrong PIN: attempts left, locked after 3, reset with the emailed passcode"
   }
   await typePin(page, "0000");
   await expect(title(page)).toHaveText("Too many attempts");
-  await expect(body.locator(".step-sub")).toHaveText("Your PIN is locked. Reset it with a passcode sent to your email to keep sending.");
+  await expect(body.locator(".step-sub")).toHaveText("Your PIN is locked. Reset it with a code sent to your email to keep sending.");
   await expect(body.locator(".fail-mark")).toBeVisible();
 
   await page.locator("#pinLockedReset").click();
   await expect(title(page)).toHaveText("Verify it’s you");
-  await expect(body.locator(".step-sub")).toHaveText("Enter the 6-digit passcode sent to ada@osun.co before you can set a new PIN.");
+  await expect(body.locator(".step-sub")).toHaveText("Enter the 6-digit code sent to ada@osun.co before you can set a new PIN.");
   await page.locator("#resend").click();
   await expect(page.locator("#resend")).toHaveText("Sent ✓");
   await body.locator(".otp-box").first().click();

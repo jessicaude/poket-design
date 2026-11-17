@@ -265,7 +265,10 @@ test("keypad: hidden until You send’s amount is tapped; Done or a tap elsewher
   for (const d of "2500") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click();
   await expect(page.locator("#youSend")).toHaveText("25.00");
   await expect(page.locator("#theyGet")).toHaveText("25.00");
-  await expect.poll(below).toBeGreaterThan(250); // the keypad is between them (it opens animated)
+  // The keypad docks above the tab bar with Review directly above it (e2e/amount-field.spec.ts)
+  await expect(page.locator("#panelDock #payoutReview")).toBeVisible();
+  const review = (await page.locator("#payoutReview").boundingBox())!, pad = (await page.locator("#sendKeypad").boundingBox())!;
+  expect(review.y).toBeLessThan(pad.y);
   await page.locator("#keypadDone").click();
   await expect(keypad).toHaveCount(0);
 

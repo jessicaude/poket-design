@@ -22,17 +22,32 @@ export function formatCardNumber(v: string): string {
   return b === "amex" ? [x.slice(0, 4), x.slice(4, 10), x.slice(10)].filter(Boolean).join(" ") : x.replace(/(.{4})/g, "$1 ").trim();
 }
 
-/** Expiry is typed as MM / YYYY */
-export function formatExpiry(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 6);
-  return d.length > 2 ? `${d.slice(0, 2)} / ${d.slice(2)}` : d;
+/** The Luhn checksum every card number carries (a mistyped digit fails it). */
+export function luhnOk(digits: string): boolean {
+  const d = digits.replace(/\D/g, "");
+  if (d.length < 12) return false;
+  let sum = 0;
+  for (let i = 0; i < d.length; i++) {
+    let n = +d[d.length - 1 - i];
+    if (i % 2 === 1) { n *= 2; if (n > 9) n -= 9; }
+    sum += n;
+  }
+  return sum % 10 === 0;
 }
 
-/** Valid until the last moment of the expiry month */
+/** Expiry is typed as MM / YY ("1229" → "12 / 29"). */
+export function formatExpiry(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  return d.length > 2 ? `${d.slice(0, 2)} / ${d.slice(2)}` : d;
+}
+/** A whole expiry, typed: "MM / YY". */
+export const expiryComplete = (v: string) => /^\d{2} \/ \d{2}$/.test(v);
+
+/** A real month, in the future: valid until the last moment of the expiry month. */
 export function expiryOk(v: string, now = new Date()): boolean {
-  const m = /^(0[1-9]|1[0-2]) \/ (\d{4})$/.exec(v);
+  const m = /^(0[1-9]|1[0-2]) \/ (\d{2})$/.exec(v);
   if (!m) return false;
-  return new Date(+m[2], +m[1], 0, 23, 59) >= now;
+  return new Date(2000 + +m[2], +m[1], 0, 23, 59) >= now;
 }
 
 /** Amex and some test numbers are credit cards; the rest are debit (prototype rule). */

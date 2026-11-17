@@ -28,8 +28,8 @@ test("a new user signs up, adds a card and pays", async ({ page }) => {
   await widget.getByRole("button", { name: /^Card/ }).click();
   await widget.locator("#cNum").fill("4242424242424242");
   await expect(widget.locator("#cNum")).toHaveValue("4242 4242 4242 4242");
-  await widget.locator("#cExp").fill("122029");
-  await expect(widget.locator("#cExp")).toHaveValue("12 / 2029");
+  await widget.locator("#cExp").fill("1229");
+  await expect(widget.locator("#cExp")).toHaveValue("12 / 29");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -121,6 +121,6 @@ test("Amex formats 4-6-5 and asks for a 4-digit CVC", async ({ page }) => {
   await widget.locator("#cNum").fill("378282246310005");
   await expect(widget.locator("#cNum")).toHaveValue("3782 822463 10005");
   await expect(widget.locator("#cCvc")).toHaveAttribute("placeholder", "1234");
-  await widget.locator("#cExp").fill("012024");
+  await widget.locator("#cExp").fill("0124");
   await expect(widget.getByText("This card has expired. Use a card that’s still valid.")).toBeVisible();
 });

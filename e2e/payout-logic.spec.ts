@@ -104,7 +104,7 @@ test("Max: the whole balance (the NGN fee is undecided)", () => {
   expect(p().cents).toBe(4997500);
 });
 
-test("PIN: 3 wrong tries lock it; the emailed passcode clears it", async () => {
+test("PIN: 3 wrong tries lock it; the emailed code clears it", async () => {
   await setPin("1234");
   expect(await verifyPin("0000")).toEqual({ ok: false, attemptsLeft: 2, locked: false });
   expect(await verifyPin("1234")).toEqual({ ok: true });

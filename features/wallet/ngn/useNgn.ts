@@ -247,17 +247,6 @@ export function fmtCountdown(ms: number): string {
 }
 
 /**
- * The ngnAmt input's parse, in integer maths: keep digits and dots, then naira and up to 2 decimals.
- * "₦25,000.5" gives 2500050. The reference's parseFloat-based version gives the same kobo.
- */
-export function parseNairaInput(text: string): Kobo {
-  const [ip = "", dp] = text.replace(/[^\d.]/g, "").split(".");
-  const naira = Number(ip || "0");
-  const kobo = dp === undefined ? 0 : Number((dp.slice(0, 2) + "00").slice(0, 2));
-  return naira * 100 + kobo || 0;
-}
-
-/**
  * VA_SPEC.NGN in the reference. Partner-neutral: the bank is a placeholder. `supported`: virtual accounts (a dedicated
  * NGN account) are offered; the NGN balance screen then shows "Get NGN account details" until there's an account.
  */

@@ -3,7 +3,6 @@ import { withoutCode } from "@/lib/money";
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { Raw } from "@/components/ui/Raw";
-import { CHECK_DRAW } from "@/lib/icons";
 import { WICON } from "@/lib/icons";
 import {
   DESCRIPTION_MAX, DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT,

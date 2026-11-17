@@ -124,7 +124,7 @@ export function refundFields(p: Payment, r: Refund): TxFieldsData {
 
 /** How each NGN credit came in. */
 export const CREDIT_METHOD: Record<NgnCredit["kind"], string> = {
-  temp: "Bank transfer · Temporary account", account: "Bank transfer · NGN account details",
+  temp: "Single-use account", account: "Bank transfer · NGN account details",
   delayed: "Bank transfer · NGN account details", poket: "CentryLink", recall: "Bank transfer · Recall",
 };
 /** Naira into the NGN balance: a deposit's fee (0.40%, capped), free from a CentryLink user; a recall has no fee line. */

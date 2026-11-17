@@ -22,8 +22,8 @@ async function toIdEntry(page: Page, route = "BVN") {
 test("Tier 1: choose, enter an ID, three mismatches lock the step", async ({ page }) => {
   await openAtTier1(page);
   const body = page.locator("#panelBody");
-  await expect(body.locator(".select-row .t1")).toHaveText(["Temporary account", "Your own NGN account"]);
-  await expect(body.locator("#ngnPickTemp .t2")).toHaveText("For this transfer only, valid 30 minutes [time]");
+  await expect(body.locator(".select-row .t1")).toHaveText(["Single-use account", "Your own NGN account"]);
+  await expect(body.locator("#ngnPickTemp .t2")).toHaveText("Valid for 30 minutes [time]");
   await expect(body.locator("#ngnPickDedicated .t2")).toHaveText("Needs your BVN or NIN");
 
   await page.locator("#ngnPickDedicated").click();
@@ -49,8 +49,9 @@ test("Tier 1: choose, enter an ID, three mismatches lock the step", async ({ pag
   await page.getByRole("button", { name: "Fill a mismatching number" }).click();
   await go.click();
   await expect(title(page)).toHaveText("We couldn’t confirm your ID");
-  await expect(body.locator(".step-sub")).toHaveText("You’ve used all 3 attempts. Contact support to continue. You can still add naira with a temporary account.");
+  await expect(body.locator(".step-sub")).toHaveText("You’ve used all 3 attempts. Contact support to continue. You can still add naira with a single-use account.");
   await expect(body.locator("a.vf-support")).toHaveAttribute("href", "https://poketwallet.com/support");
+  await expect(page.locator("#ngnUseTemp")).toHaveText("Use a single-use account");
   await page.locator("#ngnUseTemp").click();
   await expect(title(page)).toHaveText("Add naira");
 });
@@ -244,11 +245,11 @@ test("NGN balance at Tier 0: verify first (the step-up), then the account choice
   await card.click();
   await expect(title(page)).toHaveText("Verify your identity");
   await expect(page.locator("#panelBody .alert")).toHaveText("Account details are in your verified name, so we need to confirm who you are.");
-  await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the temporary top-up
+  await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the single-use account top-up
   // Cancel: back to the balance, still Tier 0
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#balanceAmount")).toBeVisible();
-  // Deposit still tops up by temporary account at Tier 0
+  // Deposit still tops up by single-use account at Tier 0
   await page.locator("#detailDeposit").click();
   await page.locator("#dmBank").click();
   await expect(title(page)).toHaveText("Add naira");

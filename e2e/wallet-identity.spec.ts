@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "./fixtures";
-import { COMPLETE, WAITING, expectTrack } from "./waiting";
+import { WAITING, expectTrack } from "./waiting";
 
 /**
  * The wallet's identity verification (Tier 0 to Tier 1), from the step-up: "Verify your identity" (reference/
