@@ -13,11 +13,11 @@ export function NgnLockedScreen() {
       <div className="center-col" style={{ paddingTop: "20px" }}>
         <div className="check-circle" style={{ background: "var(--err-50)", color: "var(--err-600)" }}><Raw html={WICON.lockIc} /></div>
         <div className="step-title">We couldn&rsquo;t confirm your ID</div>
-        <p className="step-sub">You&rsquo;ve used all {NGN_MAX_ATTEMPTS} attempts. Contact support to continue. You can still add naira with a temporary account.</p>
+        <p className="step-sub">You&rsquo;ve used all {NGN_MAX_ATTEMPTS} attempts. Contact support to continue. You can still add naira with a single-use account.</p>
       </div>
       <a className="btn-secondary vf-support" href="https://poketwallet.com/support" target="_blank" rel="noopener">Contact support</a>
       <div style={{ textAlign: "center", marginTop: "12px" }}>
-        <button type="button" className="btn-ghost" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a temporary account</button>
+        <button type="button" className="btn-ghost" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a single-use account</button>
       </div>
     </>
   );

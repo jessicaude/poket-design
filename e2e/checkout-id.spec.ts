@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * Checkout identity verification (Tier 1), ported from SCREENS['details'], ['vendor'], ['verifying'], ['id-done'] and
@@ -50,11 +50,20 @@ test("$500 or more: Account, Identity, Payment; details, Veriff handoff, verifie
   await expect(widget.locator("#dCountry")).toHaveValue("Nigeria");
   await expect(widget.locator("#dFirst")).toHaveValue("Kemi");
   await expect(widget.locator("#dLast")).toHaveValue("Adeyemi");
+  await expect(widget.locator(".sub").first()).toHaveText("Enter your name and date of birth exactly as they appear on your government-issued ID.");
   await expect(widget.locator("#dSsn")).toHaveCount(0);
-  await expect(widget.locator("#dGo")).toHaveText("Continue to ID check");
+  await expect(widget.locator("#dNoSsn")).toHaveCount(0);
+  await expect(widget.locator("#dGo")).toHaveText("Continue to ID verification");
+  await expect(widget.locator("#dLater")).toHaveText("Finish later");
   await expect(widget.locator("#dGo")).toBeDisabled();
+  await page.locator("#dD").fill("45");
+  await expect(page.locator("#dD")).toHaveValue("31"); // a day up to 31
   await page.locator("#dD").fill("12");
+  await expect(page.locator("#dM option:checked")).toHaveText("Month");
   await page.locator("#dM").selectOption("3");
+  // The picker lists the months in full and shows the chosen one short
+  await expect(page.locator("#dM option:checked")).toHaveText("Mar");
+  await expect(page.locator('#dM option[value="4"]')).toHaveText("April");
   await expect(widget.locator("#dGo")).toBeDisabled(); // year missing
   await page.locator("#dY").fill("1990");
   await expect(widget.locator("#dGo")).toBeEnabled();
@@ -85,7 +94,7 @@ test("$500 or more: Account, Identity, Payment; details, Veriff handoff, verifie
   await expect(widget.locator('.steps [aria-current="step"]')).toHaveText("Payment");
   await widget.getByRole("button", { name: /^Card/ }).click();
   await widget.locator("#cNum").fill("4242424242424242");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -125,7 +134,9 @@ test("United States: SSN (masked, Show / Hide, checked), then Plaid’s selfie; 
   await ssn.fill("000123456");
   await expect(ssn).toHaveValue("000-12-3456");
   await expect(widget.locator("#dGo")).toBeDisabled(); // 000 isn’t a valid SSN
+  await expect(widget.locator("#dSsnErr")).toHaveText("Check your SSN. This number isn’t valid.");
   await ssn.fill("123456789");
+  await expect(widget.locator("#dSsnErr")).toHaveCount(0);
   await expect(ssn).toHaveValue("123-45-6789");
   await expect(widget.locator("#dGo")).toBeEnabled();
   await widget.locator("#dSsnShow").click();
@@ -135,7 +146,7 @@ test("United States: SSN (masked, Show / Hide, checked), then Plaid’s selfie; 
   await widget.locator("#dNoSsn").click();
   await expect(widget.locator("#dNoSsn")).toHaveText("Use my SSN instead");
   await expect(widget.locator("#dSsn")).toHaveCount(0);
-  await expect(widget.locator("#dGo")).toHaveText("Continue to ID check");
+  await expect(widget.locator("#dGo")).toHaveText("Continue to ID verification");
   await widget.locator("#dNoSsn").click();
   await expect(widget.locator("#dNoSsn")).toHaveText("I don’t have an SSN");
 
@@ -165,6 +176,22 @@ test("demo outcome Under 18 at date of birth: blocked even with an adult date", 
   await dob(page, "12", "3", "1990");
   await widget.locator("#dGo").click();
   await expect(widget.getByRole("heading", { name: "You must be 18 or older" })).toBeVisible();
+});
+
+test("the ID shows under 18 (demo outcome): blocked after the ID check, with the document copy", async ({ page }) => {
+  const widget = await toDetails(page, "docUnder18");
+  await verify(page);
+  await expect(widget.getByRole("heading", { name: "We can’t verify this account" })).toBeVisible();
+  await expect(widget.locator(".sub")).toHaveText("The date of birth on your government ID doesn’t meet Poket’s minimum age requirement. Self-attestation isn’t relied on once a document is verified, so this account has been blocked and flagged for compliance review. No funds can be added. You haven’t been charged.");
+  await expect(events(page).locator("li", { hasText: "user.blocked" })).toContainText('"reason":"doc_age"');
+  await expect(events(page)).not.toContainText("user.verified");
+});
+
+test("the ID shows under 18 (a legal last name with “minor”): blocked after the ID check", async ({ page }) => {
+  const widget = await toDetails(page);
+  await widget.locator("#dLast").fill("Minor");
+  await verify(page);
+  await expect(widget.getByRole("heading", { name: "We can’t verify this account" })).toBeVisible();
 });
 
 test("ID check: declined", async ({ page }) => {
@@ -254,7 +281,7 @@ async function addCardAndPay(page: Page, total: string) {
   const widget = page.getByTestId("checkout-widget");
   await widget.getByRole("button", { name: /^Card/ }).first().click();
   await widget.locator("#cNum").fill("4242424242424242");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -411,8 +438,8 @@ test("a naira order of $500 or more completes after verification (naira card)", 
   await verify(page);
   await widget.locator("#idGo").click();
   await widget.locator('[data-addpm="ngn-card"]').click();
-  await widget.locator("#cNum").fill("5061020000000000");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cNum").fill("5061020000000003");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cGo").click();
   await expect(widget.locator("#payGo")).toHaveText("Pay ₦963,170.00");

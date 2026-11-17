@@ -14,11 +14,11 @@ import { useWalletHome } from "./home/homeData";
  * "Account locked" (NEW): too many wrong verification codes (device codes and Checkout's codes, counted together).
  * While locked, money can't move anywhere in the wallet: any open Send, Convert, Deposit or PIN step shows this
  * instead (WalletBody), with a live countdown. When the lock ends (or the demo's "Skip lock time"), the flow is back
- * where it was. Close leaves it.
+ * where it was. Close leaves it (onboarding's code screen: back to the start).
  */
-export function AccountLockedScreen() {
+export function AccountLockedScreen({ onClose }: { onClose?: () => void } = {}) {
   const left = useLockLeft();
-  const close = () => { useSend.getState().close(); usePayout.getState().close(); useConvert.getState().close(); useNgn.getState().close(); };
+  const close = onClose ?? (() => { useSend.getState().close(); usePayout.getState().close(); useConvert.getState().close(); useNgn.getState().close(); });
   return (
     <div className="center-col" style={{ paddingTop: "24px" }} id="accountLocked">
       <div className="check-circle" style={{ background: "var(--err-50)", color: "var(--err-600)" }}><Raw html={WICON.lockIc} /></div>

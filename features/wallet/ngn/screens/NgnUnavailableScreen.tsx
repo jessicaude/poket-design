@@ -16,7 +16,7 @@ export function NgnUnavailableScreen() {
         <div className="step-title">Your own NGN account isn&rsquo;t available</div>
         <p className="step-sub">It needs a Nigerian ID (BVN or NIN), and your verified ID shows you live outside Nigeria.</p>
       </div>
-      <button className="btn-primary" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a temporary account</button>
+      <button className="btn-primary" id="ngnUseTemp" onClick={() => go("tempAmount")}>Use a single-use account</button>
       <div style={{ textAlign: "center", marginTop: "12px" }}>
         <button type="button" className="btn-ghost" id="ngnUseConvert" onClick={() => useConvert.getState().start({ to: "cash:NGN:open" })}>Convert from USD or USDC</button>
       </div>

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * The Card tab (tCard in reference/poket-unified.html): locked below Tier 3 with what each tier takes and "Increase
@@ -114,14 +114,17 @@ test("a purchase spends from the balance (card money first) and is a card transa
   await expect(row.locator(".tx-title")).toHaveText("Blue Bottle Coffee");
   await expect(row.locator(".tx-sub")).toHaveText(/^Personal ••• \d{4}$/);
   await expect(row.locator(".tx-amt")).toHaveText("-$6.50 USD");
+  await expect(row.locator(".tx-ic")).toHaveAttribute("data-dir", "out");
   // The detail
   await row.click();
   const rows = page.locator("#txDetail .info-row");
   await expect(rows.filter({ hasText: "Status" })).toContainText("Approved");
-  await expect(rows.filter({ hasText: "Merchant" })).toContainText("Blue Bottle Coffee");
-  await expect(rows.filter({ hasText: "Currency" })).toContainText("USD");
-  await expect(rows.filter({ hasText: "Card" }).last()).toContainText(/Personal ••• \d{4}/);
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Reference"]);
+  await expect(rows.filter({ hasText: "From" })).toContainText(/Personal ••• \d{4} · USD balance/);
+  await expect(rows.filter({ hasText: "To" })).toContainText("Blue Bottle Coffee");
+  await expect(rows.filter({ hasText: "Method" })).toContainText("Virtual card");
   await expect(page.locator("#txDetail")).toContainText(/TXN-\d{6}/);
+  await expect(page.locator("#shareReceipt")).toBeVisible();
   await page.locator("#backFromTxDetail").click();
   // Activity, and the card-funded USD balance's history
   await page.locator("#tabActivity").click();

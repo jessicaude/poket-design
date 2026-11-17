@@ -9,7 +9,7 @@ import { useConvert } from "../convert/useConvert";
 import {
   cvAvail, cvBadgeHtml, cvFmt, cvName, cvParse, cvQuote, cvRateText, cvShort, type Side,
 } from "../convert/convertMath";
-import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
+import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { CurrencyBadge, FirstPaymentNotice } from "../payout/screens/AmountReviewScreens";
 import { usePayout } from "../payout/usePayout";
 import { asSendRecipient, nairaConvertsOnReceipt, sameAsTarget, sendSources, targetKeyFor } from "./sources";
@@ -21,7 +21,7 @@ import { formatNairaShort } from "@/lib/money";
 import { sendSummary } from "./sendSummary";
 import { payoutMethodIcon, isLogoMethod } from "../payout/payoutMath";
 import { useQuoteTimer } from "./useQuoteTimer";
-import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
+import { AmountField } from "../AmountField";
 import { useSend } from "./useSend";
 
 /*
@@ -52,8 +52,6 @@ export function SendAmountScreen() {
   const instantOn = useSettings((s) => s.instantOn);
   const partnerDown = useNairaPartner((s) => s.down);
   useSettings((s) => s.instantLimit); useWithdrawals((s) => s.list); // the daily limit and today's total
-  // The keypad shows only while You send's amount is being typed (useKeypadOnDemand)
-  const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
   if (!r || !payFrom) return <BackRow id="backToPayoutRecipient2" onClick={back} />;
   const src = cvParse(payFrom), target = targetKeyFor(r, payFrom), tgt = cvParse(target);
   const converting = !sameAsTarget(payFrom, asSendRecipient(r));
@@ -81,7 +79,7 @@ export function SendAmountScreen() {
     <>
       <BackRow id="backToPayoutRecipient2" onClick={back} />
       {r.methodType === "bank" ? <CurrencyBadge /> : (
-        // A Poket user's initials, a wallet's coin or a card, where a bank shows its currency's flag
+        // A CentryLink user's initials, a wallet's coin or a card, where a bank shows its currency's flag
         <div className="center-col" style={{ padding: "4px 0 2px" }}>
           {r.methodType === "wallet" || r.methodType === "card"
             ? <div className={`tx-ic tx-ic-lg ${isLogoMethod(r) ? "tx-ic-real" : "review"}`} style={{ width: "36px", height: "36px" }} dangerouslySetInnerHTML={{ __html: payoutMethodIcon(r) }} />
@@ -94,7 +92,7 @@ export function SendAmountScreen() {
         <span className="btn-ghost" id="editPayoutRecipient" role="button" onClick={() => usePayout.getState().changeRecipient()}>Change</span>
       </p>
       {nairaConvertsOnReceipt(asSendRecipient(r), payFrom) && (
-        // WGT-07: a Poket user who can't hold naira gets USD, converted on receipt (the quote card below)
+        // WGT-07: a CentryLink user who can't hold naira gets USD, converted on receipt (the quote card below)
         <div className="alert info" id="nairaRecipientNotice" role="note" style={{ marginTop: "12px", marginBottom: 0 }}>
           <Raw html={WICON.info} /><span>{r.name.split(/\s+/)[0]} can&rsquo;t hold naira. They&rsquo;ll get USD.</span>
         </div>
@@ -124,21 +122,16 @@ export function SendAmountScreen() {
         </div>
       )}
 
-      <div ref={typing} style={{ marginTop: "14px" }}>
-        {/* You send and They get: Convert's From / To boxes (the label and Available + Max on top, the chip and amount below) */}
-        <div className="cv-box" id="youSendBox" style={keypad ? { borderColor: "var(--brand-500)", boxShadow: "0 0 0 3px var(--brand-100)" } : undefined}>
-          <div className="cv-box-top"><span>You send</span><span><Grey>{`Available ${cvFmt(avail, src)}`}</Grey> <button type="button" className="cv-max" id="payoutMaxAmt" onClick={max}>Max</button></span></div>
-          <div className="cv-box-row">
-            <button type="button" className="cv-pick" id="payFromChip" onClick={() => go("payFrom")}>
-              <Raw html={cvBadgeHtml(src, 28)} />
-              <span className="cv-pick-name">{cvShort(src)}<Tag o={src} /></span>
-              <Raw html={CV_CHEV} />
-            </button>
-            <span className={`cv-amt mono ${over ? "err" : ""}`} id="youSend" role="button" tabIndex={0} aria-label="You send amount"
-              aria-expanded={keypad} style={{ cursor: "text" }} onClick={() => setKeypad(true)}
-              onKeyDown={(e) => { if (e.key === "Enter") setKeypad(true); }}>{amountText(payCents)}</span>
-          </div>
-        </div>
+      {/* You send (the wallet's amount field), then They get: Convert's From / To boxes */}
+      <AmountField action={<SpinButton id="payoutReview" style={{ marginTop: "12px" }} disabled={!ready} delay={500} onClick={() => usePayout.getState().toReview()}>Review</SpinButton>}
+        id="youSendBox" label="You send" amountId="youSend" ariaLabel="You send amount" text={amountText(payCents)} error={over}
+        right={<><Grey>{`Available ${cvFmt(avail, src)}`}</Grey> <button type="button" className="cv-max" id="payoutMaxAmt" onClick={max}>Max</button></>}
+        chip={<button type="button" className="cv-pick" id="payFromChip" onClick={() => go("payFrom")}>
+          <Raw html={cvBadgeHtml(src, 28)} />
+          <span className="cv-pick-name">{cvShort(src)}<Tag o={src} /></span>
+          <Raw html={CV_CHEV} />
+        </button>}
+        dataKey="payoutkey" keypadId="sendKeypad" doneId="keypadDone" onKey={key} style={{ marginTop: "14px" }}>
         {over && <div className="cv-hint err" id="payoutAmtHint">More than your {cvName(src)} balance.</div>}
 
         <div className="cv-box" id="theyGetBox" style={{ marginTop: "6px" }}>
@@ -153,35 +146,25 @@ export function SendAmountScreen() {
           </div>
         </div>
 
-        {keypad && (
-          <div id="sendKeypad" style={{ marginTop: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
-              <button type="button" className="cv-max" id="keypadDone" onClick={() => setKeypad(false)}>Done</button>
+        {q && (
+          // The quote card (FND-06): rate and fee (They get is in the box above), and the 30-second countdown
+          <>
+            <div className="receipt-card" id="cvQuoteCard" style={{ marginTop: "10px" }}>
+              <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Rate</span><span className="r-value mono"><Grey>{cvRateText(q.f, q.to, jitter, false)}</Grey></span></div>
+              <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fee</span><span className="r-value mono" id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
             </div>
-            <Keypad dataKey="payoutkey" onKey={key} />
-          </div>
+            <div className={`cv-timer ${quoteExpired ? "expired" : ""}`} id="cvTimer">
+              {quoteExpired ? "Rate expired. Refresh to get a new rate." : <>Rate held for <span className="mono" id="cvTimerLeft">0:{String(secs).padStart(2, "0")}</span></>}
+            </div>
+            {quoteExpired && <SpinButton id="cvRefresh" className="btn-secondary" style={{ width: "100%", marginBottom: "10px" }} delay={400} onClick={refreshQuote}>Refresh rate</SpinButton>}
+          </>
         )}
-      </div>
-
-      {q && (
-        // The quote card (FND-06): rate and fee (They get is in the box above), and the 30-second countdown
-        <>
-          <div className="receipt-card" id="cvQuoteCard" style={{ marginTop: "10px" }}>
-            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Rate</span><span className="r-value mono"><Grey>{cvRateText(q.f, q.to, jitter, false)}</Grey></span></div>
-            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fee</span><span className="r-value mono" id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
-          </div>
-          <div className={`cv-timer ${quoteExpired ? "expired" : ""}`} id="cvTimer">
-            {quoteExpired ? "Rate expired. Refresh to get a new rate." : <>Rate held for <span className="mono" id="cvTimerLeft">0:{String(secs).padStart(2, "0")}</span></>}
-          </div>
-          {quoteExpired && <SpinButton id="cvRefresh" className="btn-secondary" style={{ width: "100%", marginBottom: "10px" }} delay={400} onClick={refreshQuote}>Refresh rate</SpinButton>}
-        </>
-      )}
-      {!q && (
-        // The send's fee (lib/fees.ts), on top of the amount: one line, as Convert's
-        <div className="cv-meta" id="sendFeeLine"><span>Fee</span><span id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
-      )}
-      {summary.firstPayment && <FirstPaymentNotice />}
-      <SpinButton id="payoutReview" style={{ marginTop: "12px" }} disabled={!ready} delay={500} onClick={() => usePayout.getState().toReview()}>Review</SpinButton>
+        {!q && (
+          // The send's fee (lib/fees.ts), on top of the amount: one line, as Convert's
+          <div className="cv-meta" id="sendFeeLine"><span>Fee</span><span id="sendFee"><Grey>{summary.feeText}</Grey></span></div>
+        )}
+        {summary.firstPayment && <FirstPaymentNotice />}
+      </AmountField>
     </>
   );
 }

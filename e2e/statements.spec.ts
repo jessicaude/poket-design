@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { readFileSync } from "node:fs";
 
 /**
@@ -232,7 +232,7 @@ async function send(page: Page) {
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
   return (await page.locator("#copyRefBtn").textContent())!.trim();
 }
 
@@ -425,7 +425,7 @@ test("Ada’s seeded history is in the wallet too: each record opens its receipt
   }
   // Tobi Bello: failed, its money returned (both lines, one reference)
   await page.locator('#balanceHistory [data-txid="wd_seed3"]').click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Failed");
   await page.locator("#shareReceipt").click();
   await expect(page.locator("#receiptNotice")).toHaveText("Failed: this payment wasn’t sent. The money was returned to your balance.");
   const tobi = (await page.locator('#receiptSheet .rc-row[data-label="Reference"] > span:last-child').textContent())!.trim();

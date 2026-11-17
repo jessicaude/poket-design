@@ -42,7 +42,7 @@ export const validAddress = (net: WalletNetwork, a: string) => (net === "Solana"
 /** hl(addr): the first 6 and last 4 characters highlighted, the middle plain. */
 export const addressParts = (a: string): [string, string, string] => (a.length < 14 ? ["", a, ""] : [a.slice(0, 6), a.slice(6, -4), a.slice(-4)]);
 
-/** A Poket user's identifier: an @handle, an email, or a phone number (the reference Transfer's rules). */
+/** A CentryLink user's identifier: an @handle, an email, or a phone number (the reference Transfer's rules). */
 export function handleKind(q: string): "tag" | "email" | "phone" | null {
   const v = q.trim();
   if (v.startsWith("@")) return v.length > 2 ? "tag" : null;

@@ -8,9 +8,9 @@
 - Errors: what happened, then what to do. "That code isn’t right. Check it and try again."
 - Unavailable or paused: what isn't available, why (if useful), what to do instead.
   "Sending to banks is paused. Try again later."
-- Holds: say the kind, and when. First payment: "Sends after [hold]". Review: "We’re checking this
-  payment. We’ll let you know." Quick check: chip "Held for a quick check", line
-  "First payment to a new recipient. Usually under 15 minutes."
+- Holds: say the kind, and when. First payment: "Sends after [hold]"; before sending, "To protect you, first
+  payments of $500 or more to a new account send after [hold]." Review: "We’re checking this payment. We’ll let you
+  know."
 - Money: ₦ with two decimals; running text drops the code ("₦5,000.00"); amount rows and cards keep
   the grey code; statements use "NGN 5,000.00". Undecided values stay as placeholders:
   ₦[limit], [hold], [time], [handling]. Fees are decided: show the amount, or "Free".
@@ -26,3 +26,13 @@
 - NUBAN: don't use the word. Say "account number" (10 digits).
 - Name enquiry: don't use the term. Say "We check the name on the account."
 - NIP: don't use the term. Say "bank transfer".
+- PIN: the user's own 4 digits, for money leaving a Poket balance (a send, a setting that moves money). Never sent
+  to them.
+- Code: a one-time code Poket sends (sign-in, a new device, resetting the PIN). "Code delivery" in Security. Never say
+  "passcode".
+- Bank verification: the card's bank checking a card payment (3-D Secure), on the bank's own screen: "Confirm with your
+  bank", "Enter the code your bank sent you.", with the network's name for it ("Visa Secure") and the card's last four.
+  Don't say "3-D Secure" or "passcode" to users.
+- Single-use account: the NGN account made for one top-up of an exact amount, valid for 30 minutes [time]. Say
+  "single-use account" ("Single-use account" as a title, a choice or a method). Don't say "temporary account" or
+  "one-time account". Code keeps the `temp` names.

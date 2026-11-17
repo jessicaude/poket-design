@@ -1,7 +1,9 @@
 /**
  * Poket's fees (docs/decisions.md, Fees). Amounts are in minor units of the currency they're charged in.
  * - Deposit (bank transfer to a temporary account or the account details): 0.40%, capped at $4.00 (USD) or ₦5,000.00
- *   (NGN), taken from what arrives.
+ *   (NGN), taken from what arrives. Stablecoin deposits are free.
+ * - Card top-up (USD, EUR, GBP, GHS; naira can't be funded by card): 2.9% + $0.30, charged to the card on top of the
+ *   amount.
  * - Convert: from USD or a stablecoin, $2.00 (2.00 in the coin) + 0.40%; from NGN, ₦2,000.00 + 0.40%. Charged in the
  *   source, out of the amount converted.
  * - Send to an external account (bank, debit card, stablecoin wallet): $6.00 for USD, 6.00 in the coin for stablecoins,
@@ -33,6 +35,8 @@ const SYMBOL: Record<FeeCurrency, string> = { USD: "$", NGN: "₦", EUR: "€", 
 const plain = (minor: number, cur: FeeCurrency) => SYMBOL[cur] + (minor / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** "0.40% fee, up to ₦5,000.00": the deposit fee as the account cards say it. */
 export const depositFeeText = (cur: FeeCurrency) => `0.40% fee, up to ${plain(depositCap(cur), cur)}`;
+/** The same, in a row labelled Fee: "0.40%, up to $4.00". */
+export const depositFeeShort = (cur: FeeCurrency) => `0.40%, up to ${plain(depositCap(cur), cur)}`;
 
 /** The conversion fee's parts for a source: $2.00 (or its demo equivalent; ₦2,000.00 from NGN) + 0.40%. */
 export function convertFeeSpec(source: { k: "cash"; cur: FeeCurrency } | { k: "coin" }): { pct: number; flat: number } {
@@ -49,8 +53,8 @@ export function externalSendFee(target: { k: "cash"; cur: FeeCurrency } | { k: "
 }
 
 /**
- * A card top-up's fee (the reference's cardFundFee, *to confirm*: the decided deposit fee covers bank transfers only):
- * 2.9% + 30¢ (₦465.00 for NGN, as the reference; else 30¢ at the demo rate), charged to the card on top of the amount.
+ * A card top-up's fee (the reference's cardFundFee): 2.9% + 30¢ (else 30¢ at the demo rate), charged to the card on top
+ * of the amount. Naira can't be funded by card; the NGN flat (₦465.00, the reference's) is never charged.
  */
 export const CARD_FUND_RATE = 0.029;
 export const cardFundFlat = (cur: FeeCurrency) => (cur === "NGN" ? Math.round(0.3 * 1550 * 100) : cur === "USD" ? 30 : fromUsd(30, cur));

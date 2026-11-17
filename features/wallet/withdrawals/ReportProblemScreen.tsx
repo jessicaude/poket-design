@@ -8,11 +8,13 @@ import { BackRow, Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { sentText } from "../payout/withdrawals";
 import { useWalletNav } from "../useWalletNav";
+import { Tracker, WaitingScreen } from "../WaitingScreen";
 
 /**
  * "Report a problem" on a Paid send to a Nigerian bank: send-report in reference/poket-widgets.html (its reasons,
  * with "Wrong recipient" as "I sent it to the wrong account"), in the wallet's look. That reason opens a recall
  * request (NEW): "Bank transfers can't always be recovered." up front, then the recall's progress on the send.
+ * The wait is the wallet's waiting state (WaitingScreen): Requested, Bank reviewing, Outcome.
  */
 export const WRONG_ACCOUNT = "I sent it to the wrong account";
 const REASONS = [WRONG_ACCOUNT, "It didn’t arrive", "Wrong amount", "Scam or fraud", "Something else"];
@@ -26,6 +28,10 @@ export const RECALL_META: Record<RecallStatus, { chip: string; tone: string; mes
   not_recovered: { chip: "Not recovered", tone: "err", message: () => "We couldn’t recover this transfer. The receiving bank didn’t return it." },
 };
 
+/** The recall's waiting steps, and where each status is: asked for, with the bank, then answered either way. */
+export const RECALL_STEPS = [{ label: "Requested" }, { label: "Bank reviewing" }, { label: "Outcome" }];
+export const recallStep = (s: RecallStatus) => (s === "recovered" || s === "not_recovered" ? 3 : 1);
+
 /** On a Paid send to a Nigerian bank: Report a problem, the reported problem, or the recall and where it stands. */
 export function SendProblem({ w }: { w: Withdrawal }) {
   const push = useWalletNav((s) => s.push);
@@ -34,6 +40,8 @@ export function SendProblem({ w }: { w: Withdrawal }) {
     return (
       <div className="info-card" id="recall" style={{ marginTop: "14px" }}>
         <div className="info-row"><span>Recall</span><span><span className={`va-status ${m.tone}`} id="recallStatus">{m.chip}</span></span></div>
+        {/* The demo bar's Recall: in progress, recovered, not recovered move it on */}
+        <Tracker flat id="recallTrack" steps={RECALL_STEPS} current={recallStep(w.recall.status)} />
         <p className="step-sub" id="recallMsg" style={{ margin: "8px 0 2px", fontSize: "12.5px" }}>{m.message(w)}</p>
       </div>
     );
@@ -72,15 +80,20 @@ export function ReportProblemScreen({ id }: { id: string }) {
       <div className="info-row"><span>Reference</span><span className="mono">{w.ref}</span></div>
     </>
   );
-  if (stage === "reported" || stage === "recalled") return (
+  // The recall's wait: requested, with the receiving bank now
+  if (stage === "recalled") return (
+    <WaitingScreen id="reportDone" icon graphic={WICON.recall} title="Recall requested" line="We’ll let you know when the receiving bank responds."
+      steps={RECALL_STEPS} current={recallStep(w.recall?.status ?? "submitted")}>
+      <div className="info-card" id="recallDoneRows">{recallRows}</div>
+      <button className="btn-primary" id="reportDoneBtn" style={{ marginTop: "18px" }} onClick={back}>Done</button>
+    </WaitingScreen>
+  );
+  if (stage === "reported") return (
     <>
       <div className="center-col" style={{ paddingTop: "30px" }} id="reportDone">
         <div className="check-circle"><Raw html={CHECK_DRAW} /></div>
-        {stage === "recalled"
-          ? <><div className="step-title">Recall requested</div><p className="step-sub">We&rsquo;ll let you know when the receiving bank responds.</p></>
-          : <><div className="step-title">We&rsquo;re looking into it</div><p className="step-sub">We&rsquo;ll contact the receiving bank and email you within 2 business days.</p></>}
+        <div className="step-title">We&rsquo;re looking into it</div><p className="step-sub">We&rsquo;ll contact the receiving bank and email you within 2 business days.</p>
       </div>
-      {stage === "recalled" && <div className="info-card" id="recallDoneRows" style={{ marginTop: "16px" }}>{recallRows}</div>}
       <button className="btn-primary" id="reportDoneBtn" style={{ marginTop: "18px" }} onClick={back}>Done</button>
     </>
   );

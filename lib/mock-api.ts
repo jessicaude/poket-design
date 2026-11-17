@@ -16,7 +16,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
 /** People who already have a Poket account (from the prototype's DIRECTORY). */
 export const DIRECTORY: Record<string, Account> = {
   "ada@osun.co": {
-    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1,
+    email: "ada@osun.co", first: "Ada", last: "Osun", tier: 1, phone: { dial: "Nigeria", num: "8031234567" },
     // WGT-12: her Checkout payments, as the reference seeds them: a recent naira card payment, a naira bank transfer
     // from 10 days ago and a dollar card payment from 76 days ago (outside the 60-day dispute window)
     payments: [
@@ -33,15 +33,28 @@ export const DIRECTORY: Record<string, Account> = {
 
 /** The demo user: the wallet is hers, and Checkout's "Ada (remembered)" customer. */
 export const DEMO_USER_EMAIL = "ada@osun.co";
-export const findAccount = (email: string) => DIRECTORY[email.trim().toLowerCase()] ?? null;
+/** An account's key in DIRECTORY: its email, or "phone:{dial}:{digits}" when it was made with a phone number alone. */
+export const accountKey = (a: Pick<Account, "email" | "phone">) =>
+  a.email.trim() ? a.email.trim().toLowerCase() : `phone:${a.phone?.dial ?? ""}:${a.phone?.num ?? ""}`.toLowerCase();
+/** The account behind a key (an email, or accountKey's "phone:" key). */
+export const findAccount = (key: string) => DIRECTORY[key.trim().toLowerCase()] ?? null;
+/** POST /v1/accounts/lookup: the account an email or phone number signs in to, or null (sign-up's known check). */
+export function lookupAccount(id: { method: "email" | "phone"; email: string; dial: string; phone: string }): Account | null {
+  if (id.method === "email") return findAccount(id.email);
+  const num = id.phone.replace(/\D/g, "");
+  return Object.values(DIRECTORY).find((a) => a.phone && a.phone.num === num && a.phone.dial === id.dial) ?? null;
+}
+
+/** Where the sign-up location check puts a new account (the reference's GEO_COUNTRY), in Checkout and the wallet. */
+export const GEO_COUNTRY = "Nigeria";
 
 /** POST /v1/accounts: a new sign-up is remembered, so the same email logs in next time. */
 export function registerAccount(a: Account) {
-  DIRECTORY[a.email.trim().toLowerCase()] = structuredClone(a);
+  DIRECTORY[accountKey(a)] = structuredClone(a);
 }
 /** The account as the server keeps it (tier, failed ID checks, a block, methods, payments) after a change in a widget. */
 export function saveAccount(a: Account) {
-  const key = a.email.trim().toLowerCase();
+  const key = accountKey(a);
   if (DIRECTORY[key]) DIRECTORY[key] = structuredClone(a);
 }
 
@@ -185,7 +198,7 @@ export async function simulateTransferArrives(): Promise<{ amount: Kobo; ref: st
 /**
  * WGT-11: naira that arrives in the NGN balance by itself, each with its own record (a reference, and the bank's
  * session ID for a bank transfer): a top-up to a temporary account, a transfer to the NGN account details, one that
- * arrived while the naira partner was down (credited later), naira from a Poket user, and a recovered recall.
+ * arrived while the naira partner was down (credited later), naira from a CentryLink user, and a recovered recall.
  * Refunds into the NGN balance are the merchant's refund records (store/account.ts), not these.
  */
 export type NgnCreditKind = "temp" | "account" | "delayed" | "poket" | "recall";
@@ -198,9 +211,9 @@ export type NgnCredit = { id: string; ref: string; kind: NgnCreditKind; amount: 
 const ngnCredits: NgnCredit[] = [];
 /** The demo's sender of transfers to the NGN account details (and of the delayed one). */
 export const DEMO_ACCOUNT_SENDER = "Chinedu Eze · Zenith Bank";
-/** The demo's Poket user who sends naira (demo "Receive from a Poket user"). */
+/** The demo's CentryLink user who sends naira (demo "Receive from a CentryLink user"). */
 export const DEMO_POKET_SENDER = "Amara Okafor";
-/** Deposits pay the deposit fee; naira from a Poket user and a recovered recall don't. */
+/** Deposits pay the deposit fee; naira from a CentryLink user and a recovered recall don't. */
 export const isDeposit = (kind: NgnCreditKind) => kind === "temp" || kind === "account" || kind === "delayed";
 /**
  * Record a credit to the NGN balance (the caller adds it to the balance). `amount` is what arrived; a deposit's fee
@@ -270,7 +283,7 @@ export function resetNgnServer() {
    (tPin, pinComplete, tPinLocked, tPinResetOtp) in reference/poket-unified.html. */
 
 export type PayoutCurrency = "USD" | "NGN" | "EUR" | "GBP" | "GHS";
-/** "poket" and "wallet": Send's Poket users and stablecoin wallets, carried through the same send flow as bank accounts. */
+/** "poket" and "wallet": Send's CentryLink users and stablecoin wallets, carried through the same send flow as bank accounts. */
 export type PayoutMethodType = "bank" | "card" | "zelle" | "cashapp" | "poket" | "wallet";
 /** A payout destination. isSelf: one of your own linked methods (S.linkedBanks); otherwise a saved recipient. */
 export type PayoutRecipient = {
@@ -295,9 +308,9 @@ export type PayoutRecipient = {
   saved?: boolean;
   /** US bank accounts: the bank's full name (Send's new-recipient form). US banks have one speed. */
   bankFullName?: string;
-  /** Poket users: their @handle, email or phone. Stablecoin wallets: the address, coin and network. */
+  /** CentryLink users: their @handle, email or phone. Stablecoin wallets: the address, coin and network. */
   handle?: string;
-  /** Poket users (WGT-07): whether they can hold naira; unset follows the demo bar ("Recipient can hold naira"). */
+  /** CentryLink users (WGT-07): whether they can hold naira; unset follows the demo bar ("Recipient can hold naira"). */
   holdsNaira?: boolean;
   walletAddress?: string;
   asset?: "USDC" | "USDT";
@@ -384,19 +397,19 @@ export type Withdrawal = {
   recipientId: string; recipientName: string; recipientSub: string; createdAt: number; status: WithdrawalStatus;
   /** A send paid from another balance converts on the way: one record, with what left the source and at what rate. */
   conversion?: { paidText: string; receivedText: string; rateText: string; feeText: string };
-  /** Bank account, debit card, Poket user or stablecoin wallet. */
+  /** Bank account, debit card, CentryLink user or stablecoin wallet. */
   kind: "bank" | "card" | "poket" | "wallet";
   /** How the send reads (they get, fee, arrival), for any kind; the source and what it reserved. */
   amountText?: string; feeText?: string; arrival?: string;
   /** How long it takes once sending ("Usually within seconds", "About 1 minute", "1 to 3 business days"...). */
   eta?: string;
-  /** A Poket user paid from card-funded USD: the tag their money keeps. */
+  /** A CentryLink user paid from card-funded USD: the tag their money keeps. */
   tag?: "FIAT-ONLY";
-  /** Held (status "review") for a quick check: a first payment of $500 or more to a new card, wallet or Poket user. */
-  quickCheck?: boolean;
   sourceKey?: string; sourceTotal?: number;
-  /** A Poket user: what they receive (a cvKey); naira converts to USD on receipt when they can't hold naira (WGT-07). */
+  /** A CentryLink user: what they receive (a cvKey); naira converts to USD on receipt when they can't hold naira (WGT-07). */
   targetKey?: string;
+  /** A stablecoin's network ("Base"): the wallet's, else the paying coin's. */
+  network?: string;
   /** Where the reservation sits: the NGN balance's "on hold" ("ngn"), or taken from the paying balance ("source"). */
   reservedIn?: "ngn" | "source";
   /** "Report a problem" on a Paid send (send-report in reference/poket-widgets.html): the reason chosen. */
@@ -412,24 +425,28 @@ export const RECALL_TRANSITIONS: Record<RecallStatus, RecallStatus[]> = {
 const withdrawals: Withdrawal[] = [];
 
 /**
- * POST /v1/payouts (a send), against a reservation. A first payment to a bank account is "scheduled" (it sends after
- * [hold]); a Poket user is paid at once ("paid"); otherwise it's "sending". A bank account then counts as paid before.
- * Bank accounts and debit cards must be saved recipients; Poket users and stablecoin wallets aren't in that list, so
+ * POST /v1/payouts (a send), against a reservation. One rule for every recipient: a first payment of $500 or more (the
+ * USD value leaving the balance, usdOut) to a new recipient, other than your own accounts, is "scheduled" (it sends
+ * after [hold]). Otherwise a
+ * CentryLink (Poket) user is paid at once ("paid"), and everything else is "sending". Any payment makes the recipient
+ * paid before.
+ * Bank accounts and debit cards must be saved recipients; CentryLink users and stablecoin wallets aren't in that list, so
  * their name and details come with the send.
  */
 export async function createPayout(p: {
   currency: PayoutCurrency; amount: number; fee: number; recipientId: string; reservationId: string; recipientSub?: string;
   conversion?: Withdrawal["conversion"]; kind?: Withdrawal["kind"]; recipientName?: string;
   amountText?: string; feeText?: string; arrival?: string; eta?: string; sourceKey?: string; sourceTotal?: number; reservedIn?: "ngn" | "source";
-  /** The USD value leaving the source, in cents: a first payment of $500 or more to a new card, wallet or Poket user is held for a quick check. */
+  /** The USD value leaving the source, in cents: a first payment of $500 or more to a new recipient is held for [hold]. */
   usdOut?: number;
-  /** A Poket user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
+  /** A CentryLink user: what they receive (a cvKey), when it isn't the source (naira converted to USD on receipt). */
   targetKey?: string;
+  network?: string;
   /** The 3rd failed selfie check before the send: it's held for review (status "review"), not sent. */
   heldForReview?: boolean;
 }): Promise<Withdrawal> {
   const kind = p.kind ?? "bank";
-  // WGT-07: a Poket user who can't hold naira never receives naira
+  // WGT-07: a CentryLink user who can't hold naira never receives naira
   if (kind === "poket") {
     const target = p.targetKey ?? p.sourceKey ?? "cash:NGN:open";
     const user = POKET_USERS.find((u) => u.id === p.recipientId);
@@ -448,20 +465,20 @@ export async function createPayout(p: {
     currency: p.currency, amount: p.amount, fee: p.fee, recipientId: p.recipientId, recipientName: recipient?.name ?? p.recipientName ?? "",
     recipientSub: p.recipientSub ?? "", createdAt: Date.now(), ...(p.conversion ? { conversion: { ...p.conversion } } : {}),
     kind, amountText: p.amountText, feeText: p.feeText, arrival: p.arrival, eta: p.eta, sourceKey: p.sourceKey, sourceTotal: p.sourceTotal, reservedIn: p.reservedIn ?? "ngn",
-    ...(p.targetKey ? { targetKey: p.targetKey } : {}),
-    status: kind === "poket" ? "paid" : kind === "bank" && !recipient!.paidBefore ? "scheduled" : "sending",
+    ...(p.targetKey ? { targetKey: p.targetKey } : {}), ...(p.network ? { network: p.network } : {}),
+    status: kind === "poket" ? "paid" : "sending",
   };
-  // A first payment of $500 or more to a new card, stablecoin wallet or Poket user: held for a quick check (the
-  // exploration's applySend). Bank accounts have the first-payment hold instead; your own card isn't checked.
+  // The first-payment hold, the same for every recipient (bank account, debit card, CentryLink user, stablecoin wallet)
   const poketUser = kind === "poket" ? POKET_USERS.find((u) => u.id === p.recipientId) : undefined;
   const wallet = kind === "wallet" ? STABLECOIN_WALLETS.find((x) => x.id === p.recipientId) : undefined;
-  const isNew = kind === "card" ? !recipient!.isSelf && !recipient!.paidBefore : kind === "poket" ? !poketUser?.paidBefore : kind === "wallet" ? !wallet?.paidBefore : false;
-  if (isNew && (p.usdOut ?? 0) >= QUICK_CHECK_USD_CENTS) { w.status = "review"; w.quickCheck = true; }
-  if (p.heldForReview) { w.status = "review"; delete w.quickCheck; }
+  // Your own accounts (a bank account or debit card in your verified name) are never held
+  const isNew = !recipient?.isSelf && !(recipient ?? poketUser ?? wallet)?.paidBefore;
+  if (isNew && (p.usdOut ?? 0) >= FIRST_PAYMENT_HOLD_USD_CENTS) w.status = "scheduled";
+  if (p.heldForReview) w.status = "review";
   if (recipient) recipient.paidBefore = true;
   if (poketUser) poketUser.paidBefore = true;
   if (wallet) wallet.paidBefore = true;
-  // A Poket user is credited in the source's currency once paid (at once, unless held for a quick check);
+  // A CentryLink user is credited in the source's currency once paid (at once, unless held for [hold]);
   // card-funded money keeps its FIAT-ONLY tag
   if (kind === "poket") {
     const bucket = (p.sourceKey ?? "cash:NGN:open").split(":")[2];
@@ -472,13 +489,13 @@ export async function createPayout(p: {
   return { ...w };
 }
 
-/** Poket users' balances, as credited by sends: "{currency}:{open | merchant | fiat}" → minor units. */
+/** CentryLink users' balances, as credited by sends: "{currency}:{open | merchant | fiat}" → minor units. */
 const poketBalances: Record<string, Record<string, number>> = {};
-/** What a Poket user sees in their activity: what they received, in their currency, with its tag. */
+/** What a CentryLink user sees in their activity: what they received, in their currency, with its tag. */
 export type PoketActivity = { id: string; recipientId: string; recipientName: string; amountText: string; tag?: Withdrawal["tag"]; at: number };
 const poketActivity: PoketActivity[] = [];
 /**
- * A paid send to a Poket user lands in their balance in what they receive (the target: the source's currency, or USD
+ * A paid send to a CentryLink user lands in their balance in what they receive (the target: the source's currency, or USD
  * when naira converted on receipt), keeping its tag, and shows in their activity.
  */
 function creditPoketUser(w: Withdrawal) {
@@ -489,11 +506,11 @@ function creditPoketUser(w: Withdrawal) {
   book[`${asset}:${tagged}`] = (book[`${asset}:${tagged}`] ?? 0) + w.amount;
   poketActivity.unshift({ id: w.id, recipientId: w.recipientId, recipientName: w.recipientName, amountText: w.amountText ?? "", ...(w.tag ? { tag: w.tag } : {}), at: Date.now() });
 }
-/** Demo: every Poket user's received payments, newest first (the recipient's activity, for the demo panel). */
+/** Demo: every CentryLink user's received payments, newest first (the recipient's activity, for the demo panel). */
 export const listPoketActivity = () => poketActivity.map((a) => ({ ...a }));
-/** $500.00: a first payment at least this much (USD value) to a new card, wallet or Poket user is held for a quick check. */
-export const QUICK_CHECK_USD_CENTS = 50000;
-/** Demo / tests: what a Poket user has received, by currency and tag (e.g. { "USD:fiat": 500 }). */
+/** $500.00: a first payment at least this much (USD value leaving the balance) to a new recipient is held for [hold]. */
+export const FIRST_PAYMENT_HOLD_USD_CENTS = 50000;
+/** Demo / tests: what a CentryLink user has received, by currency and tag (e.g. { "USD:fiat": 500 }). */
 export const getPoketUserBalances = (id: string) => ({ ...(poketBalances[id] ?? {}) });
 
 /** The reference's FLAGGED_ADDRESSES: test addresses that fail screening (standing in for a sanctions list provider). */
@@ -587,7 +604,7 @@ export async function verifyPin(pin: string): Promise<{ ok: true } | { ok: false
 /** The reference resets the PIN's attempt count each time the PIN step opens (wdGo: S.pinAttempts = 0). */
 export function resetPinAttempts() { payoutServer.pinAttempts = 0; }
 
-/** POST /v1/pin/reset: checks the 6-digit passcode emailed to you, then clears the PIN so a new one can be created. */
+/** POST /v1/pin/reset: checks the 6-digit code emailed to you, then clears the PIN so a new one can be created. */
 export async function verifyPinResetCode(code: string): Promise<void> {
   if (!/^\d{6}$/.test(code)) throw new Error("invalid_code");
   payoutServer.pin = null;
@@ -703,7 +720,7 @@ export function resetConversionServer() { conversionServer.list = []; conversion
 
 /* ---------- Send: saved recipients ----------
    Send is recipient-first (docs/decisions.md). Bank accounts are the payout recipients above (your own and saved);
-   Poket users and stablecoin wallets are seeded from reference/poket-wallet-explore.html (DIRECTORY, SAVED.external). */
+   CentryLink users and stablecoin wallets are seeded from reference/poket-wallet-explore.html (DIRECTORY, SAVED.external). */
 
 export type PoketUser = {
   id: string; name: string; handle: string; initials: string; /** Has been sent money before. */ paidBefore?: boolean;
@@ -711,10 +728,10 @@ export type PoketUser = {
   holdsNaira?: boolean;
 };
 
-/** Demo bar "Recipient can hold naira: Yes / No": every Poket user without their own setting (not Amara or Daniel). */
+/** Demo bar "Recipient can hold naira: Yes / No": every CentryLink user without their own setting (not Amara or Daniel). */
 const poketNaira = { othersHold: true };
 export function setOtherPoketUsersHoldNaira(v: boolean) { poketNaira.othersHold = v; }
-/** Whether a Poket user can hold naira: their own setting, else the demo bar's. */
+/** Whether a CentryLink user can hold naira: their own setting, else the demo bar's. */
 export const poketUserHoldsNaira = (u: Pick<PoketUser, "holdsNaira"> | undefined) => u?.holdsNaira ?? poketNaira.othersHold;
 export type WalletNetwork = "Base" | "Polygon" | "Solana" | "Ethereum";
 export type StablecoinWallet = { id: string; name: string; address: string; asset: "USDC" | "USDT"; network: WalletNetwork; /** Has been sent money before. */ paidBefore?: boolean };
@@ -754,7 +771,7 @@ export function listSendRecipients(): SendRecipient[] {
 
 /**
  * The Poket directory for name lookup: the reference Transfer's contacts (w2wContacts, by @handle) and the explore
- * prototype's DIRECTORY (by email or phone). Saved Poket users are found too.
+ * prototype's DIRECTORY (by email or phone). Saved CentryLink users are found too.
  */
 const POKET_DIRECTORY: PoketUser[] = [
   { id: "pd1", name: "Amara Okafor", handle: "@amara", initials: "AO", holdsNaira: true },
@@ -762,11 +779,11 @@ const POKET_DIRECTORY: PoketUser[] = [
   { id: "pd3", name: "Priya Nair", handle: "@priya", initials: "PN" },
   ...POKET_USERS.map((u) => ({ ...u, id: "pd-" + u.id })),
 ];
-/** The reference Transfer's contacts, shown as recent recipients when adding a Poket user. */
+/** The reference Transfer's contacts, shown as recent recipients when adding a CentryLink user. */
 export const RECENT_POKET_CONTACTS = POKET_DIRECTORY.slice(0, 3).map((u) => ({ ...u }));
 
 const normHandle = (q: string) => (q.trim().startsWith("@") || q.includes("@") ? q.trim().toLowerCase() : q.replace(/[^\d+]/g, ""));
-/** POST /v1/poket-users/lookup: the Poket user behind an @handle, email or phone number, or null. */
+/** POST /v1/poket-users/lookup: the CentryLink user behind an @handle, email or phone number, or null. */
 export async function lookupPoketUser(query: string): Promise<PoketUser | null> {
   await wait(700);
   const q = normHandle(query);
@@ -774,7 +791,7 @@ export async function lookupPoketUser(query: string): Promise<PoketUser | null> 
   return u ? { ...u } : null;
 }
 
-/** POST /v1/send/recipients: save a Poket user or a stablecoin wallet (bank accounts use savePayoutRecipient). */
+/** POST /v1/send/recipients: save a CentryLink user or a stablecoin wallet (bank accounts use savePayoutRecipient). */
 export async function savePoketUser(u: Omit<PoketUser, "id">): Promise<PoketUser> {
   await wait(400);
   const existing = POKET_USERS.find((x) => x.handle === u.handle);
@@ -877,3 +894,44 @@ conversionServer.list.push(...ADA_HISTORY.conversions);
 }
 /** Ada's seeded ledger lines (the NGN balance's statements start from them). */
 export const adaLedgerSeed = (): HistoryLine[] => ADA_HISTORY.lines.map((l) => ({ ...l }));
+
+/* ---------- Whose wallet ----------
+   The wallet's server-side records belong to the signed-in account: Ada's seeded history, or a new account's empty
+   wallet. Signing in as someone else puts the current owner's records aside and brings back theirs (empty the first
+   time). Recipients' own balances and activity (poketBalances, poketActivity) and the demo switches stay shared. */
+type WalletServerData = {
+  credits: NgnCredit[]; withdrawals: Withdrawal[]; conversions: Conversion[];
+  recipients: PayoutRecipient[]; pin: string | null; pinAttempts: number;
+  ngn: typeof ngnServer; reservations: [string, Reservation][];
+  poketUsers: PoketUser[]; wallets: StablecoinWallet[];
+};
+const walletServers: Record<string, WalletServerData> = {};
+let walletOwner: string = DEMO_USER_EMAIL;
+const emptyWalletServer = (): WalletServerData => ({
+  credits: [], withdrawals: [], conversions: [], recipients: [], pin: null, pinAttempts: 0,
+  ngn: { temp: null, verifiedId: null, dedicated: null }, reservations: [], poketUsers: [], wallets: [],
+});
+/** Demo: the wallet's records now belong to `email` (put the current owner's aside; bring back theirs, or none). */
+export function switchWalletOwner(email: string) {
+  const next = email.trim().toLowerCase();
+  if (next === walletOwner) return;
+  walletServers[walletOwner] = {
+    credits: ngnCredits.splice(0), withdrawals: withdrawals.splice(0), conversions: conversionServer.list,
+    recipients: payoutServer.recipients, pin: payoutServer.pin, pinAttempts: payoutServer.pinAttempts,
+    ngn: { ...ngnServer }, reservations: [...reservations], poketUsers: POKET_USERS.splice(0), wallets: STABLECOIN_WALLETS.splice(0),
+  };
+  const d = walletServers[next] ?? emptyWalletServer();
+  delete walletServers[next];
+  ngnCredits.push(...d.credits);
+  withdrawals.push(...d.withdrawals);
+  conversionServer.list = d.conversions;
+  Object.assign(payoutServer, { recipients: d.recipients, pin: d.pin, pinAttempts: d.pinAttempts });
+  Object.assign(ngnServer, d.ngn);
+  reservations.clear();
+  for (const [k, v] of d.reservations) reservations.set(k, v);
+  POKET_USERS.push(...d.poketUsers);
+  STABLECOIN_WALLETS.push(...d.wallets);
+  walletOwner = next;
+}
+/** Whose records the wallet's server calls use now. */
+export const walletOwnerEmail = () => walletOwner;

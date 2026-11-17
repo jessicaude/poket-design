@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { CARD_TOPUP, typeAmount } from "./keypad";
+import { verifyIdentity } from "./identity";
 
 /**
  * Deposit (reference/poket-unified.html: tCardFund 'select', tDepositMethod, tVa, tCardFund, tAddMoney) for
@@ -25,7 +27,9 @@ test("Deposit from the home: every currency and every stablecoin on every networ
   await expect(page.locator("[data-depositcash] .t1")).toHaveText(["US Dollar", "Nigerian Naira", "Euro", "British Pound", "Ghanaian Cedi"]);
   await expect(page.locator("[data-depositasset] .t1")).toHaveText(["USDC on Polygon", "USDC on Base", "USDT on Polygon", "USDT on Base"]);
   await expect(page.locator("[data-depositasset] .t2").first()).toHaveText("Deposit address");
-  await expect(page.locator('[data-depositcash="USD"]')).toHaveClass(/\bsel\b/); // USD to start
+  // Tapping one goes straight on: no radio, no Continue
+  await expect(page.locator("[data-depositcash] .radio, [data-depositasset] .radio")).toHaveCount(0);
+  await expect(page.locator("#depositSelectContinue")).toHaveCount(0);
   await page.locator("#depositSearch").fill("base");
   await expect(page.locator("[data-depositcash]")).toHaveCount(0);
   await expect(page.locator("[data-depositasset] .t1")).toHaveText(["USDC on Base", "USDT on Base"]);
@@ -33,7 +37,6 @@ test("Deposit from the home: every currency and every stablecoin on every networ
   await expect(body(page)).toContainText("No matches for “zzz”.");
   await page.locator("#depositSearch").fill("naira");
   await page.locator('[data-depositcash="NGN"]').click();
-  await page.locator("#depositSelectContinue").click();
   // NGN: its own methods (bank transfer, Convert)
   await expect(title(page)).toHaveText("Deposit NGN");
   await expect(page.locator("#dmConvert")).toBeVisible();
@@ -42,7 +45,7 @@ test("Deposit from the home: every currency and every stablecoin on every networ
 test("USD by bank transfer: verify first, the intro with the deposit fee, set-up, then details; a transfer arrives less the fee", async ({ page }) => {
   await wallet(page);
   await page.locator("#actDeposit").click();
-  await page.locator("#depositSelectContinue").click();
+  await page.locator('[data-depositcash="USD"]').click();
   await expect(title(page)).toHaveText("Deposit USD");
   await expect(page.locator("#dmBank .t2")).toHaveText("Get your own USD account details. 0.40% fee, up to $4.00.");
   await expect(page.locator("#dmCard .t2")).toHaveText("Instant. Card fees may apply.");
@@ -52,16 +55,46 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(title(page)).toHaveText("Verify your identity first");
   await page.locator("#vaVerify").click();
   await expect(page.locator("#stepupWarning")).toHaveText("Account details are in your verified name.");
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
+  // Left-aligned under Back, the flag starting the title row; no centred hero or bank badge
   await expect(title(page)).toHaveText("Get USD account details");
-  await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "Receive by", "Arrives", "Fees"]);
-  await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "ACH or wire", "ACH 1-3 business days", "0.40% fee, up to $4.00"]);
+  await expect(page.locator("#vaIntroFlag svg")).toBeVisible();
+  await expect(page.locator("#panelBody .convert-visual")).toHaveCount(0);
+  await expect(title(page)).toHaveCSS("text-align", "start");
+  const flag = (await page.locator("#vaIntroFlag").boundingBox())!, back = (await page.locator("#vaBack").boundingBox())!;
+  expect(Math.abs(flag.x - back.x)).toBeLessThanOrEqual(8); // starts where Back does
+  await expect(body(page).locator(".step-sub").first()).toHaveText("Get paid by employers, clients or your bank. Money lands in your USD balance.");
+  // Rows without icons: the name, each rail with its timing, the fee
+  await expect(page.locator("#vaIntroRows .r-ic")).toHaveCount(0);
+  await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "ACH", "Wire", "Fee"]);
+  await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "1 to 3 business days", "Same day", "0.40%, up to $4.00"]);
+  await expect(body(page)).not.toContainText("Money you receive here can be converted to stablecoins.");
+  // The terms: unticked, with the link on "account terms"; Create stays disabled until ticked
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(page.locator('label[for="vaAgree"]')).toHaveText("I accept Lead Bank’s account terms");
+  await expect(page.locator('label[for="vaAgree"] .consent-link')).toHaveText("account terms");
+  // "account terms" opens them in a sheet, without ticking the box; Close (or Escape) closes it
+  await page.locator("#vaTermsLink").click();
+  await expect(page.getByRole("dialog", { name: "Lead Bank account terms" })).toBeVisible();
+  await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+  await expect(page.locator("#vaTermsClose")).toHaveText("Close");
+  await page.locator("#vaTermsClose").click();
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await page.locator("#vaTermsLink").press("Enter");
+  await expect(page.locator("#vaTerms")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(page.locator("#vaCreate")).toBeDisabled();
+  await page.locator("#vaAgree").check();
+  await expect(page.locator("#vaCreate")).toBeEnabled();
+  await page.locator("#vaAgree").uncheck();
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
   await page.locator("#vaCreate").click();
   await expect(title(page)).toHaveText("Creating your USD account");
-  // USD isn't instant: the partner bank reviews it
-  await expect(title(page)).toHaveText("We’re setting up your USD account");
+  // USD isn't instant: the partner bank reviews it (the setup screen: e2e/account-setup.spec.ts)
+  await expect(title(page)).toHaveText("Setting up your USD account");
   await expect(page.locator("#demoVaTransfer")).toHaveCount(0);
   await page.locator("#demoVaApprove").click();
   await expect(title(page)).toHaveText("USD account details");
@@ -69,7 +102,8 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(page.locator("#vaDetails [data-vacopy]")).toHaveCount(5); // not the account type
   await page.locator('[data-vacopy="1"]').click();
   await expect(page.locator('[data-vacopy="1"]')).toHaveText("Copied");
-  await expect(page.locator("#vaNote")).toHaveText("Anyone can send to these details. Money you receive can be converted to stablecoins. 0.40% fee, up to $4.00, out of what arrives.");
+  await expect(page.locator("#vaNote")).toHaveText("Anyone can send to these details. 0.40% fee, up to $4.00, out of what arrives.");
+  await expect(body(page)).not.toContainText("converted to stablecoins");
   // $500.00 arrives: the $2.00 fee comes out of it
   await page.locator("#demoVaTransfer").click();
   expect((await holdings(page)).cash.USD).toBe(6560 + 50000 - 200);
@@ -84,25 +118,45 @@ test("USD by bank transfer: verify first, the intro with the deposit fee, set-up
   await expect(page.locator("#vaOpen .t2")).toHaveText(/^Account number ••\d{4} · Lead Bank$/);
   const dep = page.locator("#balanceHistory [data-deposit]");
   await expect(dep.locator(".tx-title")).toHaveText("Bank transfer from Ada Osun");
-  await expect(dep.locator(".tx-sub")).toHaveText("ACH");
+  await expect(dep.locator(".tx-sub")).toHaveText("Bank transfer · ACH"); // the icon is the direction; the sub says how
+  await expect(dep.locator(".tx-ic")).toHaveAttribute("data-dir", "in");
   await expect(dep.locator(".tx-amt")).toHaveText("+$498.00 USD");
   await dep.click();
+  // The shared template: what was added, then the shared rows ($500.00 sent, the $2.00 fee out of it)
+  await expect(page.locator("[data-txamount]")).toHaveText("$498.00 USD");
+  await expect(page.locator("[data-txtitle]")).toHaveText("Bank transfer from Ada Osun");
   const rows = page.locator("#txDetail .info-row");
-  await expect(rows.filter({ hasText: "Amount sent" })).toContainText("$500.00");
-  await expect(rows.filter({ hasText: "Deposit fee" })).toContainText("$2.00");
-  await expect(rows.filter({ hasText: "Added" })).toContainText("$498.00");
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Fee", "Reference"]);
+  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /\d{4}/, "Ada Osun · Your bank", "USD balance", "Bank transfer · ACH", "$2.00 USD", /^TXN-\d{6}/]);
+  await expect(page.locator("#shareReceipt")).toBeVisible();
   // The notification: what was added, from whom
   await page.locator("#openNotifHeader").click();
   await expect(page.locator("#panelBody [data-notif] .settings-row-title > span:first-child").first()).toHaveText("Transfer received");
   await expect(page.locator("#panelBody .settings-row-sub").first()).toHaveText("$498.00 from Ada Osun added to your USD balance.");
 });
 
-test("EUR and GHS account details are ready at once; the account card opens them", async ({ page }) => {
+test("EUR, GBP and GHS: their own rails, timings and bank on the intro; ready at once; the account card opens them", async ({ page }) => {
   await wallet(page);
   await page.getByLabel("Tier").selectOption("1");
-  for (const [cur, fee, first] of [["EUR", "0.40% fee, up to €3.70", "IBAN"], ["GHS", "0.40% fee, up to GH₵62.00", "Account number"]]) {
+  for (const [cur, fee, first, rows, bank] of [
+    ["EUR", "0.40%, up to €3.70", "IBAN", [["SEPA", "1 business day"], ["SEPA Instant", "Seconds"]], "Banking Circle"],
+    ["GBP", "0.40%, up to £3.15", "Account number", [["Faster Payments", "Usually within seconds"], ["Bacs", "3 business days"]], "ClearBank"],
+    ["GHS", "0.40%, up to GH₵62.00", "Account number", [["GhIPSS bank transfer", "Usually within minutes"]], "Zenith Bank Ghana"],
+  ] as const) {
     await page.locator(`[data-holdcur="${cur}"][data-holdbucket="open"] .tx-title`).click();
     await page.locator("#vaOpen").click();
+    // Its own rails and timings, and its own bank's terms
+    await expect(title(page)).toHaveText(`Get ${cur} account details`);
+    await expect(body(page).locator(".step-sub").first()).toHaveText(`Get paid by employers, clients or your bank. Money lands in your ${cur} balance.`);
+    await expect(page.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", ...rows.map((r) => r[0]), "Fee"]);
+    await expect(page.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", ...rows.map((r) => r[1]), fee]);
+    await expect(page.locator('label[for="vaAgree"]')).toHaveText(`I accept ${bank}’s account terms`);
+    await expect(page.locator("#vaAgree")).not.toBeChecked();
+    await page.locator("#vaTermsLink").click();
+    await expect(page.locator("#vaTermsTitle")).toHaveText(`${bank} account terms`);
+    await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+    await page.locator("#vaTermsClose").click();
+    await expect(page.locator("#vaAgree")).not.toBeChecked();
     await expect(page.locator("#vaFee")).toHaveText(fee);
     await page.locator("#vaAgree").check();
     await page.locator("#vaCreate").click();
@@ -120,34 +174,67 @@ test("EUR and GHS account details are ready at once; the account card opens them
   expect((await holdings(page)).cash.EUR).toBe(30000 - 120);
 });
 
-test("USD by card: the amount, the card fee on top, a saved card, the passcode, the step-up; added as card money", async ({ page }) => {
+test("USD by card: the amount, the card fee on top, a saved card (its brand mark), bank verification, the step-up; added as card money", async ({ page }) => {
   await wallet(page);
   await page.locator('[data-holdcur="USD"][data-holdbucket="open"] .tx-title').click();
   await page.locator("#detailDeposit").click(); // from the balance: straight to its methods
   await expect(title(page)).toHaveText("Deposit USD");
   await page.locator("#dmCard").click();
   await expect(title(page)).toHaveText("Add USD");
-  await expect(body(page)).toContainText("Tap the amount to enter how much to add.");
-  await page.locator("#amountTapTarget").click();
+  // The wallet's amount field: the USD chip, the amount, the keypad on tap (with Done)
+  await expect(page.locator("#cardFundHint")).toHaveText("Tap the amount to enter how much to add.");
+  await expect(page.locator("#cardFundBox .cv-pick-name")).toHaveText("USD");
+  await expect(page.locator("#cardFundAmt")).toHaveText("0.00");
+  await expect(page.locator("#cardFundKeypad")).toHaveCount(0);
+  await expect(page.locator("#cardFundFeeCard")).toHaveCount(0);
   await expect(page.locator("#cardFundAmtContinue")).toBeDisabled();
-  for (const k of "2500") await page.locator(`[data-key="${k}"]`).click();
-  await expect(page.locator("#cardFundFeeCard .info-row")).toHaveText([
+  await typeAmount(page, CARD_TOPUP, "2500");
+  await expect(page.locator("#cardFundAmt")).toHaveText("25.00");
+  await expect(page.locator("#cardFundHint")).toHaveCount(0);
+  await page.locator("#cardFundKeypadDone").click();
+  await expect(page.locator("#cardFundKeypad")).toHaveCount(0);
+  // The review card: the highlighted total last
+  await expect(page.locator("#cardFundFeeCard .receipt-row.total")).toHaveText("Total charged$26.03 USD");
+  await expect(page.locator("#cardFundFeeCard .receipt-row").last()).toHaveClass(/\btotal\b/);
+  await expect(page.locator("#cardFundFeeCard .receipt-row")).toHaveText([
     "Amount$25.00 USD", "Card funding fee (2.9% + $0.30)$1.03 USD", "Total charged$26.03 USD",
   ]);
   await page.locator("#cardFundAmtContinue").click();
   await expect(title(page)).toHaveText("Pay with");
   await expect(body(page).locator(".step-sub").first()).toHaveText("$26.03 USD will be charged to this card.");
   await expect(page.locator("[data-cardpick] .t1")).toHaveText(["Personal Visa", "Work Mastercard"]);
+  // Each card's brand mark, at its card shape; the brand name in the normal font, only "•••• 4242" in mono
+  for (const id of ["card1", "card2"]) {
+    const mark = page.locator(`[data-cardpick="${id}"] .badge-brand .mk svg`);
+    await expect(mark).toBeVisible();
+    const box = (await mark.boundingBox())!;
+    expect(Math.round(box.width)).toBe(34);
+    expect(Math.round(box.height)).toBe(24);
+  }
+  await expect(page.locator('[data-cardpick="card1"] .t2')).toHaveText("Visa · •••• 4242");
+  await expect(page.locator('[data-cardpick="card1"] .t2')).not.toHaveClass(/\bmono\b/);
+  await expect(page.locator('[data-cardpick="card1"] .t2 .mono')).toHaveText("•••• 4242");
   await expect(page.locator("#cardPickContinue")).toBeDisabled();
   await page.locator('[data-cardpick="card1"]').click();
   await page.locator("#cardPickContinue").click();
-  await expect(title(page)).toHaveText("Enter passcode");
+  // Bank verification: the bank's own screen in a sheet over Pay with
+  const sheet = page.getByRole("dialog", { name: "Confirm with your bank" });
+  await expect(sheet).toBeVisible();
+  await expect(title(page)).toHaveText("Pay with"); // still behind it
+  await expect(page.locator("#bankVerifyBrand")).toHaveText("Visa Secure");
+  await expect(page.locator("#bankVerifyCard")).toHaveText("•••• 4242");
+  await expect(sheet.locator(".bank-sub")).toHaveText("Enter the code your bank sent you.");
+  await expect(body(page)).not.toContainText(/passcode/i);
+  // Close goes back to Pay with; Continue opens it again
+  await page.locator("#bankVerifyClose").click();
+  await expect(page.locator("#bankVerify")).toHaveCount(0);
+  await page.locator("#cardPickContinue").click();
   await expect(page.locator("#verify3ds")).toBeDisabled();
   for (let i = 0; i < 6; i++) await page.locator("#threeDsRow .otp-box").nth(i).fill(String(i + 1));
   await page.locator("#verify3ds").click();
   // Tier 0: over the limit, so the step-up first
   await expect(page.locator("#stepupWarning")).toBeVisible();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(title(page)).toHaveText("Authorizing payment");
   await expect(page.locator("#depositDoneAmount")).toHaveText("$25.00 USD");
   await expect(body(page)).toContainText("Added to your USD balance");
@@ -167,6 +254,14 @@ test("USD by card: the amount, the card fee on top, a saved card, the passcode, 
   await expect(dep.locator(".tx-title")).toHaveText("USD deposit");
   await expect(dep.locator(".tx-sub")).toHaveText("Visa ••• 4242");
   await expect(dep.locator(".tx-amt")).toHaveText("+$25.00 USD");
+  // Its detail: the card fee, On your statement, and last the highlighted Total charged
+  await dep.click();
+  const rows = page.locator("#txDetail .info-row");
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Method", "Card fee", "On your statement", "Reference", "Total charged"]);
+  await expect(page.locator('#txDetail [data-label="On your statement"] > span:last-child')).toHaveText("POKET");
+  await expect(page.locator('#txDetail [data-label="Total charged"] > span:last-child')).toHaveText("$26.03 USD");
+  await expect(rows.last()).toHaveClass(/\btotal\b/);
+  await expect(page.locator('#txDetail [data-label="Network"]')).toHaveCount(0); // stablecoins only
 });
 
 test("a new card: the brand, its checks, the name must be the account holder's", async ({ page }) => {
@@ -174,33 +269,49 @@ test("a new card: the brand, its checks, the name must be the account holder's",
   await page.getByLabel("Tier").selectOption("3");
   await page.locator("#actDeposit").click();
   await page.locator('[data-depositcash="GBP"]').click();
-  await page.locator("#depositSelectContinue").click();
   await page.locator("#dmCard").click();
-  await page.locator("#amountTapTarget").click();
-  for (const k of "1000") await page.locator(`[data-key="${k}"]`).click();
-  await expect(page.locator("#cardFundFeeCard .info-row").nth(1)).toHaveText("Card funding fee (2.9% + £0.24)£0.53 GBP");
+  await typeAmount(page, CARD_TOPUP, "1000");
+  await expect(page.locator("#cardFundBox .cv-pick-name")).toHaveText("GBP");
+  await expect(page.locator("#cardFundFeeCard .receipt-row").nth(1)).toHaveText("Card funding fee (2.9% + £0.24)£0.53 GBP");
   await page.locator("#cardFundAmtContinue").click();
   await page.locator("#addNewCardBtn").click();
   await expect(title(page)).toHaveText("Add new card");
-  await page.locator("#cardNumberInput").fill("9999");
-  await expect(page.locator("#cardNumHint")).toBeVisible();
-  await page.locator("#cardNumberInput").fill("5555555555554444");
-  await expect(page.locator("#cardNumberInput")).toHaveValue("5555 5555 5555 4444");
-  await expect(page.locator("#cardNumHint")).toHaveCount(0);
-  await page.locator("#cardExpiryInput").fill("012020");
-  await expect(page.locator("#expiryHint")).toHaveText("Card has expired");
-  await page.locator("#cardExpiryInput").fill("122030");
-  await expect(page.locator("#cardExpiryInput")).toHaveValue("12/2030");
-  await page.locator("#cardCvvInput").fill("123");
-  await page.locator("#cardZipInput").fill("94107");
-  await page.locator("#cardNameInput").fill("Someone Else");
-  await expect(page.locator("#nameMatchHint")).toHaveText("Must match account holder: Ada Osun");
-  await page.locator("#termsCheck").check();
-  await expect(page.locator("#cardContinue")).toBeDisabled();
-  await page.locator("#cardNameInput").fill("Ada Osun");
-  await expect(page.locator("#nameMatchHint")).toHaveText("Matches verified account holder");
-  await page.locator("#cardContinue").click();
-  await expect(title(page)).toHaveText("Enter passcode");
+  // Checkout's card form: brand detection, a Luhn check, MM / YY in the future, the CVC by brand, no ZIP for a GBP card
+  const go = page.locator("#cardContinue");
+  await expect(go).toBeDisabled();
+  await expect(page.locator("#cZip")).toHaveCount(0);
+  await page.locator("#cNum").fill("9999");
+  await expect(page.locator("#cNumErr")).toHaveText("We don’t recognise this card. Poket accepts Visa, Mastercard, Amex, Discover and Verve.");
+  await page.locator("#cNum").fill("5555555555554445");
+  await expect(page.locator("#cNumErr")).toHaveText("Check the card number. It isn’t valid.");
+  await page.locator("#cNum").fill("5555555555554444");
+  await expect(page.locator("#cNum")).toHaveValue("5555 5555 5555 4444");
+  await expect(page.locator("#cBrandMark .mk svg")).toBeVisible();
+  await expect(page.locator("#cNumErr")).toHaveCount(0);
+  await page.locator("#cExp").fill("1330");
+  await expect(page.locator("#cExpErr")).toHaveText("Check the expiry month.");
+  await page.locator("#cExp").fill("0120");
+  await expect(page.locator("#cExpErr")).toHaveText("This card has expired. Use a card that’s still valid.");
+  await page.locator("#cExp").fill("1230");
+  await expect(page.locator("#cExp")).toHaveValue("12 / 30");
+  await expect(page.locator("#cExpErr")).toHaveCount(0);
+  await expect(page.locator("#cCvc")).toHaveAttribute("maxlength", "3");
+  await page.locator("#cCvc").fill("123");
+  // The cardholder name must match the account holder; the authorisation last
+  await page.locator("#cName").fill("Someone Else");
+  await expect(page.locator("#cNameErr")).toHaveText("Must match account holder: Ada Osun");
+  await page.locator("#cAuth").check();
+  await expect(go).toBeDisabled();
+  await page.locator("#cName").fill("Ada Osun");
+  await expect(page.locator("#cNameOk")).toHaveText("Matches verified account holder");
+  await expect(go).toBeEnabled();
+  await page.locator("#cAuth").uncheck();
+  await expect(go).toBeDisabled();
+  await page.locator("#cAuth").check();
+  await go.click();
+  // Bank verification for the new card
+  await expect(page.locator("#bankVerifyBrand")).toHaveText("Mastercard Identity Check");
+  await expect(page.locator("#bankVerifyCard")).toHaveText("•••• 4444");
   for (let i = 0; i < 6; i++) await page.locator("#threeDsRow .otp-box").nth(i).fill("1");
   await page.locator("#verify3ds").click();
   await expect(page.locator("#cardFundDoneCard .r-value").first()).toHaveText("Mastercard ••• 4444");
@@ -212,7 +323,6 @@ test("a stablecoin: its address on its network, Copy, then a deposit credited af
   await page.getByLabel("Tier").selectOption("3");
   await page.locator("#actDeposit").click();
   await page.locator('[data-depositasset="USDC"][data-depositnet="Base"]').click();
-  await page.locator("#depositSelectContinue").click();
   await expect(title(page)).toHaveText("Deposit USDC");
   await expect(body(page).locator(".step-sub").first()).toHaveText("Send only USDC on Base to this address.");
   await expect(page.locator(".qr-wrap svg")).toHaveCount(2); // the code, and the network's icon in it
@@ -228,8 +338,11 @@ test("a stablecoin: its address on its network, Copy, then a deposit credited af
   expect((await holdings(page)).coins.USDC.Base).toBe(2500);
   await page.locator("#viewFundTx").click();
   const rows = page.locator("#txDetail .info-row");
-  await expect(rows.filter({ hasText: "Asset" })).toContainText("USDC");
-  await expect(rows.filter({ hasText: "Network" })).toContainText("Base");
+  await expect(rows.filter({ hasText: "To" })).toContainText("USDC on Base");
+  await expect(rows.filter({ hasText: "Method" })).toContainText("Deposit address");
+  await expect(page.locator('#txDetail [data-label="Network"] > span:last-child')).toHaveText("Base");
+  await expect(page.locator('#txDetail [data-label="Total charged"]')).toHaveCount(0); // a card deposit's only
+  await expect(rows.filter({ hasText: "Fee" })).toContainText("Free");
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="assets"]').click();
   await page.locator('[data-holdasset="USDC"][data-holdnet="Base"]').click();
@@ -240,7 +353,6 @@ test("Back walks the flow; from a balance it returns to the balance", async ({ p
   await wallet(page);
   await page.locator("#actDeposit").click();
   await page.locator('[data-depositasset="USDT"][data-depositnet="Polygon"]').click();
-  await page.locator("#depositSelectContinue").click();
   await expect(page.locator("#addressRows .r-value").last()).toHaveText("128 confirmations (~2 min)");
   await page.locator("#backFundSelect").click();
   await expect(title(page)).toHaveText("Deposit");
@@ -251,4 +363,26 @@ test("Back walks the flow; from a balance it returns to the balance", async ({ p
   await expect(title(page)).toHaveText("Deposit EUR");
   await page.locator("#backToDepositSelect").click();
   await expect(page.locator("#balanceAmount")).toBeVisible();
+});
+
+test("a new USD card asks for the ZIP code; Amex takes a 4-digit CVC", async ({ page }) => {
+  await wallet(page);
+  await page.getByLabel("Tier").selectOption("3");
+  await page.locator("#actDeposit").click();
+  await page.locator('[data-depositcash="USD"]').click();
+  await page.locator("#dmCard").click();
+  await typeAmount(page, CARD_TOPUP, "1000");
+  await page.locator("#cardFundAmtContinue").click();
+  await page.locator("#addNewCardBtn").click();
+  await page.locator("#cNum").fill("378282246310005");
+  await expect(page.locator("#cNum")).toHaveValue("3782 822463 10005");
+  await expect(page.locator("#cCvc")).toHaveAttribute("maxlength", "4");
+  await page.locator("#cExp").fill("1230");
+  await page.locator("#cCvc").fill("1234");
+  await page.locator("#cName").fill("Ada Osun");
+  await page.locator("#cAuth").check();
+  await expect(page.locator("#cZip")).toBeVisible();
+  await expect(page.locator("#cardContinue")).toBeDisabled(); // the ZIP code is missing
+  await page.locator("#cZip").fill("94107");
+  await expect(page.locator("#cardContinue")).toBeEnabled();
 });

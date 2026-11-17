@@ -17,6 +17,16 @@ import { QUEUED_ARRIVAL_DEMO_KOBO, toNigerianBank, useNairaPartner } from "@/sto
 import { useSend } from "@/features/wallet/send/useSend";
 import { DEMO_WHITE_LABEL, POKET_BRAND, useWalletBrand } from "@/features/wallet/brand";
 import { useDeposit } from "@/features/wallet/deposit/useDeposit";
+import { signInWallet, signOutWallet } from "@/features/wallet/session";
+import { useWalletSession } from "@/features/wallet/useWalletSession";
+import { useOnboarding } from "@/features/wallet/onboarding/useOnboarding";
+import { useIdentity } from "@/features/wallet/identity/useIdentity";
+import { useDemo, type IdOutcome } from "@/store/demo";
+import { ID_OUTCOMES } from "./DemoBar";
+
+/** The ID check outcomes the wallet's identity verification acts on (the others are Checkout's). */
+const WALLET_ID_OUTCOMES = ID_OUTCOMES.filter(([v]) => v === "pass" || v === "under18" || v === "docUnder18");
+import { DEMO_USER_EMAIL, findAccount } from "@/lib/mock-api";
 import { DEMO_ACCOUNT_TRANSFER_KOBO, DEMO_POKET_TRANSFER_KOBO, receiveNaira } from "@/features/wallet/history/credits";
 
 /**
@@ -56,11 +66,30 @@ export function NgnDemoBar() {
   // WGT-13: while the naira partner is down, a send to a Nigerian bank that's Sending stays Sending
   const held = !!w && partnerDown && w.status === "sending" && toNigerianBank(w);
   const payment = useAccount((s) => (!payoutStage && screen?.name === "payment" ? s.account?.payments.find((p) => p.id === screen.id) : undefined));
+  // Session: who the wallet is signed in as (Ada, or an account made or logged in to here), or signed out (onboarding)
+  const session = useWalletSession((s) => s.email);
+  const sessionName = session && session !== DEMO_USER_EMAIL ? findAccount(session)?.first || session : null;
+  const { geoBlocked, set: setOnboarding } = useOnboarding();
+  const idStage = useIdentity((s) => s.stage), idPhone = useIdentity((s) => s.phone);
+  const idOutcome = useDemo((s) => s.idOutcome);
   const can = (to: WithdrawalStatus) => !!w && !held && WITHDRAWAL_TRANSITIONS[w.status].includes(to);
   return (
     <div className="pbar wrap" ref={bar} role="region" aria-label="Prototype controls">
       {/* Demo only: to Checkout's demo page in the app (no reload; in place of the bar's "Poket design" name, for room), so both widgets share one mock account (its code count and lock) */}
       <Link className="pbtn" id="demoToCheckout" href="/demo/ile-living">To Checkout</Link>
+      <label className="opt-lbl"><span>Session</span>
+        <select aria-label="Session" value={session ?? "out"} onChange={(e) => (e.target.value === "out" ? signOutWallet() : signInWallet(e.target.value))}>
+          <option value={DEMO_USER_EMAIL}>Session: Signed in as Ada</option>
+          {sessionName && <option value={session!}>Session: Signed in as {sessionName}</option>}
+          <option value="out">Session: Signed out</option>
+        </select>
+      </label>
+      <label className="opt-lbl"><span>Location</span>
+        {/* The reference's Location control: the next location check (sign-up and log-in) fails */}
+        <select aria-label="Location" value={geoBlocked ? "blocked" : "ok"} onChange={(e) => setOnboarding({ geoBlocked: e.target.value === "blocked" })}>
+          <option value="ok">Location: Supported</option><option value="blocked">Location: Not supported</option>
+        </select>
+      </label>
       <label className="opt-lbl"><span>Tier</span>
         <select aria-label="Tier" value={tier} onChange={(e) => set({ tier: Number(e.target.value) as Tier })}>
           {[0, 1, 2, 3].map((t) => <option key={t} value={t}>Tier: {t}</option>)}
@@ -78,13 +107,20 @@ export function NgnDemoBar() {
           </select>
         </label>
       )}
+      <label className="opt-lbl"><span>ID check</span>
+        {/* Identity verification (Tier 0 to 1): shared with Checkout's ID check control */}
+        <select aria-label="ID check" value={WALLET_ID_OUTCOMES.some(([v]) => v === idOutcome) ? idOutcome : "pass"}
+          onChange={(e) => useDemo.getState().set({ idOutcome: e.target.value as IdOutcome })}>
+          {WALLET_ID_OUTCOMES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </label>
       <label className="opt-lbl"><span>PIN</span>
         <select aria-label="PIN" value={pinSet ? "set" : "none"} onChange={(e) => seedPin(e.target.value === "set" ? DEMO_PIN : null)}>
           <option value="none">PIN: Not set</option><option value="set">PIN: Set ({DEMO_PIN})</option>
         </select>
       </label>
       <label className="opt-lbl"><span>Recipient can hold naira</span>
-        {/* WGT-07: Poket users other than Amara Okafor (yes) and Daniel Cho (no) */}
+        {/* WGT-07: CentryLink users other than Amara Okafor (yes) and Daniel Cho (no) */}
         <select aria-label="Recipient can hold naira" value={othersHoldNaira ? "yes" : "no"}
           onChange={(e) => { setOthersHoldNaira(e.target.value === "yes"); usePayout.getState().refreshQuote(); }}>
           <option value="yes">Recipient can hold naira: Yes</option><option value="no">Recipient can hold naira: No</option>
@@ -147,6 +183,10 @@ export function NgnDemoBar() {
       {payStage === "selfie" && !locked && (selfiePhone
         ? <button className="pbtn" id="demoSelfieFinish" onClick={() => usePayout.getState().selfieFinish()}>Finish on phone</button>
         : <button className="pbtn" id="demoSelfieOpen" onClick={() => usePayout.getState().selfieOpenPhone()}>Open on phone</button>)}
+      {/* Identity verification's handoff (as Checkout's DEMO pill on its vendor screen) */}
+      {idStage === "vendor" && !locked && (idPhone
+        ? <button className="pbtn" id="demoIdFinish" onClick={() => useIdentity.getState().finishOnPhone()}>Finish on phone</button>
+        : <button className="pbtn" id="demoIdOpen" onClick={() => useIdentity.getState().openOnPhone()}>Open on phone</button>)}
       {/* Single active device: another device is bound, which signs this one out (its next tap asks it to sign in) */}
       {singleDevice && !signedOut && <button className="pbtn" id="demoOtherDeviceBinds" onClick={otherDeviceBinds}>Sign in on another device</button>}
       {/* WGT-13: a ₦25,000.00 transfer into naira arrives while the partner is down: queued, it's credited on recovery */}
@@ -168,9 +208,11 @@ export function NgnDemoBar() {
         </>
       )}
       {/* WGT-11: naira coming in, each with its own record. A transfer to the account details needs a ready account and the partner up (while down, "Transfer arrived while down") */}
-      {!flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
-      {!flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a Poket user</button>}
+      {session && !flowOpen && !w && dedicated?.status === "ready" && !partnerDown && <button className="pbtn" id="demoAccountTransfer" onClick={() => receiveNaira("account", DEMO_ACCOUNT_TRANSFER_KOBO)}>Transfer to account details</button>}
+      {session && !flowOpen && !w && <button className="pbtn" id="demoPoketTransfer" onClick={() => receiveNaira("poket", DEMO_POKET_TRANSFER_KOBO)}>Receive from a CentryLink user</button>}
       {vaCur && va?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => dep.vaApprove(vaCur)}>Account approved</button>}
+      {/* An NGN account under review (NGN's are ready at once today; the same approval if one is pending) */}
+      {stage === "details" && dedicated?.status === "pending" && <button className="pbtn" id="demoVaApprove" onClick={() => set({ dedicated: { ...dedicated, status: "ready" } })}>Account approved</button>}
       {vaCur && va?.status === "ready" && <button className="pbtn" id="demoVaTransfer" onClick={() => dep.vaReceive(vaCur)}>Transfer to {vaCur} account details</button>}
       {/* On the locked screen: end the 2-hour lock now */}
       {locked && flowOpen && <button className="pbtn" id="demoSkipLock" onClick={() => useAccountLock.getState().skip()}>Skip lock time</button>}

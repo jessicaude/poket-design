@@ -21,12 +21,12 @@ alwaysApply: true
 - Fees are decided (lib/fees.ts; docs/decisions.md, Fees), shown as amounts and counted in every total, Max and
   balance: deposits 0.40% capped at ₦5,000.00 (or $4.00), out of what arrives; Convert ₦2,000.00 + 0.40% from NGN
   ($2.00 + 0.40% from USD or a stablecoin), out of the amount, in the source; sends to external accounts ₦25.00
-  (NGN), $6.00 (USD) or 6.00 in the coin, on top; to Poket users free, end to end (naira that converts to USD on
+  (NGN), $6.00 (USD) or 6.00 in the coin, on top; to CentryLink users free, end to end (naira that converts to USD on
   receipt pays no conversion fee). EUR, GBP and GHS (to confirm): the dollar fees at the demo rates (DEMO_USD_PER).
   Checkout charges the payer nothing.
 - Wallet only: NGN is funded only by bank transfer or conversion, never by card. (Paying a merchant with a naira card
   at Checkout isn't funding a balance.)
-- Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a temporary account
+- Tier 0: NGN e-wallet allowed, but no dedicated account; funding uses a single-use account
   created per top-up, valid 30 minutes [time], for one exact amount.
 - One naira balance: a user has one NGN balance, the NGN e-wallet (useNgn.ngnBalance). There's no merchant-held or
   other second naira balance, row or tag.
@@ -41,7 +41,7 @@ alwaysApply: true
   - No account, Tier 0: "Get NGN account details" / "Verify your identity to get account details"; opens identity
     verification, the wallet's step-up (StepUpIntro, stage 'verify') with the reference's reason "Account details
     are in your verified name, so we need to confirm who you are." Then the choice. It never opens a top-up:
-    top-ups stay under Deposit (temporary account at Tier 0).
+    top-ups stay under Deposit (single-use account at Tier 0).
     - Demo stand-in: Continue raises the tier to 1 (useNgn.verifyContinue) in place of the verification steps
       (the reference's tStepupTier2 / tStepupTier3, Veriff), which aren't ported yet. When they are, Continue starts
       them and the tier changes only once verification succeeds; don't treat the instant upgrade as product
@@ -88,33 +88,37 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   → NGN opens the bank-account step (usePayout.sendToNewBank). Back and "Change" return to Send.
 - Previews: /demo/wallet?send=<stage>, a Send stage (recipients, new, unavailable...) or a later step of a send to
   Ngozi Eze (amount, review, pin, done...; ngn-account for a new Nigerian bank account).
-- Every kind of send (any bank account, a debit card, a Poket user, a stablecoin wallet) uses the same amount,
+- Every kind of send (any bank account, a debit card, a CentryLink user, a stablecoin wallet) uses the same amount,
   review, PIN, reservation and status screens (usePayout.executeSend; one summary in
   features/wallet/send/sendSummary.ts). The amount screen's title is "Send to {first name}" (your own accounts and
   wallets by their whole name), with Change. Review rows: To, Account holder (when the nickname differs), They get, You send and Rate (converting), Network (a coin: the wallet's, else the paying coin's), Fee
   (the send's fee, and a conversion's when it converts: "₦2,040.00 NGN + ₦25.00 NGN"), Delivery, Total
-  charged; then the first-payment notice for a new bank account. The button reads "Send {amount}" (what leaves
+  charged; then the first-payment notice when it's held. The button reads "Send {amount}" (what leaves
   the source).
-  - Arrival: a first payment to any bank account is "After [hold]" and Scheduled; Nigerian banks "Usually within
+  - Arrival: a held first payment (below) is "After [hold]" and Scheduled; Nigerian banks "Usually within
     seconds"; US banks one speed, "1 to 3 business days", fee $6.00 (no Instant, Standard
     or Wire choice, no wire address); other banks "Within minutes"; debit
-    cards "Instantly", fee $6.00, status Sending; Poket users "Instantly", free, and straight to Paid; stablecoin
+    cards "Instantly", fee $6.00, status Sending; CentryLink (Poket) users "Instantly", free, and straight to Paid; stablecoin
     wallets "About 1 minute", fee 6.00 in the coin; Nigerian banks ₦25.00. The amount screen shows the fee (#sendFee).
-  - Quick check (the exploration's): a first payment of $500 or more (USD value leaving the source) to a new debit
-    card, stablecoin wallet or Poket user is held (status "review", Withdrawal.quickCheck) and reads "Held for a
-    quick check" with "First payment to a new recipient. Usually under 15 minutes." on done and status. Bank
-    accounts keep the first-payment hold instead; your own card isn't checked. A held Poket send is credited once
-    it's paid.
+  - First-payment hold, one rule for every recipient (bank account, debit card, CentryLink user, stablecoin
+    wallet): only a first payment of $500 or more (USD value leaving the source, fees
+    included: SendSummary.usdOut, FIRST_PAYMENT_HOLD_USD_CENTS in lib/mock-api.ts) to a new recipient (paidBefore
+    false) is held: Scheduled, "After [hold]", "Sends to {name} after [hold]" on done. Anything smaller goes at once.
+    Your own accounts (isSelf: bank accounts and debit cards in your verified name) are never held.
+    No quick check. A held CentryLink send is credited once it's paid (demo "Release first-payment hold").
+  - Poket (CentryOS) users are "CentryLink users", sending and receiving (the option and its screen, "No CentryLink
+    account found.", rows "CentryLink · {handle}", Method "CentryLink"; credits "CentryLink", "Receive from a
+    CentryLink user", the paused banner); Poket stays the wallet's name.
   - A debit card in the verified user's name (any case or word order) is theirs: saved under Your accounts.
   - A new Nigerian bank account takes an optional nickname once the name is found; the enquiry's name stays the
     account holder.
   - Max is the whole balance less the send's fee.
   - The review's total is what leaves the source, in the source's currency: the amount plus every fee (a
     wallet's 6.00 USDC paid from NGN shows as its naira). It always matches what's reserved.
-  - Poket users can be paid from card-funded USD. Their money keeps the FIAT-ONLY tag (shown on They get, review,
+  - CentryLink users can be paid from card-funded USD. Their money keeps the FIAT-ONLY tag (shown on They get, review,
     done and the status screen; the mock API credits the matching tagged balance), so the rules on that money
     follow it.
-  - Naira to Poket users (WGT-07): a recipient who can hold naira gets naira. One who can't (no BVN or NIN, or not
+  - Naira to CentryLink users (WGT-07): a recipient who can hold naira gets naira. One who can't (no BVN or NIN, or not
     eligible) gets USD, converted on receipt (targetFor in features/wallet/send/sources.ts): the amount screen says
     "{First name} can't hold naira. They'll get USD." with "They get ≈ $X USD" and the quote card (rate, fee,
     They get; "Rate held for 0:30", then "Refresh rate"); review shows You send, They get and Rate.
@@ -122,7 +126,7 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
       and the "NGN to stablecoins" block is never crossed. Other sources (USD, card-funded USD, USDC) arrive as they
       are; card-funded USD never becomes naira.
     - Mock recipients: Amara Okafor (@amara) can hold naira; Daniel Cho (@dcho) can't (lives abroad). Every other
-      Poket user follows the demo bar's "Recipient can hold naira: Yes / No" (nairaRecipients.ts). The mock API
+      CentryLink user follows the demo bar's "Recipient can hold naira: Yes / No" (nairaRecipients.ts). The mock API
       refuses naira for a recipient who can't hold it (recipient_cannot_hold_naira).
     - Only the recipient's record is in USD. Your own record stays in the paying balance's currency (it shows in the
       NGN history and "on hold"), with what they receive as Withdrawal.targetKey. Your activity row and receipt lead
@@ -133,18 +137,23 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
       panel, listPoketActivity) shows what they received, in their currency, with its tag.
   - Debit cards (Send → New recipient → Debit card, the explore prototype's card fields): Visa and Mastercard debit
     only ("Only Visa and Mastercard debit cards."; a credit card shows "This is a credit card. Use a debit card." and
-    the mock API refuses it). Only USD (open or card-funded) can pay a card; no conversion, no first-payment hold.
+    the mock API refuses it). Only USD (open or card-funded) can pay a card; no conversion. The first-payment hold applies as to every recipient.
   - Reservation at the PIN: from NGN into "on hold" as below; from any other balance the total is taken out and given
     back if the send fails or is reversed (Withdrawal.reservedIn "source").
   - Stablecoin wallets need Tier 2 (saved or new), and the address is screened before review (the reference's
     "Checking this address"; a flagged address shows "We can't send to this address").
-  - A Poket user starts on the NGN balance when opened from the home.
+  - A CentryLink user starts on the NGN balance when opened from the home.
 - Send's amount screen (features/wallet/send/SendAmountScreens.tsx): two boxes of the same design (Convert's From / To
   boxes): "You send" (label, "Available ..." and Max on top; the paying balance's chip and the amount below) and
   "They get" (label and the arrival on top, e.g. "Usually within seconds" or "After [hold]"; a fixed chip with the
   recipient's currency mark, name and any FIAT-ONLY tag, and the amount, "≈ " when converting).
   The keypad is hidden until You send's amount is tapped; "Done" at its top, or a tap anywhere else, hides it (on
-  click, so the tapped control acts first), and Review then sits right under the amounts. The source defaults to the balance it was opened from if that can
+  click, so the tapped control acts first), and Review then sits right under the amounts. This is the wallet's one
+  amount field (features/wallet/AmountField.tsx); every amount is entered with it: Send, Convert, the daily limit,
+  the card top-up, and "Add naira" (a single-use account's amount: the NGN chip, the amount, the tier's limit line
+  under it, then the Fee and You get card). While the keypad is open it docks at the bottom of the panel, just
+  above the tab bar (features/wallet/panelDock.ts), with the screen's button directly above it; the amounts and the
+  fee card scroll above. Closed, the button sits right under the fee or quote card. The source defaults to the balance it was opened from if that can
   pay, else the recipient's currency. Another currency converts inline with the quote card below the boxes (rate and
   the whole fee: the conversion's and the send's; They get is in its box, not repeated; the 30-second countdown and Refresh
   rate); it converts when the PIN is accepted.
@@ -154,8 +163,8 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   for both ("2.04 USDC + ₦25.00 NGN").
 - Send activity rows (WithdrawalRow, everywhere: the Activity tab, every balance's Transaction history, the on-hold
   list) are the reference's txRow: icon, "To {name}", a sub (the conversion, else the account), the amount that left
-  the balance. A status chip follows the sub only while unfinished or gone wrong (Scheduled, Held for review, Held for
-  a quick check, Sending, Failed, Reversed); paid rows have none, like the reference's completed rows.
+  the balance. A status chip follows the sub only while unfinished or gone wrong (Scheduled, Held for review,
+  Sending, Failed, Reversed); paid rows have none, like the reference's completed rows.
 - The chip never offers a balance that can't pay the recipient (features/wallet/send/sources.ts): card-funded money
   for naira or stablecoins, NGN for non-Nigerian bank accounts, and conversions
   Convert wouldn't allow.
@@ -177,9 +186,9 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   line ("Fee · To {name}", same reference). Don't show the reference's computed naira fees.
 - No speed choice: "Usually within seconds" (NGN_VA.arrives), on the amount screen's They get box; the fee, ₦25.00,
   is on the amount screen and review. (US banks have one speed too.)
-- First-payment hold: the first NGN transfer to a bank account (recipient.paidBefore false) shows "First payment to a
-  new account sends after [hold]" on amount and review (They get's arrival reads "After [hold]"), and its delivery is
-  "After [hold]".
+- First-payment hold (the rule above, for every recipient): a first payment of $500 or more to a new recipient shows
+  "To protect you, first payments of $500 or more to a new account send after [hold]." on amount and review (They get's
+  arrival reads "After [hold]"), and its delivery is "After [hold]".
 - Reservation: the amount (plus fee) is reserved from the balance when the PIN is accepted (reservePayout →
   ngnReserved), and stays reserved while the transfer is Scheduled, Held for review or Sending. Paid clears the
   reservation; Failed releases it back to the balance; Reversed (after Paid) returns the money and adds a notification.
@@ -257,8 +266,8 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
   - a raised limit waiting out the cooling-off period shows under it: the pending limit (formatNaira), "Starts in
     [cooling-off]" and "Cancel change". Demo bar on this screen: "Skip cooling-off" applies it now.
 - Change opens the Daily limit screen: Send's amount box (cv-box: "Daily limit" and "Up to ₦[tier max] at your
-  tier" on top, the NGN chip and the amount) with the keypad on demand (useKeypadOnDemand, as on Send's amount
-  screen). Over the tier's maximum: "More than your tier allows (₦[tier max])." and Save is disabled (also when
+  tier" on top, the NGN chip and the amount) with the keypad on demand: the wallet's one amount field
+  (features/wallet/AmountField.tsx), as on Send's amount screen. Over the tier's maximum: "More than your tier allows (₦[tier max])." and Save is disabled (also when
   unchanged). A line says what Save will do (NEW copy): "A lower limit applies at once." / "A higher limit starts
   in [cooling-off]." Save asks for the PIN ("Lowers your daily limit." / "Raises your daily limit."): lower (or a
   lower change while a raise is pending) applies at once and replaces any pending raise; higher shows the toast
@@ -279,12 +288,12 @@ usePayout, createPayout, withdrawals.ts); read them as "send".
 - While off, a send to a Nigerian bank account (naira to a Nigerian bank, whatever pays it, USD converted too) shows
   "Instant transfers are off. Turn them on to send to banks. Turn on" on the amount screen (#instantOffNotice), and Review is disabled (the store's
   toReview refuses too). "Turn on" asks for the PIN, then the send comes back as it was (approving or not).
-  Poket users, other banks, cards, stablecoin wallets, Convert and Checkout aren't affected
+  CentryLink users, other banks, cards, stablecoin wallets, Convert and Checkout aren't affected
   (blockedByInstantOff in features/wallet/settings/instant.ts).
 - The daily limit in Send: while on, a send to a Nigerian bank can't take today's total over the daily limit (the
   limit in use: never above the tier's maximum). Today's total is the naira sent to Nigerian banks today, whatever
   paid it (getInstantSentToday in lib/mock-api.ts): scheduled, held and sending sends count; failed and reversed
-  don't; Poket users, other banks, cards and wallets don't. Over it, the amount screen shows "That’s over your daily
+  don't; CentryLink users, other banks, cards and wallets don't. Over it, the amount screen shows "That’s over your daily
   limit of ₦X. You have ₦Y left today." (running text: no code, docs/copy.md) with "Change limit" (NEW copy: it leaves the send for
   Settings → Instant transfers → Daily limit), and Review is disabled (the store's toReview refuses too). Exactly
   what's left fits (overDailyLimit in features/wallet/settings/instant.ts).
@@ -348,15 +357,15 @@ WGT-10 is four parts, each with its rules below:
 - Demo bar "Naira partner: Up / Down", in both widgets' bars, one state (store/partner.ts, useNairaPartner; Up by
   default). Checkout's bar shows it only on an NGN order. The mock follows it (setNairaPartnerAvailable).
 - Banner (features/wallet/NairaPausedBanner.tsx, #nairaPaused, the wallet's .alert warn): "Naira bank transfers are
-  paused. Your balance is safe, and sending to Poket users, converting and card payments still work." It tops the
-  wallet home, the NGN balance screen, Deposit NGN, existing account details (temporary and dedicated), adding a
+  paused. Your balance is safe, and sending to CentryLink users, converting and card payments still work." It tops the
+  wallet home, the NGN balance screen, Deposit NGN, existing account details (single-use and dedicated), adding a
   Nigerian bank, and a send to one that's Sending.
 - Deposit NGN > Bank transfer, and getting NGN account details: the step (ngnChoice, tempAmount, ngnRoute, intro;
   NGN_PAUSED_SCREENS) keeps its title and shows "Bank transfers into naira are paused. Try again later, or convert
-  from USD." with Convert (into NGN), in place of the banner. No temporary account or account details are created
+  from USD." with Convert (into NGN), in place of the banner. No single-use account or account details are created
   (createTemp and createDedicated do nothing while down).
-- Existing temporary or dedicated account details stay visible, with a "Paused" chip (.va-status warn) after the
-  title and "Transfers may arrive late." as the subtitle (the temporary one keeps its countdown). The NGN balance's
+- Existing single-use or dedicated account details stay visible, with a "Paused" chip (.va-status warn) after the
+  title and "Transfers may arrive late." as the subtitle (the single-use one keeps its countdown). The NGN balance's
   account card shows Paused in place of Ready.
 - Send to a Nigerian bank: the amount screen shows "Sending to banks is paused. Try again later." (SendPausedNotice;
   the instant transfers and daily limit notices don't show) and Review is disabled; a review already open shows the
@@ -367,7 +376,7 @@ WGT-10 is four parts, each with its rules below:
 - Sends to Nigerian banks already Sending stay Sending (the demo bar's Mark paid and Fail are disabled; a released
   first payment waits) until the partner is back.
 - Transfers into naira that arrive while down wait too: demo bar "Transfer arrived while down" (shown while down;
-  it counts them) queues a ₦25,000.00 credit (useNairaPartner.queued). A temporary account's "Transfer arrives" is
+  it counts them) queues a ₦25,000.00 credit (useNairaPartner.queued). A single-use account's "Transfer arrives" is
   hidden while down.
 - Recovery (features/wallet/partnerRecovery.ts, on down → up): the banner and paused screens clear; each queued
   credit is added to the NGN balance with its own notification, "Transfer received" / "₦X from {sender}
@@ -376,7 +385,7 @@ WGT-10 is four parts, each with its rules below:
   brought back on Checkout's bar after visiting the wallet recovers too.
 - Checkout: naira bank transfer is marked "Paused" (.method.off, its .chip) on add-method and can't be chosen;
   naira and dollar cards still work.
-- Poket users, other banks, cards, Convert and the balance are unaffected. Back up, every screen is as before at once.
+- CentryLink users, other banks, cards, Convert and the balance are unaffected. Back up, every screen is as before at once.
 - Copy: "Bank transfers into naira are paused...", "Paused", "Transfers may arrive late." and "Sending to banks is
   paused. Try again later." are WGT-13's; the paused screens' titles are the steps' own.
 - Tests: e2e/partner-downtime.spec.ts.
@@ -393,7 +402,7 @@ WGT-10 is four parts, each with its rules below:
   transfer. The receiving bank didn't return it.", with a "Recall closed" notification: "We couldn't recover your
   transfer to {name}."). The send itself stays Paid.
 - Demo bar on the send: "Recall: in progress / recovered / not recovered" (RECALL_TRANSITIONS in lib/mock-api.ts).
-- Other sends (US banks, cards, wallets, Poket users) don't offer it. Tests: e2e/send-problem.spec.ts.
+- Other sends (US banks, cards, wallets, CentryLink users) don't offer it. Tests: e2e/send-problem.spec.ts.
 
 ## History, receipts and statements (WGT-11)
 - History (features/wallet/history/History.tsx): Activity and the NGN balance's "Transaction history" list every
@@ -406,20 +415,21 @@ WGT-10 is four parts, each with its rules below:
   The Reference is the copyable chip and unique (genRef in lib/mock-api.ts; payments and refunds keep the ID the
   merchant gets). A bank transfer (naira deposits, sends to Nigerian banks, naira bank-transfer payments and their
   reversals, recalls) shows the bank's session ID as "[session ID]" (not decided).
-- Naira coming into the NGN balance by itself is a record (NgnCredit, NEW copy): a temporary-account top-up ("Top-up ·
+- Naira coming into the NGN balance by itself is a record (NgnCredit, NEW copy): a single-use account top-up ("Top-up ·
   Bank transfer"), a transfer to the account details ("From {sender}"), one delayed while the partner was down
-  ("This transfer was delayed."), naira from a Poket user, and a recovered recall ("Recall · {name}"). Demo bar:
-  "Transfer to account details" (a ready account, partner up) and "Receive from a Poket user".
+  ("This transfer was delayed."), naira from a CentryLink user, and a recovered recall ("Recall · {name}"). Demo bar:
+  "Transfer to account details" (a ready account, partner up) and "Receive from a CentryLink user".
 - Tests: e2e/ngn-history.spec.ts.
-- Share receipt (NEW; the exploration's #shareRcpt) on every naira transaction's detail (sends from or to naira,
-  naira conversions, naira payments and their refunds, NGN credits; not dollar ones): a sheet with the receipt
+- Share receipt (NEW; the exploration's #shareRcpt) on every transaction's detail, in any currency (sends,
+  conversions, payments and their refunds, credits, deposits, card purchases; the detail is one template,
+  features/wallet/history/TxView.tsx): a sheet with the receipt
   (features/wallet/receipt/) and Share (navigator.share with the text; else copied, "Receipt copied"), Download PDF
   and Download image (the receipt drawn on a canvas; the PDF is that image, with the text as its Subject). The
   receipt: the brand (Poket, or white-label: the merchant's logo or initials and colour; demo control "Brand"), the
   amount, the title, the status chip, Date and time, To or From, Account, Fee (the fee, or "Free" where there's none:
-  Checkout payments, refunds, naira from a Poket user), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
+  Checkout payments, refunds, naira from a CentryLink user), Reference, then Session ID ("[session ID]") for a naira bank transfer, as on its detail (sends
   to Nigerian banks, deposits, recalls, checkout bank transfers and their reversals), "Payments by Poket". Not done, it says so first: Pending (scheduled, sending), Held for
-  review / a quick check, Failed, Reversed, Dispute open (held). Tests: e2e/receipts.spec.ts.
+  review, Failed, Reversed, Dispute open (held). Tests: e2e/receipts.spec.ts.
 - Statement (NEW) on every cash balance ("Statement" by Transaction history; NGN shown here, others the same in their
   currency, from the demo's start): a period (This month and Last 3 months
   run to today; Last month; a custom range up to 12 months, not in the future) and PDF or CSV, then Download
@@ -432,7 +442,7 @@ WGT-10 is four parts, each with its rules below:
   the starting balance (DEMO_NGN_START, ₦50,000.00), so every period has transactions. They're real records, in
   Activity and the NGN balance's history, each opening its receipt, with the same time and reference as its
   statement line (history/ledgerSeed.ts reads the lines): two top-ups and a transfer to the account details
-  (credits), sends to Ada's Naira account and to Amara Okafor (paid) and to Tobi Bello (a Poket user; failed and
+  (credits), sends to Ada's Naira account and to Amara Okafor (paid) and to Tobi Bello (a CentryLink user; failed and
   returned: one record, two statement lines), a conversion to USD, and a refund of last month's naira bank
   transfer to Mama Tee's Kitchen (that payment is seeded on Ada's account too, so Checkout's Poket account lists it;
   the refund is marked inBalance so it isn't credited again). Seeded ids contain "seed". Recipients' "paid before"

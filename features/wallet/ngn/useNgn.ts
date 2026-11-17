@@ -95,7 +95,7 @@ type State = {
   openBankTransfer: () => void;
   /** The NGN balance's account card (vaOpen from the balance screen): Tier 0 verifies first; else the account flow. */
   openAccountDetails: () => void;
-  /** 'verify' Continue: stands in for identity verification (not ported): Tier 1, then the account choice. */
+  /** 'verify' Continue, once identity verification passes (StepUpIntro): Tier 1, then the account choice. */
   verifyContinue: () => void;
   /** ngnPickDedicated: the intro if the ID is already matched, else choose an ID. */
   pickDedicated: () => void;
@@ -195,7 +195,7 @@ export const useNgn = create<State>((set, get) => {
       const { amount, ref } = await simulateTransferArrives();
       // WGT-11: a record of its own, with the temporary account's reference (top-ups come from the user's own bank)
       const c = creditNgn({ kind: "temp", amount, from: holderName(), ref });
-      notify("topUpReceived", { amount: formatNairaShort(c.amount) });
+      notify("topUpReceived", { amount: formatNairaShort(c.amount) }, { name: "credit", id: c.id });
       set((s) => ({ stage: s.stage === "tempArrived" ? "tempDone" : s.stage }));
     },
 
@@ -244,17 +244,6 @@ export function holderName(): string {
 export function fmtCountdown(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
   return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
-}
-
-/**
- * The ngnAmt input's parse, in integer maths: keep digits and dots, then naira and up to 2 decimals.
- * "₦25,000.5" gives 2500050. The reference's parseFloat-based version gives the same kobo.
- */
-export function parseNairaInput(text: string): Kobo {
-  const [ip = "", dp] = text.replace(/[^\d.]/g, "").split(".");
-  const naira = Number(ip || "0");
-  const kobo = dp === undefined ? 0 : Number((dp.slice(0, 2) + "00").slice(0, 2));
-  return naira * 100 + kobo || 0;
 }
 
 /**

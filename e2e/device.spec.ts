@@ -1,5 +1,5 @@
 import { passSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { cvPress } from "./keypad";
 
 /**
@@ -84,7 +84,7 @@ test("a new device: Confirm this device on the first send; a wrong code clears; 
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
 });
 
-test("a new device: Cancel returns to the review as it was; any send asks (a Poket user too)", async ({ page }) => {
+test("a new device: Cancel returns to the review as it was; any send asks (a CentryLink user too)", async ({ page }) => {
   await start(page, "new");
   await toSend(page, "poket:pu1", "300000");
   await expect(title(page)).toHaveText("Confirm this device");

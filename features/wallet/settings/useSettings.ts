@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Kobo } from "@/lib/money";
 
 /**
- * The wallet's Settings state: Security's passcode delivery and signed-in devices (the reference's identity.channel
+ * The wallet's Settings state: Security's code delivery and signed-in devices (the reference's identity.channel
  * and devices), and WGT-09's instant transfer controls for naira sends to banks.
  */
 export type Device = { id: string; label: string; meta: string };

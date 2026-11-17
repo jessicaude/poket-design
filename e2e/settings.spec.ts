@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 import { cvPress } from "./keypad";
 
 /**
@@ -36,8 +37,8 @@ test("the header gear opens Settings: name and email, then the reference’s row
   await expect(body(page).locator(".settings-row-title")).toHaveText(["Compliance", "Instant transfers", "Payment methods", "Subscriptions", "Security", "Log out"]);
   await expect(sub(page, "openCompliance")).toHaveText("Tier 0: Registered");
   await expect(sub(page, "openInstantTransfers")).toHaveText("On · ₦50,000.00 NGN a day");
-  await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 2 signed-in devices");
-  await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a passcode");
+  await expect(sub(page, "openSecurity")).toHaveText("Code delivery · 2 signed-in devices");
+  await expect(sub(page, "settingsLogOut")).toHaveText("Log back in with a code");
   // The chevron is each row’s last <svg> (.settings-row>svg:last-child)
   expect(await page.locator("#openSecurity > svg:last-child").count()).toBe(1);
   // Rows not ported say so
@@ -174,7 +175,7 @@ test("lowering while a raise is pending replaces it", async ({ page }) => {
   await expect(page.locator("#instantLimit")).toHaveText("₦30,000.00 NGN");
   await expect(page.locator("#instantPending")).toHaveCount(0);
 });
-test("the tier link opens Compliance; Increase my limits steps up (demo: the tier rises) and raises the maximum", async ({ page }) => {
+test("the tier link opens Compliance; Increase my limits verifies the identity (Tier 1) and raises the maximum", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openInstantTransfers").click();
   await page.locator("#instantRaiseTier").click();
@@ -184,7 +185,7 @@ test("the tier link opens Compliance; Increase my limits steps up (demo: the tie
   await page.locator("#startStepupFromAccount").click();
   await expect(title(page)).toHaveText("Verify your identity");
   await expect(body(page).locator(".alert")).toHaveCount(0); // asked for, not over a limit
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(page.locator("#currentLevel")).toHaveText("Tier 1: Basic");
   await expect(body(page).locator(".info-card").nth(1)).toContainText("Tier 1: Basic limits");
   await page.locator("#backFromAccountTier").click();
@@ -209,11 +210,11 @@ test("demo bar: Instant transfers default Off starts a new user with them off", 
   await expect(page.locator("#instantLimit")).toHaveText("₦50,000.00 NGN");
 });
 
-test("Security: passcode delivery (text needs a phone number) and signed-in devices", async ({ page }) => {
+test("Security: code delivery (text needs a phone number) and signed-in devices", async ({ page }) => {
   await openSettings(page);
   await page.locator("#openSecurity").click();
   await expect(title(page)).toHaveText("Security");
-  await expect(body(page).locator(".section-title")).toHaveText(["Passcode delivery", "Signed-in devices"]);
+  await expect(body(page).locator(".section-title")).toHaveText(["Code delivery", "Signed-in devices"]);
   await expect(page.locator('[data-channel="email"]')).toHaveClass(/\bsel\b/);
   await expect(page.locator('[data-channel="email"] .t2')).toHaveText("ada@osun.co");
   await expect(page.locator('[data-channel="text"] .t2')).toHaveText("Add a phone number first");
@@ -226,7 +227,7 @@ test("Security: passcode delivery (text needs a phone number) and signed-in devi
   await page.locator('[data-signout="d2"]').click();
   await expect(body(page).locator("[data-device]")).toHaveCount(1);
   await page.locator("#extBackSettings").click();
-  await expect(sub(page, "openSecurity")).toHaveText("Passcode delivery · 1 signed-in device");
+  await expect(sub(page, "openSecurity")).toHaveText("Code delivery · 1 signed-in device");
 });
 
 test("turning off asks to confirm (a sheet), then takes effect at once; Keep them on or a tap outside cancels", async ({ page }) => {
@@ -331,7 +332,7 @@ test("while off, naira to a Nigerian bank is blocked whatever pays it (USD conve
   await expect(page.locator("#instantOffNotice")).toBeVisible();
 });
 
-for (const [recipient, label] of [["poket:pu1", "a Poket user"], ["bank:r4", "a US bank"]] as const) {
+for (const [recipient, label] of [["poket:pu1", "a CentryLink user"], ["bank:r4", "a US bank"]] as const) {
   test(`while off, ${label} is unaffected`, async ({ page }) => {
     await offThenSend(page, recipient, recipient === "bank:r4" ? "" : "500000");
     if (recipient === "bank:r4") {
@@ -406,13 +407,13 @@ test("daily limit in Send: today’s total can’t go over it; the amount screen
   await expect(title(page)).toHaveText("Instant transfers");
 });
 
-test("daily limit in Send: a failed send doesn’t count; Poket users aren’t limited; naira converted from USD counts", async ({ page }) => {
+test("daily limit in Send: a failed send doesn’t count; CentryLink users aren’t limited; naira converted from USD counts", async ({ page }) => {
   await limitedWallet(page);
   await amountTo(page, "bank:lb2", "1500000");
   await sendIt(page);
   await page.locator("#viewPayoutTx").click();
   await page.getByRole("button", { name: "Fail", exact: true }).click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Failed");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Failed");
   await page.locator("#backFromTxDetail").click();
   await amountTo(page, "bank:lb2", "2500000"); // the whole ₦25,000 again
   await expect(page.locator("#dailyLimitNotice")).toHaveCount(0);
@@ -420,7 +421,7 @@ test("daily limit in Send: a failed send doesn’t count; Poket users aren’t l
   await page.locator('[data-sendrecipient="poket:pu1"]').click();
   await page.locator("#youSend").click();
   for (const d of "3000000") await page.locator(`#sendKeypad [data-payoutkey="${d}"]`).click(); // ₦30,000.00, over the limit
-  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0); // a Poket user: not a bank
+  await expect(page.locator("#dailyLimitNotice")).toHaveCount(0); // a CentryLink user: not a bank
   // USD paying a Nigerian bank: the naira it becomes counts against the limit
   await page.locator("#editPayoutRecipient").click();
   await page.locator('[data-sendrecipient="bank:lb2"]').click();
@@ -431,7 +432,7 @@ test("daily limit in Send: a failed send doesn’t count; Poket users aren’t l
   await expect(page.locator("#dailyLimitNotice")).toContainText("That’s over your daily limit of ₦25,000.00.");
 });
 
-test("mock: today’s total counts sends to Nigerian banks today, not failed or reversed ones, other days or Poket users", async () => {
+test("mock: today’s total counts sends to Nigerian banks today, not failed or reversed ones, other days or CentryLink users", async () => {
   const { reservePayout, createPayout, setWithdrawalStatus, getInstantSentToday, resetPayoutServer } = await import("@/lib/mock-api");
   resetPayoutServer();
   const send = async (amount: number, recipientId: string, kind: "bank" | "poket" = "bank") => {

@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { readFileSync } from "node:fs";
 import { cvPress } from "./keypad";
 
@@ -105,10 +105,15 @@ test("Convert: the network badge sits on the coin; done repeats the review's row
   const review = await page.locator("#cvQuoteCard .r-label").allTextContents();
   expect(review).toEqual(["You convert", "Rate", "Fee", "Network", "You get"]);
   await page.locator("#cvConfirm").click();
-  await expect(page.locator("#cvDoneCard .r-label")).toHaveText([...review, "Confirmation"]);
+  // The review's rows with the confirmation; what you get stays last
+  await expect(page.locator("#cvDoneCard .r-label")).toHaveText([...review.slice(0, -1), "Confirmation", "You get"]);
+  await expect(page.locator("#cvDoneCard .receipt-row").last()).toHaveClass(/\btotal\b/);
   await expect(page.locator("#cvDoneCard .receipt-row").filter({ hasText: "You get" }).locator(".r-value")).toHaveText("5.14 USDC");
   await expect(page.locator("#cvDoneCard .receipt-row").filter({ hasText: "Network" }).locator(".r-value")).toHaveText("Base · ~15 sec");
-  await expect(page.locator("#cvDoneCard .r-value").last()).toHaveText(/^TXN-\d{6}$/);
+  await expect(page.locator("#cvDoneCard .receipt-row").filter({ hasText: "Confirmation" }).locator(".r-value")).toHaveText(/^TXN-\d{6}$/);
+  // The conversion's detail: the coin's network
+  await page.locator("#cvViewTx").click();
+  await expect(page.locator('#cvReceipt [data-label="Network"] > span:last-child')).toHaveText("Base");
 });
 
 test("a dispute's done screen repeats its review's rows", async ({ page }) => {

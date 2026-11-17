@@ -47,7 +47,7 @@ export function TempScreen() {
   };
   const share = () => {
     const text = `Send exactly ${formatNairaShort(temp.amount)}\nAccount number: ${temp.num}\nBank: [Partner bank]\nAccount name: Poket / ${name}`;
-    if (navigator.share) { navigator.share({ title: "Temporary account details", text }).catch(() => {}); return; }
+    if (navigator.share) { navigator.share({ title: "Single-use account details", text }).catch(() => {}); return; }
     try { navigator.clipboard?.writeText(text).catch(() => {}); } catch {}
     showNotice("Details copied", "Paste them into your bank app.", 2400);
   };

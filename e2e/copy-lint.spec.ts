@@ -1,11 +1,12 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
 /**
- * docs/copy.md: no user-facing string has an em dash or a straight apostrophe, or uses the words NUBAN, NIP or
- * "name enquiry". Checks every string the product code can show: JSX text, string literals and template text in
+ * docs/copy.md: no user-facing string has an em dash or a straight apostrophe, or uses the words NUBAN, NIP,
+ * "name enquiry", "temporary account" or "one-time account" (it's a "single-use account"), or "passcode" (a PIN is
+ * the user's 4 digits; a code is what Poket or the bank sends). Checks every string the product code can show: JSX text, string literals and template text in
  * features/, lib/, store/ and components/ (comments, imports and object keys aren't copy; demo-only controls in
  * components/demo/ and the merchant demo pages aren't the product; icon and logo markup is data).
  */
@@ -17,6 +18,8 @@ const RULES: [string, RegExp][] = [
   ["NUBAN", /\bNUBAN\b/i],
   ["NIP", /\bNIP\b/],
   ["name enquiry", /name enquiry/i],
+  ["temporary account (say single-use account)", /\b(temporary|one-time)[ -]account/i],
+  ["passcode (say PIN or code)", /passcode/i],
 ];
 /** Strings that are code, not copy: CSS selectors and HTML or SVG markup. */
 const isCode = (s: string) => /^\s*</.test(s) || /^[[#.]/.test(s) || /\[[\w-]+=['"]/.test(s);

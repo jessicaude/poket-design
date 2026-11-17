@@ -9,15 +9,16 @@ import { useAccount } from "@/store/account";
 import { useConvert } from "../convert/useConvert";
 import { CheckoutPaymentRow, RefundRow } from "../disputes/DisputeScreens";
 import { DEMO_TXNS, type DemoTx } from "../home/homeData";
-import { BackRow, Grey } from "../payout/parts";
+import { useIsDemoUser } from "../useWalletSession";
+import { Grey } from "../payout/parts";
 import { useWithdrawals } from "../payout/useWithdrawals";
 import { fmtCurrency } from "../payout/payoutMath";
 import { useWalletNav } from "../useWalletNav";
 import { ConversionRow } from "../withdrawals/ConversionRow";
 import { WithdrawalRow } from "../withdrawals/parts";
 import { useNgnCredits } from "./credits";
-import { TxFields, creditFields, creditTitle } from "./fields";
-import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { creditFields, creditTitle } from "./fields";
+import { TxDetailView, TxIcon, TxNotFound, type TxDir } from "./TxView";
 import { creditReceipt } from "../receipt/receipt";
 import { useDeposit } from "../deposit/useDeposit";
 import { DepositRow } from "../deposit/DepositRecords";
@@ -30,7 +31,7 @@ import { CardPurchaseRow } from "../card/CardScreen";
  * balances, so it shows under All only, as the exploration's kindOf has it). Rows carry a status chip unless
  * completed.
  */
-export type HistoryDir = "in" | "out" | "convert";
+export type HistoryDir = TxDir;
 export type HistoryItem = { at: number; key: string; dir: HistoryDir;
   /** The balances it moved, as cvKeys ("cash:NGN:open", "cash:USD:fiat"): each balance screen lists its own. */
   keys: string[]; el: ReactNode };
@@ -40,7 +41,7 @@ function DemoTxRow({ t }: { t: DemoTx }) {
   const push = useWalletNav((s) => s.push);
   return (
     <div className="tx-row" data-txid={t.id} role="button" tabIndex={0} onClick={() => push({ name: "tx", id: t.id })}>
-      <div className={`tx-ic ${t.type === "payment" ? "out" : "in"}`} dangerouslySetInnerHTML={{ __html: t.type === "deposit" ? WICON.add : WICON.activity }} />
+      <TxIcon dir={t.positive ? "in" : "out"} />
       <div className="tx-main"><div className="tx-title">{t.title}</div>{t.sub && <div className="tx-sub">{t.sub}</div>}</div>
       <div className={`tx-amt ${t.positive ? "pos" : ""}`}><Grey>{(t.positive ? "+" : "-") + fmtCurrency(t.amount, "USD")}</Grey></div>
     </div>
@@ -56,9 +57,11 @@ export function useActivity(): HistoryItem[] {
   const payments = useAccount((s) => s.account?.payments) ?? [];
   const deposits = useDeposit((s) => s.records);
   const cardSpend = useCards((s) => s.purchases);
+  // The reference's own records (S.txns) are Ada's: a new account's wallet has none
+  const demoTxns = useIsDemoUser() ? DEMO_TXNS : [];
   return [
     // The reference's records are USD: a top-up only under card-funded USD (the reference's matching rule)
-    ...DEMO_TXNS.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
+    ...demoTxns.map((t) => ({ at: t.ts, key: t.id, dir: (t.positive ? "in" : "out") as HistoryDir,
       keys: t.type === "deposit" ? ["cash:USD:fiat"] : ["cash:USD:open", "cash:USD:fiat"], el: <DemoTxRow key={t.id} t={t} /> })),
     // A payment by card or bank transfer doesn't move a balance; a refund into the NGN balance does
     ...payments.map((p) => ({ at: new Date(p.at).getTime(), key: p.id, dir: "out" as const, keys: [] as string[], el: <CheckoutPaymentRow key={p.id} p={p} /> })),
@@ -115,9 +118,8 @@ export function History({ items, id, empty }: { items: HistoryItem[]; id: string
 }
 
 const CREDIT_SUB: Record<NgnCredit["kind"], string> = {
-  temp: "Temporary account", account: "NGN account details", delayed: "NGN account details · Delayed", poket: "Poket", recall: "Recovered",
+  temp: "Single-use account", account: "NGN account details", delayed: "NGN account details · Delayed", poket: "CentryLink", recall: "Recovered",
 };
-const creditIcon = (c: NgnCredit) => (c.kind === "poket" ? WICON.user : c.kind === "temp" ? WICON.add : WICON.bank);
 
 function useRecallName(c: NgnCredit) {
   return useWithdrawals((s) => (c.withdrawalId ? s.list.find((w) => w.id === c.withdrawalId)?.recipientName : undefined));
@@ -129,32 +131,23 @@ export function CreditRow({ c }: { c: NgnCredit }) {
   const open = () => push({ name: "credit", id: c.id });
   return (
     <div className="tx-row" data-txid={c.id} data-credit={c.kind} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-      <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: creditIcon(c) }} />
+      <TxIcon dir="in" />
       <div className="tx-main"><div className="tx-title">{creditTitle(c, name)}</div><div className="tx-sub">{CREDIT_SUB[c.kind]}</div></div>
       <div className="tx-amt pos"><Grey>{"+" + formatNaira(c.amount)}</Grey></div>
     </div>
   );
 }
 
-/** A credit's receipt (tTxDetail): the naira flag, the amount in, and the shared rows. */
+/** A credit's detail: the shared transaction template, then a delayed transfer's note. */
 export function CreditDetailScreen({ id }: { id: string }) {
-  const back = useWalletNav((s) => s.back);
   const c = useNgnCredits((s) => s.list.find((x) => x.id === id));
   const name = useWithdrawals((s) => (c?.withdrawalId ? s.list.find((w) => w.id === c.withdrawalId)?.recipientName : undefined));
-  if (!c) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
+  if (!c) return <TxNotFound />;
   return (
-    <>
-      <BackRow id="backFromTxDetail" onClick={back} />
-      <div className="center-col" style={{ padding: "6px 8px 0" }}>
-        <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: WICON.ngFlag }} />
-      </div>
-      <div className="step-title mono" id="creditAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{formatNaira(c.amount)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{creditTitle(c, name)}</p>
-      <div className="info-card" id="txDetail"><TxFields f={creditFields(c)} /></div>
-      <ShareReceiptButton receipt={creditReceipt(c, name)} />
+    <TxDetailView dir="in" amount={formatNaira(c.amount)} title={creditTitle(c, name)} f={creditFields(c)} receipt={creditReceipt(c, name)} amountId="creditAmount">
       {c.kind === "delayed" && (
         <div className="alert info" id="creditDelayed" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>This transfer was delayed.</span></div>
       )}
-    </>
+    </TxDetailView>
   );
 }

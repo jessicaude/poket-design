@@ -1,10 +1,14 @@
 "use client";
-import { DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
+import { DisputeProgress, DisputeRow, RaiseDispute, useDemoDisputes } from "../disputes/DisputeScreens";
 import { History, useActivity } from "../history/History";
+import { demoTxFields } from "../history/fields";
+import { TxDetailView, TxNotFound } from "../history/TxView";
+import { demoTxReceipt } from "../receipt/receipt";
 import { NairaPausedBanner } from "../NairaPausedBanner";
 import { Raw } from "@/components/ui/Raw";
 import { FILTER_ICON, WICON } from "@/lib/icons";
 import { useAccount } from "@/store/account";
+import { accountContact } from "@/features/auth/identifier";
 import { useNgn } from "../ngn/useNgn";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
@@ -16,7 +20,6 @@ import { useHoldings, type CashCurrency, type CoinAsset, type Network } from "..
 import { useWalletToast } from "../useWalletToast";
 import { useWalletNav } from "../useWalletNav";
 import { OnHoldLink } from "../withdrawals/parts";
-import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
 import {
   ASSET_NAME, CURRENCY_ICON, CURRENCY_NAME, DEMO_TXNS, assetDelta, cashRows, stablecoinRows, totalBalanceUsd, useWalletHome,
   type CashRow, type CoinRow,
@@ -121,7 +124,8 @@ function SettingsPanel({ id }: { id: string }) {
 export function WalletHome() {
   useBalances();
   const { walletTab, masked, hideZero, settingsOpen, set } = useWalletHome();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  // A phone-only account (wallet sign-up by phone) shows its number
+  const email = useAccount((s) => (s.account ? accountContact(s.account) : "")) || "ada@osun.co";
   const push = useWalletNav((s) => s.push);
   const isCash = walletTab === "cash";
   const cash = isCash ? cashRows(hideZero) : [];
@@ -245,29 +249,17 @@ export function ActivityScreen() {
   );
 }
 
-/** tTxDetail for a demo record: the currency's flag, the amount, its title and the reference's detail rows. */
+/** A demo record's detail: the shared transaction template; a payment to a store can be disputed. */
 export function DemoTxDetailScreen({ id }: { id: string }) {
-  const back = useWalletNav((s) => s.back);
   const t = DEMO_TXNS.find((x) => x.id === id);
   const disputed = useDemoDisputes((s) => !!s.open[id]);
-  if (!t) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
+  if (!t) return <TxNotFound />;
   return (
-    <>
-      <BackRow id="backFromTxDetail" onClick={back} />
-      <div className="center-col" style={{ padding: "6px 8px 0" }}>
-        <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: WICON.usFlag }} />
-      </div>
-      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: t.positive ? "var(--ok-600)" : "var(--n-900)" }}><Grey>{fmtUsd(t.amount)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{t.title}</p>
-      <div className="info-card" id="txDetail">
-        <DetailRow label="Status" value="Completed" />
-        <DetailRow label="Date" value={formatTxDate(t.ts)} />
-        {t.details.map(([k, v]) => <DetailRow key={k} label={k} value={v} />)}
-        <ReferenceRow refText={t.ref} />
-        {disputed && <DisputeRow />}
-      </div>
+    <TxDetailView dir={t.positive ? "in" : "out"} amount={fmtUsd(t.amount)} title={t.title} tag={t.details.find(([k]) => k === "Funding tag")?.[1]}
+      f={demoTxFields(t)} receipt={demoTxReceipt(t)} rows={disputed ? <DisputeRow /> : undefined}>
       {/* extDisputable: only a payment to a store can be disputed (not a deposit, top-up or refund) */}
+      {disputed && <DisputeProgress resolved={false} />}
       {t.type === "payment" && !disputed && <RaiseDispute at={t.ts} merchant={t.details.find(([k]) => k === "Merchant")?.[1] ?? t.title} target={{ kind: "demo", id: t.id }} />}
-    </>
+    </TxDetailView>
   );
 }

@@ -22,7 +22,7 @@ function creditNew() {
       credited.add(r.id);
       attribute({ description: refundTitle(p, r), reference: r.id }, () => useNgn.setState((s) => ({ ngnBalance: s.ngnBalance + r.amount })));
       // A dispute's refund: the resolution's notification says so
-      if (!r.fromDispute) notify("refundReceived", { amount: formatNairaShort(r.amount), merchant: p.merchant });
+      if (!r.fromDispute) notify("refundReceived", { amount: formatNairaShort(r.amount), merchant: p.merchant }, { name: "refund", id: r.id });
     }
     // WGT-12: a resolved dispute, once (the reference's notify() wording where it has one; reversal is NEW)
     const o = p.dispute?.outcome;
@@ -30,9 +30,11 @@ function creditNew() {
       resolved.add(p.id);
       const back = (p.refunds ?? []).filter((r) => r.fromDispute).at(-1);
       const amt = back ? withoutCode(fmtCurrency(back.amount, p.currency)) : "";
-      if (o === "refund") notify(back?.to === "ngn" ? "disputeRefundedToBalance" : "disputeRefundedToCard", { amount: amt, merchant: p.merchant, method: p.method });
-      else if (o === "reversal") notify("paymentReversed", { amount: amt, merchant: p.merchant, destination: back ? refundDest(p, back) : p.method });
-      else notify("disputeClosed", { amount: withoutCode(fmtCurrency(p.amount, p.currency)), merchant: p.merchant });
+      // The refund or reversal it sent back, else the payment
+      const target = back ? { name: "refund" as const, id: back.id } : { name: "payment" as const, id: p.id };
+      if (o === "refund") notify(back?.to === "ngn" ? "disputeRefundedToBalance" : "disputeRefundedToCard", { amount: amt, merchant: p.merchant, method: p.method }, target);
+      else if (o === "reversal") notify("paymentReversed", { amount: amt, merchant: p.merchant, destination: back ? refundDest(p, back) : p.method }, target);
+      else notify("disputeClosed", { amount: withoutCode(fmtCurrency(p.amount, p.currency)), merchant: p.merchant }, target);
     }
   }
 }

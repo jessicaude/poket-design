@@ -3,9 +3,10 @@ import { useNairaPartner } from "@/store/partner";
 import { useAccount, type Account, type PaymentMethod } from "@/store/account";
 import { useDemo, type BankTransferAccount, type MerchantAccepts, type OrderCurrency } from "@/store/demo";
 import { useEvents } from "@/store/events";
-import { DIRECTORY, registerAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
+import { DIRECTORY, GEO_COUNTRY, registerAccount, createCheckoutVirtualAccount, createPayment, expireCheckoutVirtualAccount, getMerchantPoolAccount, simulateCheckoutTransfer, type CheckoutVirtualAccount } from "@/lib/mock-api";
 import { orderUsdCents, type Cents } from "@/lib/money";
 import { useAccountLock } from "@/store/lock";
+import { idShowsUnder18, underAgeByDob, usesSsn, type IdentityDetails } from "@/features/auth/identity";
 import { firstUsable, isBlockedMethod, isConverting, newQuote, quoteFxRate, quoteLeft, quoteRateText, quoteUsdCents, type Quote } from "./quote";
 
 /**
@@ -29,8 +30,9 @@ export type Screen = "signup" | "pay" | "add-method" | "add-card" | "bank-transf
   /** WGT-12: Checkout's Poket account (Activity tab, a payment's detail, a dispute) */
   | "activity" | "pay-detail" | "dispute" | "refund-detail";
 
-/** SCREENS['blocked'] reasons: the prototype's age and id_declined, plus a sanctions match (copy from tSanctionsDeclined). */
-export type BlockReason = "age" | "id_declined" | "sanctions";
+/** SCREENS['blocked'] reasons: the prototype's age and id_declined, an ID that shows under 18 (doc_age, tDocAgeBlocked's
+ * copy) and a sanctions match (tSanctionsDeclined's copy). */
+export type BlockReason = "age" | "doc_age" | "id_declined" | "sanctions";
 
 /** The reference's VF_MAX_TRIES and VF_RETRY_REASONS (wallet engine, reference/poket-widgets.html). */
 export const ID_MAX_TRIES = 3;
@@ -51,20 +53,10 @@ export type Idv = {
 };
 const NEW_IDV: Idv = { det: { d: "", m: "", y: "", ssn: "" }, noSsn: false, vendor: "veriff", vstage: "start", retryReason: null };
 
-/** Where the location check puts a new account (the reference's GEO_COUNTRY), and the details screen's countries. */
-export const GEO_COUNTRY = "Nigeria";
-export const ID_COUNTRIES = ["United States", "Nigeria", "United Kingdom", "Ghana", "Canada"];
-
-/** Age from a date of birth (the details screen's age()); null until the date is complete. */
-export function ageFrom(d: string, m: string, y: string, now = new Date()): number | null {
-  const Y = +y, M = +m, D = +d;
-  if (!Y || !M || !D || y.length < 4) return null;
-  let a = now.getFullYear() - Y;
-  if (now.getMonth() + 1 < M || (now.getMonth() + 1 === M && now.getDate() < D)) a--;
-  return a;
-}
-/** A US SSN: 9 digits, not starting 000, 666 or 9. */
-export const ssnOk = (v: string) => { const d = v.replace(/\D/g, ""); return d.length === 9 && !/^(000|666|9)/.test(d); };
+/** Where the location check puts a new account (lib/mock-api.ts, shared with the wallet's sign-up). */
+export { GEO_COUNTRY };
+/** The details screen's rules live with the shared screen (features/auth/identity.ts). */
+export { ID_COUNTRIES, ageFrom, ssnOk } from "@/features/auth/identity";
 
 /** Every Checkout payment under $500 skips the ID check (agreed rule). */
 export const NO_ID_LIMIT: Cents = 50000;
@@ -128,7 +120,7 @@ type State = {
 
   // Identity verification (SCREENS details, vendor, verifying, id-done, blocked)
   setIdv: (patch: Partial<Idv>) => void;
-  submitDetails: (p: { first: string; last: string; country: string; age: number }) => void;
+  submitDetails: (det: IdentityDetails) => void;
   openOnPhone: () => void;
   finishOnPhone: () => void;
   approveReview: () => void;
@@ -299,12 +291,14 @@ export const useCheckout = create<State>((set, get) => ({
   },
 
   setIdv: (patch) => set((st) => ({ idv: { ...st.idv, ...patch } })),
-  // dGo: save the name and country; under 18 is blocked; US residents (with an SSN) go to Plaid, others to Veriff
-  submitDetails: ({ first, last, country, age }) => {
+  // dGo: save the name and country; under 18 by this date of birth is blocked; US residents (with an SSN) go to
+  // Plaid, others to Veriff
+  submitDetails: (det) => {
+    const { first, last, country, d, m, y, ssn, noSsn } = det;
     useAccount.getState().update((a) => ({ ...a, first, last, country }));
-    if (age < 18 || useDemo.getState().idOutcome === "under18") { get().block("age"); return; }
-    const us = country === "United States" && !get().idv.noSsn;
-    set((st) => ({ idv: { ...st.idv, vendor: us ? "plaid" : "veriff", vstage: "start" }, screen: "vendor" }));
+    set((st) => ({ idv: { ...st.idv, det: { d, m, y, ssn }, noSsn } }));
+    if (underAgeByDob(det)) { get().block("age"); return; }
+    set((st) => ({ idv: { ...st.idv, vendor: usesSsn(det) ? "plaid" : "veriff", vstage: "start" }, screen: "vendor" }));
   },
   // The vendor screen's demo actions: "Open on phone", then "Finish on phone" (verifying, then the result after 1.4s)
   openOnPhone: () => set((st) => ({ idv: { ...st.idv, vstage: "phone" } })),
@@ -342,7 +336,6 @@ function idResult() {
   if (st.screen !== "verifying") return;
   const outcome = useDemo.getState().idOutcome;
   if (outcome === "declined") { st.block("id_declined"); return; }
-  if (outcome === "sanctions") { st.block("sanctions"); return; }
   if (outcome === "review") { useCheckout.setState({ screen: "id-review" }); return; }
   if (outcome === "retry") {
     // Veriff's shared limit: every failed check counts, on the account, across checkouts; the 3rd is a decline
@@ -352,5 +345,8 @@ function idResult() {
     useCheckout.setState({ idv: { ...st.idv, retryReason: ID_RETRY_REASONS[(failures - 1) % ID_RETRY_REASONS.length] }, screen: "id-retry" });
     return;
   }
-  verified(); // pass (under 18 is caught on the details screen)
+  // The ID passed: its date of birth is checked too (computeDocDob), then sanctions
+  if (idShowsUnder18(useAccount.getState().account?.last ?? "")) { st.block("doc_age"); return; }
+  if (outcome === "sanctions") { st.block("sanctions"); return; }
+  verified(); // pass (under 18 by the date of birth given is caught on the details screen)
 }

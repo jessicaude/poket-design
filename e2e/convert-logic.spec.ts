@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { belowMinimum, cvBlockReason, cvBlockedPair, cvDefaultFrom, cvFeeLabel, cvFeeText, cvFixTo, cvParse, cvQuote, cvRateText, cvSourceFor, cvType, overNgnLimit } from "@/features/wallet/convert/convertMath";
 import { evaluateLimit, useSpend } from "@/features/wallet/limits";
 import { useHoldings } from "@/features/wallet/useHoldings";

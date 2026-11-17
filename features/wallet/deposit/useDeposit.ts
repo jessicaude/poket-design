@@ -31,7 +31,8 @@ export type DepositRecord = {
   /** The balance it went to, as a cvKey ("cash:USD:fiat", "coin:USDC:Base"). */
   key: string;
   unit: string; amount: number; fee: number; gross: number;
-  rows: [string, string][];
+  /** Its detail's From (the card, the sender's bank; none for a stablecoin) and Method. */
+  from?: string; method: string;
 };
 
 /** The reference's S.savedCards (Ada's, in place of the reference's Jordan Rivera). */
@@ -54,7 +55,6 @@ type State = {
   entry: "select" | "method" | "va";
   search: string;
   cents: number;
-  keypadOpen: boolean;
   savedCards: SavedCard[];
   cardId: string | null;
   vaStage: VaStage;
@@ -75,7 +75,8 @@ type State = {
   back: () => void;
   set: (p: Partial<State>) => void;
   /** Select's Continue: a stablecoin's address, else the currency's methods (NGN: handled by the caller). */
-  selectContinue: () => void;
+  /** The picker: a currency goes to its methods, a stablecoin to its address. */
+  pick: (c: DepositChoice) => void;
   bank: () => void;
   card: () => void;
   key: (k: string) => void;
@@ -92,7 +93,7 @@ type State = {
   reset: () => void;
 };
 
-const BLANK = { stage: null, choice: null, entry: "select" as const, search: "", cents: 0, keypadOpen: false, cardId: null, vaStage: "intro" as VaStage, vaAgree: false, gate: null, last: null };
+const BLANK = { stage: null, choice: null, entry: "select" as const, search: "", cents: 0, cardId: null, vaStage: "intro" as VaStage, vaAgree: false, gate: null, last: null };
 let pending: "card" | "coin" | null = null;
 
 const usdOf = (minor: number, unit: string) => (minor * (unit in DEMO_USD_PER ? DEMO_USD_PER[unit as CashCurrency] : 1)) / 100;
@@ -121,7 +122,7 @@ export const useDeposit = create<State>((set, get) => {
           cash: { ...s.cash, [cur]: s.cash[cur] + cents }, fiatOnly: { ...s.fiatOnly, [cur]: s.fiatOnly[cur] + cents } })));
         useSpend.getState().record(usdOf(cents, cur));
         add({ kind: "card", ref, title: `${cur} deposit`, sub: `${card.brand} ••• ${card.last4}`, key: `cash:${cur}:fiat`, unit: cur, amount: cents, fee, gross: cents + fee,
-          rows: [["Card", `${card.brand} ••• ${card.last4}`], ["Card fee", fmtUnit(fee, cur)], ["Total charged", fmtUnit(cents + fee, cur)], ["Funding tag", "FIAT-ONLY"], ["Statement descriptor", "POKET"]] });
+          from: `${card.brand} ••• ${card.last4}`, method: "Card" });
         set({ stage: "card-done" });
       }, 1600);
     }
@@ -131,8 +132,8 @@ export const useDeposit = create<State>((set, get) => {
         const amt = COIN_DEPOSIT_DEMO;
         useHoldings.setState((s) => ({ coins: { ...s.coins, [c.asset]: { ...s.coins[c.asset], [c.net]: s.coins[c.asset][c.net] + amt } } }));
         useSpend.getState().record(amt / 100);
-        add({ kind: "coin", ref: genRef(), title: `${c.asset} deposit`, sub: c.net, key: `coin:${c.asset}:${c.net}`, unit: c.asset, amount: amt, fee: 0, gross: amt,
-          rows: [["Asset", c.asset], ["Network", c.net]] });
+        add({ kind: "coin", ref: genRef(), title: `${c.asset} deposit`, sub: `Stablecoin · ${c.net}`, key: `coin:${c.asset}:${c.net}`, unit: c.asset, amount: amt, fee: 0, gross: amt,
+          method: "Deposit address" });
         set({ stage: "coin-done" });
       }, 1400);
     }
@@ -150,7 +151,7 @@ export const useDeposit = create<State>((set, get) => {
 
   return {
     ...BLANK, savedCards: SAVED_CARDS, vas: {}, records: [],
-    open: () => set({ ...BLANK, stage: "select", choice: { k: "cash", cur: "USD" }, entry: "select" }),
+    open: () => set({ ...BLANK, stage: "select", entry: "select" }),
     openFor: (cur) => set({ ...BLANK, stage: "method", choice: { k: "cash", cur }, entry: "method" }),
     openAccount: (cur) => set({ ...BLANK, stage: "va", choice: { k: "cash", cur }, entry: "va", vaStage: vaStageFor(cur) }),
     close: () => set(BLANK),
@@ -160,19 +161,15 @@ export const useDeposit = create<State>((set, get) => {
       const prev: Partial<Record<DepositStage, DepositStage>> = {
         method: "select", va: "method", amount: "method", "select-card": "amount", card: "select-card", address: "select",
       };
-      set({ stage: prev[stage!] ?? "select", keypadOpen: false });
+      set({ stage: prev[stage!] ?? "select" });
     },
     set: (p) => set(p),
-    selectContinue: () => {
-      const c = get().choice;
-      if (!c) return;
-      set({ stage: c.k === "coin" ? "address" : "method" });
-    },
+    pick: (c) => set({ choice: c, stage: c.k === "coin" ? "address" : "method" }),
     bank: () => {
       const c = get().choice;
       if (c?.k === "cash" && c.cur !== "NGN") set({ stage: "va", vaStage: vaStageFor(c.cur), vaAgree: false });
     },
-    card: () => set({ stage: "amount", cents: 0, keypadOpen: false }),
+    card: () => set({ stage: "amount", cents: 0 }),
     key: (k) => {
       const cents = get().cents;
       if (k === "back") return set({ cents: Math.floor(cents / 10) });
@@ -204,9 +201,9 @@ export const useDeposit = create<State>((set, get) => {
       // As the NGN credits: what arrived, then the fee out of it as its own line (same reference)
       attribute({ description: line, reference: ref }, () => useHoldings.setState((s) => ({ cash: { ...s.cash, [cur]: s.cash[cur] + gross } })));
       if (fee) attribute({ description: `Fee · ${line}`, reference: ref }, () => useHoldings.setState((s) => ({ cash: { ...s.cash, [cur]: s.cash[cur] - fee } })));
-      const rec = add({ kind: "bank", ref, title: line, sub: firstRail(cur), key: `cash:${cur}:open`, unit: cur, amount: gross - fee, fee, gross,
-        rows: [["From", `${sender} · Your bank`], ["Rail", firstRail(cur)], ["Amount sent", fmtUnit(gross, cur)], ["Deposit fee", fmtUnit(fee, cur)], ["Added", fmtUnit(gross - fee, cur)]] });
-      notify("transferReceived", { amount: fmtCurrency(gross - fee, cur).replace(/ [A-Z]{3}$/, ""), sender, currency: cur });
+      const rec = add({ kind: "bank", ref, title: line, sub: `Bank transfer · ${firstRail(cur)}`, key: `cash:${cur}:open`, unit: cur, amount: gross - fee, fee, gross,
+        from: `${sender} · Your bank`, method: `Bank transfer · ${firstRail(cur)}` });
+      notify("transferReceived", { amount: fmtCurrency(gross - fee, cur).replace(/ [A-Z]{3}$/, ""), sender, currency: cur }, { name: "deposit", id: rec.id });
       return rec;
     },
     reset: () => set({ ...BLANK, savedCards: SAVED_CARDS, vas: {}, records: [] }),

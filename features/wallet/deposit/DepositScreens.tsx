@@ -1,14 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
-import { detectBrand, cardLen, cvcLen } from "@/lib/card";
-import { CARD_FUND_RATE, cardFundFee, cardFundFlat, depositFeeText } from "@/lib/fees";
+import { CARD_FUND_RATE, cardFundFee, cardFundFlat, depositFeeShort, depositFeeText } from "@/lib/fees";
 import { BRANDS, WICON } from "@/lib/icons";
 import { fmtAsset } from "../convert/convertMath";
 import { ASSET_NAME, CURRENCY_ICON, CURRENCY_NAME } from "../home/homeData";
 import { TIERS } from "../limits";
 import { holderName, useNgn, type Tier } from "../ngn/useNgn";
-import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
+import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { fmtCurrency } from "../payout/payoutMath";
 import { DigitBoxes } from "../payout/screens/PinScreens";
 import { StepUpIntro } from "../StepUpIntro";
@@ -17,6 +16,10 @@ import { useWalletNav } from "../useWalletNav";
 import { useWalletToast } from "../useWalletToast";
 import { DEPOSIT_ADDRESS, NETWORK_INFO, useDeposit, type DepositChoice } from "./useDeposit";
 import { VA_SPEC, type VaCurrency } from "./vaSpec";
+import { AccountIntro } from "./AccountIntro";
+import { AccountSetup } from "./AccountSetup";
+import { CardForm as SharedCardForm } from "@/features/payments/CardForm";
+import { AmountChip, AmountField, amountPlain } from "../AmountField";
 
 const ASSET_ICON: Record<CoinAsset, "usdc" | "usdt"> = { USDC: "usdc", USDT: "usdt" };
 const toast = (t: string) => useWalletToast.getState().showToast(t);
@@ -50,21 +53,22 @@ function buildQr(seed: string, iconKey: keyof typeof WICON) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${m}</svg>`;
 }
 
-/** tCardFund 'select': every currency (NGN goes on to its own flow) and every stablecoin on every network. */
+/**
+ * tCardFund 'select': every currency (NGN goes on to its own flow) and every stablecoin on every network. Tapping one
+ * goes straight to its next step (no radio, no Continue).
+ */
 function DepositSelect() {
-  const { search, choice, set, selectContinue, close } = useDeposit();
+  const { search, set, pick, close } = useDeposit();
   const q = search.trim().toLowerCase();
-  const isSel = (c: DepositChoice) => JSON.stringify(c) === JSON.stringify(choice);
-  const cash = CASH_CURRENCIES.filter((c) => !q || c.toLowerCase().includes(q) || CURRENCY_NAME[c].toLowerCase().includes(q))
-    .sort((a, b) => Number(isSel({ k: "cash", cur: b })) - Number(isSel({ k: "cash", cur: a })));
+  const cash = CASH_CURRENCIES.filter((c) => !q || c.toLowerCase().includes(q) || CURRENCY_NAME[c].toLowerCase().includes(q));
   const coins = COIN_ASSETS.flatMap((asset) => NETWORKS.map((net) => ({ asset, net })))
-    .filter(({ asset, net }) => !q || asset.toLowerCase().includes(q) || net.toLowerCase().includes(q) || ASSET_NAME[asset].toLowerCase().includes(q))
-    .sort((a, b) => Number(isSel({ k: "coin", ...b })) - Number(isSel({ k: "coin", ...a })));
-  const go = () => {
+    .filter(({ asset, net }) => !q || asset.toLowerCase().includes(q) || net.toLowerCase().includes(q) || ASSET_NAME[asset].toLowerCase().includes(q));
+  const go = (c: DepositChoice) => {
     // NGN keeps its own flow (temporary account, account details, Convert)
-    if (choice?.k === "cash" && choice.cur === "NGN") { close(); useNgn.getState().open("deposit-method"); return; }
-    selectContinue();
+    if (c.k === "cash" && c.cur === "NGN") { close(); useNgn.getState().open("deposit-method"); return; }
+    pick(c);
   };
+  const keys = (c: DepositChoice) => (e: React.KeyboardEvent) => { if (e.key === "Enter") go(c); };
   return (
     <>
       <BackRow id="backHome" label="Wallet" onClick={close} />
@@ -77,24 +81,23 @@ function DepositSelect() {
       <div style={{ margin: "0 -2px" }}>
         {cash.length > 0 && <label className="field-label">Cash</label>}
         {cash.map((cur) => (
-          <div key={cur} className={`select-row ${isSel({ k: "cash", cur }) ? "sel" : ""}`} data-depositcash={cur} role="button" tabIndex={0} onClick={() => set({ choice: { k: "cash", cur } })}>
+          <div key={cur} className="select-row" data-depositcash={cur} role="button" tabIndex={0} onClick={() => go({ k: "cash", cur })} onKeyDown={keys({ k: "cash", cur })}>
             <div className="badge"><Raw html={WICON[CURRENCY_ICON[cur]]} /></div>
             <div className="meta"><div className="t1">{CURRENCY_NAME[cur]}</div><div className="t2">{cur}</div></div>
-            <div className="radio" />
+            <span className="va-chev">{"›"}</span>
           </div>
         ))}
         {coins.length > 0 && <label className="field-label" style={{ marginTop: "14px" }}>Stablecoin</label>}
         {coins.map(({ asset, net }) => (
-          <div key={asset + net} className={`select-row ${isSel({ k: "coin", asset, net }) ? "sel" : ""}`} data-depositasset={asset} data-depositnet={net} role="button" tabIndex={0}
-            onClick={() => set({ choice: { k: "coin", asset, net } })}>
+          <div key={asset + net} className="select-row" data-depositasset={asset} data-depositnet={net} role="button" tabIndex={0}
+            onClick={() => go({ k: "coin", asset, net })} onKeyDown={keys({ k: "coin", asset, net })}>
             <div className="asset-icon-wrap"><div className="badge"><Raw html={WICON[ASSET_ICON[asset]]} /></div><span className="badge-network"><Raw html={WICON[NETWORK_INFO[net].icon]} /></span></div>
             <div className="meta"><div className="t1">{asset} on {net}</div><div className="t2">Deposit address</div></div>
-            <div className="radio" />
+            <span className="va-chev">{"›"}</span>
           </div>
         ))}
         {!cash.length && !coins.length && <div style={{ fontSize: "12.5px", color: "var(--txt3)", padding: "8px 0 4px" }}>No matches for &ldquo;{search}&rdquo;.</div>}
       </div>
-      <SpinButton id="depositSelectContinue" delay={500} style={{ marginTop: "10px" }} disabled={!choice} onClick={go}>Continue</SpinButton>
     </>
   );
 }
@@ -126,11 +129,14 @@ function DepositMethod() {
 
 /** tVa (not NGN): verify first, then the intro, creating, and the account details (or "setting up"). */
 function DepositAccount() {
-  const { choice, vas, vaStage, vaAgree, set, back, vaCreate } = useDeposit();
+  const { choice, vas, vaStage, vaAgree, set, back, vaCreate, card } = useDeposit();
   const tier = useNgn((s) => s.tier);
   const [verifying, setVerifying] = useState(false);
   const [copied, setCopied] = useState<number | null>(null);
   const cur = cashCur(choice), spec = VA_SPEC[cur], va = vas[cur];
+  // Seen pending here: the setup screen stays until its tracker completes, then the details
+  const [waiting, setWaiting] = useState(false);
+  if (va?.status === "pending" && !waiting) setWaiting(true);
   const backRow = <BackRow id="vaBack" onClick={back} />;
   if (verifying) return <StepUpIntro current={tier} target={1} reason="Account details are in your verified name." onCancel={() => setVerifying(false)}
     onContinue={() => { useNgn.getState().set({ tier: 1 as Tier }); setVerifying(false); set({ vaStage: va ? "details" : "intro" }); }} />;
@@ -145,25 +151,12 @@ function DepositAccount() {
       </div>
     </>
   );
+  // The intro shared with NGN's (AccountIntro): this currency's rails and timings, and its partner bank's terms
   if (vaStage === "intro") return (
     <>
       {backRow}
-      <div className="convert-visual" style={{ marginTop: "4px" }}><div className="badge"><Raw html={WICON[CURRENCY_ICON[cur]]} /></div><span className="convert-arrow"><Raw html={WICON.bank} /></span></div>
-      <div className="step-title" style={{ textAlign: "center", marginTop: "10px" }}>Get {cur} account details</div>
-      <p className="step-sub" style={{ textAlign: "center" }}>Share them with your bank, employer or clients. Money sent to them lands in your {cur} balance.</p>
-      <div className="receipt-card" id="vaIntroRows">
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.user} /></span><span className="r-label">Name on account</span><span className="r-value">{holderName()}</span></div>
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.bank} /></span><span className="r-label">Receive by</span><span className="r-value">{spec.rails}</span></div>
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.info} /></span><span className="r-label">Arrives</span><span className="r-value">{spec.arrives.split(" · ")[0]}</span></div>
-        {/* The deposit fee (lib/fees.ts), in place of the reference's "Free to receive" */}
-        <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Fees</span><span className="r-value" id="vaFee">{depositFeeText(cur)}</span></div>
-      </div>
-      <p className="step-sub" style={{ fontSize: "11.5px", marginTop: "10px" }}>Money you receive here can be converted to stablecoins.</p>
-      <div className="consent-row" style={{ marginTop: "12px" }}>
-        <input type="checkbox" id="vaAgree" checked={vaAgree} onChange={(e) => set({ vaAgree: e.target.checked })} />
-        <label htmlFor="vaAgree">Accept the <span className="consent-link">account terms</span> of Poket&rsquo;s partner bank, {spec.bank}</label>
-      </div>
-      <button className="btn-primary" id="vaCreate" disabled={!vaAgree} onClick={vaCreate}>Create account details</button>
+      <AccountIntro cur={cur} flag={WICON[CURRENCY_ICON[cur]]} bank={spec.bank} agree={vaAgree} onAgree={(on) => set({ vaAgree: on })} onCreate={vaCreate}
+        rows={[["Name on account", holderName()], ...spec.timings, ["Fee", depositFeeShort(cur)]]} />
     </>
   );
   if (vaStage === "creating" || !va) return (
@@ -173,15 +166,10 @@ function DepositAccount() {
       <p className="step-sub">This usually takes a few seconds.</p>
     </div>
   );
-  if (va.status === "pending") return (
+  if (va.status === "pending" || waiting) return (
     <>
       {backRow}
-      <div className="center-col" style={{ paddingTop: "20px" }} id="vaPending">
-        <div className="check-circle" style={{ background: "var(--brand-50)", color: "var(--brand-600)" }}><Raw html={WICON.info} /></div>
-        <div className="step-title">We&rsquo;re setting up your {cur} account</div>
-        <p className="step-sub">{spec.bank} is reviewing it. This usually takes 1-2 business days. We&rsquo;ll notify you when it&rsquo;s ready.</p>
-        <p className="step-sub" style={{ fontSize: "12px" }}>You can still deposit by card in the meantime.</p>
-      </div>
+      <AccountSetup cur={cur} flag={WICON[CURRENCY_ICON[cur]]} ready={va.status === "ready"} onDone={() => setWaiting(false)} onCard={card} />
     </>
   );
   const fields: [string, string][] = [["Account name", holderName()], ...spec.fields(va.num)];
@@ -217,34 +205,35 @@ function DepositAccount() {
         <button className="btn-secondary" id="vaShare" onClick={share}>Share details</button>
         <button className="btn-secondary" id="vaLetter" onClick={letter}>Confirmation letter</button>
       </div>
-      <div className="va-note" id="vaNote">Anyone can send to these details. Money you receive can be converted to stablecoins. {depositFeeText(cur)}, out of what arrives.</div>
+      <div className="va-note" id="vaNote">Anyone can send to these details. {depositFeeText(cur)}, out of what arrives.</div>
     </>
   );
 }
 
-/** tCardFund 'amount': tap the amount for the keypad; the card fee and what the card is charged. */
+/**
+ * tCardFund 'amount': the wallet's amount field (AmountField: the currency chip, the amount, the keypad on tap); then
+ * the card fee and what the card is charged, and Continue.
+ */
 function CardAmount() {
-  const { choice, cents, keypadOpen, set, back, key } = useDeposit();
+  const { choice, cents, set, back, key } = useDeposit();
   const cur = cashCur(choice), fee = cardFundFee(cents, cur);
   return (
     <>
       <BackRow id="backToDepositSelect" onClick={back} />
-      <div className="center-col" style={{ padding: "4px 0 2px" }}><div className="badge" style={{ width: "36px", height: "36px" }}><Raw html={WICON[CURRENCY_ICON[cur]]} /></div></div>
-      <div className="step-title" style={{ textAlign: "center" }}>Add {cur}</div>
-      <div className="amount-display" id="amountTapTarget" role="button" tabIndex={0} style={{ cursor: "pointer", padding: keypadOpen ? "20px 0 6px" : "56px 0 6px" }} onClick={() => set({ keypadOpen: true })}>
-        <span className="amount-value"><Grey>{fmtCurrency(cents, cur)}</Grey></span>
-      </div>
-      {!keypadOpen ? <p className="step-sub" style={{ textAlign: "center" }}>Tap the amount to enter how much to add.</p> : (
-        <>
-          <div className="info-card" id="cardFundFeeCard">
-            <div className="info-row"><span>Amount</span><span id="cfAmtRow"><Grey>{fmtCurrency(cents, cur)}</Grey></span></div>
-            <div className="info-row"><span>Card funding fee ({(CARD_FUND_RATE * 100).toFixed(1)}% + {fmtCurrency(cardFundFlat(cur), cur).replace(/ [A-Z]{3}$/, "")})</span><span id="cfFeeRow"><Grey>{fmtCurrency(fee, cur)}</Grey></span></div>
-            <div className="info-row"><span style={{ fontWeight: 600, color: "var(--n-900)" }}>Total charged</span><span id="cfTotalRow" style={{ fontWeight: 600, color: "var(--n-900)" }}><Grey>{fmtCurrency(cents + fee, cur)}</Grey></span></div>
+      <div className="step-title">Add {cur}</div>
+      <AmountField action={<SpinButton id="cardFundAmtContinue" delay={700} style={{ marginTop: "12px" }} disabled={cents <= 0} onClick={() => set({ stage: "select-card" })}>Continue</SpinButton>}
+        id="cardFundBox" label="Amount" chip={<AmountChip cur={cur} />} amountId="cardFundAmt" ariaLabel="Amount to add" text={amountPlain(cents)}
+        dataKey="fundkey" keypadId="cardFundKeypad" doneId="cardFundKeypadDone" onKey={key} style={{ marginTop: "14px" }}>
+        {cents <= 0 && <div className="cv-hint" id="cardFundHint">Tap the amount to enter how much to add.</div>}
+        {cents > 0 && (
+          // The highlighted total last, as on every review
+          <div className="receipt-card" id="cardFundFeeCard" style={{ marginTop: "12px" }}>
+            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.coins} /></span><span className="r-label">Amount</span><span className="r-value mono" id="cfAmtRow"><Grey>{fmtCurrency(cents, cur)}</Grey></span></div>
+            <div className="receipt-row"><span className="r-ic"><Raw html={WICON.percent} /></span><span className="r-label">Card funding fee ({(CARD_FUND_RATE * 100).toFixed(1)}% + {fmtCurrency(cardFundFlat(cur), cur).replace(/ [A-Z]{3}$/, "")})</span><span className="r-value mono" id="cfFeeRow"><Grey>{fmtCurrency(fee, cur)}</Grey></span></div>
+            <div className="receipt-row total"><span className="r-ic"><Raw html={WICON.check} /></span><span className="r-label">Total charged</span><span className="r-value mono" id="cfTotalRow"><Grey>{fmtCurrency(cents + fee, cur)}</Grey></span></div>
           </div>
-          <SpinButton id="cardFundAmtContinue" delay={700} style={{ marginBottom: "12px" }} disabled={cents <= 0} onClick={() => set({ stage: "select-card" })}>Continue</SpinButton>
-          <Keypad dataKey="key" onKey={key} />
-        </>
-      )}
+        )}
+      </AmountField>
     </>
   );
 }
@@ -265,7 +254,7 @@ function CardPick() {
           return (
             <div key={c.id} className={`select-row ${cardId === c.id ? "sel" : ""}`} data-cardpick={c.id} role="button" tabIndex={0} onClick={() => set({ cardId: c.id })}>
               <div className="badge badge-brand">{b ? <Raw html={BRANDS[b].mark} /> : <span style={{ display: "inline-flex", color: "var(--txt2)" }}><Raw html={WICON.card} /></span>}</div>
-              <div className="meta"><div className="t1">{c.nickname}</div><div className="t2 mono">{c.brand} · •••• {c.last4}</div></div>
+              <div className="meta"><div className="t1">{c.nickname}</div><div className="t2">{c.brand} · <span className="mono" data-cardlast4="">•••• {c.last4}</span></div></div>
               <div className="radio" />
             </div>
           );
@@ -277,69 +266,64 @@ function CardPick() {
   );
 }
 
-/** "MM/YYYY", valid until the end of that month. */
-const expiryValid = (v: string) => {
-  const m = /^(0[1-9]|1[0-2])\/(\d{4})$/.exec(v);
-  return !!m && new Date(+m[2], +m[1], 0, 23, 59) >= new Date();
-};
-
-/** tCardFund 'card': a new card, in the account holder's name. */
+/**
+ * tCardFund 'card': a new card, in the account holder's name. Checkout's card form (features/payments/CardForm.tsx,
+ * inside .su): brand and Luhn, MM / YY in the future, the CVC by brand, a ZIP code for US cards (USD), the cardholder
+ * name matching the account holder, and the authorisation.
+ */
 function CardForm() {
   const { choice, cents, back, addCard } = useDeposit();
   const cur = cashCur(choice);
-  const [f, setF] = useState({ num: "", exp: "", cvv: "", zip: "", name: "", terms: false });
-  const digits = f.num.replace(/\D/g, ""), b = detectBrand(digits);
-  const legal = holderName();
-  const nameMatch = !!f.name && f.name.trim().toLowerCase() === legal.toLowerCase();
-  const expFilled = f.exp.length === 7, expOk = !expFilled || expiryValid(f.exp);
-  const complete = !!b && digits.length === cardLen(b) && expFilled && expOk && f.cvv.length === cvcLen(b) && /^\d{5}(-\d{4})?$/.test(f.zip) && !!f.name;
-  const fmtNum = (d: string) => (b === "amex" ? [d.slice(0, 4), d.slice(4, 10), d.slice(10, 15)].filter(Boolean).join(" ") : d.slice(0, 16).replace(/(.{4})/g, "$1 ").trim());
   return (
     <>
       <BackRow id="backToCardSelect" onClick={back} />
       <div className="step-title">Add new card</div>
       <p className="step-sub"><Grey>{`${fmtCurrency(cents + cardFundFee(cents, cur), cur)} will be charged to this card.`}</Grey></p>
-      <label className="field-label" htmlFor="cardNumberInput">Card number</label>
-      <div className="card-num-wrap">
-        <input className="field-input mono" id="cardNumberInput" placeholder="4242 4242 4242 4242" value={f.num} maxLength={19} autoComplete="cc-number" inputMode="numeric"
-          onChange={(e) => setF({ ...f, num: fmtNum(e.target.value.replace(/\D/g, "")) })} />
-        <span className="card-num-mark" id="cardBrandMark">{b && <Raw html={BRANDS[b].mark} />}</span>
+      <div className="su" id="cardForm">
+        <SharedCardForm askZip={cur === "USD"} holder={holderName()} authorize="I authorize Poket to charge this card for this deposit."
+          submitId="cardContinue" submitLabel="Add money" onSubmit={(c) => addCard({ last4: c.last4, brand: BRANDS[c.brand].name })} />
       </div>
-      {digits.length >= 4 && !b && <div id="cardNumHint" style={{ margin: "-8px 0 14px", fontSize: "11.5px", color: "var(--err-600)" }}>We don&rsquo;t recognise this card. Poket accepts Visa, Mastercard, Amex, Discover and Verve.</div>}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "14px" }}>
-        <input className="field-input mono" id="cardExpiryInput" placeholder="MM/YYYY" value={f.exp} maxLength={7} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 6); if (v.length >= 3) v = v.slice(0, 2) + "/" + v.slice(2); setF({ ...f, exp: v }); }} />
-        <input className="field-input mono" id="cardCvvInput" placeholder={b === "amex" ? "1234" : "CVC"} value={f.cvv} maxLength={cvcLen(b)} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => setF({ ...f, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })} />
-        <input className="field-input mono" id="cardZipInput" placeholder="ZIP" value={f.zip} maxLength={10} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-          onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 9); if (v.length > 5) v = v.slice(0, 5) + "-" + v.slice(5); setF({ ...f, zip: v }); }} />
-      </div>
-      {expFilled && !expOk && <div id="expiryHint" style={{ margin: "0 0 14px", fontSize: "11.5px", color: "var(--err-600)" }}>Card has expired</div>}
-      <label className="field-label" htmlFor="cardNameInput">Cardholder name</label>
-      <input className="field-input" id="cardNameInput" placeholder="Name on card" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value.replace(/[0-9]/g, "") })} />
-      {f.name && <div id="nameMatchHint" style={{ margin: "-8px 0 14px", fontSize: "11.5px", color: nameMatch ? "var(--ok-600)" : "var(--err-600)" }}>
-        {nameMatch ? "Matches verified account holder" : `Must match account holder: ${legal}`}</div>}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", marginBottom: "16px" }}>
-        <input type="checkbox" id="termsCheck" style={{ marginTop: "3px" }} checked={f.terms} onChange={(e) => setF({ ...f, terms: e.target.checked })} />
-        <label htmlFor="termsCheck" style={{ fontSize: "12px", color: "var(--txt2)", lineHeight: 1.5 }}>I authorize Poket to charge this card for this deposit.</label>
-      </div>
-      <SpinButton id="cardContinue" delay={800} disabled={!(complete && nameMatch && f.terms)}
-        onClick={() => addCard({ last4: digits.slice(-4), brand: b ? BRANDS[b].name : "Card" })}>Add money</SpinButton>
     </>
   );
 }
 
-/** tCardFund '3ds': the bank's passcode. */
-function ThreeDs() {
-  const verify = useDeposit((s) => s.verify);
+/** The card network's own name for its bank check, shown on the bank's screen (other brands: "Bank verification"). */
+const BANK_CHECK: Partial<Record<keyof typeof BRANDS, string>> = { visa: "Visa Secure", mc: "Mastercard Identity Check", amex: "American Express SafeKey", discover: "Discover ProtectBuy" };
+
+/**
+ * tCardFund '3ds': bank verification (3-D Secure). The card's bank asks for the code it sent, in a sheet over Pay with
+ * that's styled as the bank's own screen, not Poket's: the network's name for it ("Visa Secure") and the card's last
+ * four on top, "Confirm with your bank", "Enter the code your bank sent you.", the code, Verify. Close (or Escape)
+ * goes back to Pay with.
+ */
+function BankVerification() {
+  const { verify, savedCards, cardId, set } = useDeposit();
   const [code, setCode] = useState("");
+  const card = savedCards.find((c) => c.id === cardId);
+  const b = card ? brandKey(card.brand) : undefined;
+  const close = () => set({ stage: "select-card" });
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") set({ stage: "select-card" }); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [set]);
   return (
-    <>
-      <div className="step-title">Enter passcode</div>
-      <p className="step-sub">Your bank sent a 6-digit code to your registered device to confirm this payment.</p>
-      <div id="threeDsRow"><DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={setCode} /></div>
-      <button className="btn-primary" id="verify3ds" disabled={code.length !== 6} onClick={verify}>Verify</button>
-    </>
+    <div className="rc-backdrop" id="bankVerify">
+      <div className="rc-sheet bank-sheet" role="dialog" aria-modal="true" aria-labelledby="bankVerifyTitle">
+        <div className="bank-head">
+          {b && <Raw html={BRANDS[b].mark} />}
+          <b id="bankVerifyBrand">{(b && BANK_CHECK[b]) ?? "Bank verification"}</b>
+          {card && <span className="mono" id="bankVerifyCard">•••• {card.last4}</span>}
+          <button type="button" className="bank-close" id="bankVerifyClose" aria-label="Close" onClick={close}><Raw html={WICON.closeIc} /></button>
+        </div>
+        <div className="bank-body">
+          <div className="bank-title" id="bankVerifyTitle">Confirm with your bank</div>
+          <p className="bank-sub">Enter the code your bank sent you.</p>
+          <div id="threeDsRow"><DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={setCode} /></div>
+          <button className="bank-btn" id="verify3ds" disabled={code.length !== 6} onClick={verify}>Verify</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -481,7 +465,8 @@ export function DepositBody() {
       {stage === "amount" && <CardAmount />}
       {stage === "select-card" && <CardPick />}
       {stage === "card" && <CardForm />}
-      {stage === "3ds" && <ThreeDs />}
+      {/* Bank verification: the bank's sheet over Pay with */}
+      {stage === "3ds" && <><CardPick /><BankVerification /></>}
       {stage === "authorizing" && <Working title="Authorizing payment" sub="Confirming with your card issuer." />}
       {stage === "card-done" && <CardDone />}
       {stage === "address" && <CoinAddress />}

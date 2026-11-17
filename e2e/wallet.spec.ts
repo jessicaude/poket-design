@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 // Playwright locators pierce the open shadow root that WalletShell renders into.
 test("wallet shell renders the reference frame and switches tabs", async ({ page }) => {

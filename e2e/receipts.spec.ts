@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 import { readFileSync } from "node:fs";
 
 /**
@@ -28,7 +28,7 @@ async function sent(page: Page) {
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
 }
 const sheet = (page: Page) => page.locator("#receiptSheet");
 const rcRow = (page: Page, label: string) => page.locator(`#receiptCard .rc-row[data-label="${label}"] > span:last-child`);
@@ -90,6 +90,7 @@ test("pending, held and failed sends say so on the receipt", async ({ page }) =>
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
   await page.locator("#receiptShare").click();
+  await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text.split("\n").slice(0, 3)).toEqual(["Poket receipt", "Failed", "Failed: this payment wasn’t sent. The money was returned to your balance."]);
 });
@@ -104,9 +105,9 @@ test("Share: the native share sheet where there is one; else the text summary is
   const ref = (await page.locator("#copyRefBtn").textContent())!.trim();
   await openSheet(page);
   await expect(page.locator("#receiptTitle")).toHaveText("From Amara Okafor");
-  // From a Poket user: not a bank transfer, so no Session ID
+  // From a CentryLink user: not a bank transfer, so no Session ID
   await expect(page.locator("#receiptCard .rc-row > span:first-child")).toHaveText(["Date and time", "From", "Account", "Fee", "Reference"]);
-  await expect(rcRow(page, "Account")).toHaveText("Poket");
+  await expect(rcRow(page, "Account")).toHaveText("CentryLink");
   await expect(rcRow(page, "Fee")).toHaveText("Free");
 
   // Native share
@@ -116,7 +117,7 @@ test("Share: the native share sheet where there is one; else the text summary is
   expect(shared.title).toBe(`Receipt ${ref}`);
   expect(shared.text.split("\n")).toEqual([
     "Poket receipt", "Completed", "", "₦10,000.00 NGN", "From Amara Okafor", "",
-    expect.stringMatching(/^Date and time: \d{2} [A-Z][a-z]{2}, \d{4}/), "From: Amara Okafor", "Account: Poket", "Fee: Free", `Reference: ${ref}`, "", "Payments by Poket",
+    expect.stringMatching(/^Date and time: \d{2} [A-Z][a-z]{2}, \d{4}/), "From: Amara Okafor", "Account: CentryLink", "Fee: Free", `Reference: ${ref}`, "", "Payments by Poket",
   ]);
   // No native share: copied
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
@@ -178,6 +179,7 @@ test("white-label: the merchant’s name and colours, still Payments by Poket", 
   await expect(page.locator("#receiptFooter")).toHaveText("Payments by Poket");
   await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
   await page.locator("#receiptShare").click();
+  await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
   const text = await page.evaluate(() => navigator.clipboard.readText());
   expect(text.split("\n")[0]).toBe("Ilé Living receipt");
   expect(text.split("\n").at(-1)).toBe("Payments by Poket");
@@ -187,17 +189,21 @@ test("white-label: the merchant’s name and colours, still Payments by Poket", 
   expect(lines[lines.indexOf("Reference: pay_ilv10077") + 1]).toBe("Session ID: [session ID]");
 });
 
-test("every naira transaction has Share receipt; dollar ones don’t; a dispute’s hold is on the receipt", async ({ page }) => {
+test("every transaction has Share receipt, dollar ones too; a dispute’s hold is on the receipt", async ({ page }) => {
   await wallet(page);
   await page.locator("#tabActivity").click();
-  // A dollar payment and the reference’s dollar records: no
+  // A dollar payment and the reference’s dollar records: yes, in dollars
   await page.locator('[data-payment="pay_a9d2c7ke"]').click();
   await expect(page.locator("#extRaiseDispute, #disputeClosed").first()).toBeVisible();
-  await expect(page.locator("#shareReceipt")).toHaveCount(0);
+  await openSheet(page);
+  await expect(page.locator("#receiptAmount")).toContainText("$");
+  await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-txid="t1"]').click();
-  await expect(page.locator("#txDetail")).toBeVisible();
-  await expect(page.locator("#shareReceipt")).toHaveCount(0);
+  await openSheet(page);
+  await expect(page.locator("#receiptTitle")).toHaveText("Refund · Kola Books");
+  await expect(rcRow(page, "From")).toHaveText("Kola Books");
+  await page.locator("#receiptClose").click();
   await page.locator("#backFromTxDetail").click();
   // A naira refund (to the NGN balance)
   await page.locator('[data-payment="pay_ilv10077"]').click();
@@ -242,6 +248,7 @@ test("a deposit’s receipt has the Session ID after the Reference: in the text,
     const labels = await page.locator("#receiptCard .rc-row > span:first-child").allTextContents();
     await page.evaluate(() => Object.defineProperty(navigator, "share", { value: undefined, configurable: true }));
     await page.locator("#receiptShare").click();
+    await expect(page.locator("#toastEl")).toContainText("Receipt copied"); // copied (asynchronously) before reading it
     const text = await page.evaluate(() => navigator.clipboard.readText());
     const [pdf] = await Promise.all([page.waitForEvent("download"), page.locator("#receiptPdf").click()]);
     const s = readFileSync((await pdf.path())!).toString("latin1");

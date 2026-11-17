@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CHECKOUT_LOCK_MARK, CHECKOUT_TICK_MARK } from "@/lib/icons";
 import { useAccount } from "@/store/account";
+import { accountContact } from "@/features/auth/identifier";
 import { BackRow } from "../parts";
 import { usePayout } from "../usePayout";
 
@@ -67,7 +68,7 @@ export function PinScreen() {
       {(t[1] || pinError) && <p className="step-sub">{t[1]}{pinError && <>{t[1] && " "}<span style={{ color: "var(--err-600)" }}>{pinError}</span></>}</p>}
       <DigitBoxes key={`${pinStage}-${tries}`} count={4} password label={(i) => `PIN digit ${i + 1}`} delay={180} style={{ maxWidth: "220px" }}
         onComplete={async (v) => { await pinComplete(v); setTries((n) => n + 1); }} />
-      <p className="otp-hint">Different from your passcode. Never sent to you.</p>
+      <p className="otp-hint">Different from the codes we send you. Never sent to you.</p>
     </>
   );
 }
@@ -79,26 +80,26 @@ export function PinLockedScreen() {
     <div className="center-state">
       <div className="success-mark fail-mark" dangerouslySetInnerHTML={{ __html: CHECKOUT_LOCK_MARK }} />
       <div className="step-title">Too many attempts</div>
-      <p className="step-sub" style={{ marginBottom: 0 }}>Your PIN is locked. Reset it with a passcode sent to your email to keep sending.</p>
-      <button className="btn-primary" id="pinLockedReset" onClick={startPinReset}>Reset PIN with passcode</button>
+      <p className="step-sub" style={{ marginBottom: 0 }}>Your PIN is locked. Reset it with a code sent to your email to keep sending.</p>
+      <button className="btn-primary" id="pinLockedReset" onClick={startPinReset}>Reset PIN with a code</button>
       <button className="btn-ghost" id="pinLockedClose" onClick={close}>Cancel</button>
     </div>
   );
 }
 
-/** tPinResetOtp: the 6-digit passcode emailed to you, before a new PIN. */
+/** tPinResetOtp: the 6-digit code emailed to you, before a new PIN. */
 export function PinResetOtpScreen() {
   const { otpError, pinResetCode } = usePayout();
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const email = useAccount((s) => (s.account ? accountContact(s.account) : "")) || "ada@osun.co";
   const [sent, setSent] = useState(false);
   return (
     <>
       <div className="step-eyebrow">Reset PIN</div>
       <div className="step-title">Verify it&rsquo;s you</div>
-      <p className="step-sub">Enter the 6-digit passcode sent to <strong>{email}</strong> before you can set a new PIN.</p>
+      <p className="step-sub">Enter the 6-digit code sent to <strong>{email}</strong> before you can set a new PIN.</p>
       <DigitBoxes count={6} label={(i) => `Digit ${i + 1}`} delay={0} onComplete={pinResetCode} />
       {otpError && <p className="inline-err">{otpError}</p>}
-      <p className="otp-hint">Didn&rsquo;t get it? <button id="resend" onClick={() => setSent(true)}>{sent ? "Sent ✓" : "Resend passcode"}</button></p>
+      <p className="otp-hint">Didn&rsquo;t get it? <button id="resend" onClick={() => setSent(true)}>{sent ? "Sent ✓" : "Resend code"}</button></p>
     </>
   );
 }

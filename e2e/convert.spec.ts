@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 import { cvPress } from "./keypad";
 
 /**
@@ -130,9 +131,9 @@ test("opening with NGN as the target and nothing to convert from: NGN stays, wit
   await expect(page.locator("#cvEmpty")).toHaveText("You have no USD or USDC to convert yet");
   await expect(page.locator("#cvEmptyDeposit")).toHaveText("Deposit");
   await page.locator("#cvEmptyDeposit").click();
-  // Deposit, with USD chosen
+  // Deposit's picker
   await expect(title(page)).toHaveText("Deposit");
-  await expect(page.locator('[data-depositcash="USD"]')).toHaveClass(/\bsel\b/);
+  await expect(page.locator('[data-depositcash="USD"]')).toBeVisible();
   await page.locator("#backHome").click();
   await expect(page.locator("#actConvert")).toBeVisible();
 
@@ -217,7 +218,7 @@ test("limit and tier check: Tier 0 steps up before converting; Cancel returns to
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#cvQuoteCard")).toBeVisible();
   await page.locator("#cvConfirm").click();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("Added to your USDC on Base balance");
   expect(await state(page)).toMatchObject({ ngn: 4000000, usdcBase: 514 });
 });
@@ -252,9 +253,9 @@ test("conversions in the NGN balance history; View transaction opens the receipt
   await expect(body.locator(".step-sub")).toHaveText("Converted NGN to USDC");
   // The reference’s transaction detail: an icon before each label, monospace right-aligned values
   const rows = body.locator("#cvReceipt .info-row");
-  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Rate", "Fee", "Reference"]);
-  await expect(rows.locator(".detail-ic")).toHaveCount(7);
-  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/, "₦10,000.00 NGN", "5.14 USDC on Base", "1 USDC ≈ 1,550.00 NGN", "₦2,040.00 NGN", /^TXN-\d{6}\s*$/]);
+  await expect(rows.locator("> span:first-child")).toHaveText(["Status", "Date", "From", "To", "Network", "Rate", "Fee", "Reference"]);
+  await expect(rows.locator(".detail-ic")).toHaveCount(8);
+  await expect(rows.locator("> span:last-child")).toContainText(["Completed", /^\d{2} [A-Z][a-z]{2}, \d{4}, \d{1,2}:\d{2} [AP]M/, "₦10,000.00 NGN", "5.14 USDC on Base", "Base", "1 USDC ≈ 1,550.00 NGN", "₦2,040.00 NGN", /^TXN-\d{6}\s*$/]);
   const status = rows.filter({ hasText: "Completed" }).locator("> span:last-child");
   await expect(status).toHaveClass(/\bmono\b/);
   await expect(status).toHaveCSS("text-align", "right");

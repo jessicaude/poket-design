@@ -9,8 +9,10 @@ import { STEP_LINE, StepUpIntro } from "../StepUpIntro";
 import { TierLimitsCard } from "../settings/SettingsScreens";
 import { CASH_CURRENCIES, COIN_ASSETS, NETWORKS, useHoldings, type CoinAsset, type Network } from "../useHoldings";
 import { useWalletNav } from "../useWalletNav";
+import { cardPurchaseFields } from "../history/fields";
+import { TxDetailView, TxIcon, TxNotFound } from "../history/TxView";
+import { cardPurchaseReceipt } from "../receipt/receipt";
 import { useWalletToast } from "../useWalletToast";
-import { DetailRow, ReferenceRow, formatTxDate } from "../withdrawals/TxDetail";
 import { CURRENCY_ICON, CURRENCY_NAME } from "../home/homeData";
 import { cardAvail, cardBalanceLabel, fmtSource, sameSource, useCards, type CardPurchase, type CardSource } from "./useCards";
 
@@ -175,33 +177,16 @@ export function CardPurchaseRow({ p }: { p: CardPurchase }) {
   const push = useWalletNav((s) => s.push);
   return (
     <div className="tx-row" data-cardtx={p.id} role="button" tabIndex={0} onClick={() => push({ name: "card-tx", id: p.id })}>
-      <div className="tx-ic out"><Raw html={WICON.card} /></div>
+      <TxIcon dir="out" />
       <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">{p.cardName} ••• {p.last4}</div></div>
       <div className="tx-amt"><Grey>{"-" + fmtSource(p.amount, p.source)}</Grey></div>
     </div>
   );
 }
 
-/** A card transaction's detail: the reference's details (Merchant, Status, Currency or Asset and Network, Card). */
+/** A card transaction's detail: the shared transaction template (from the card and its balance, to the merchant). */
 export function CardTxDetailScreen({ id }: { id: string }) {
-  const back = useWalletNav((s) => s.back);
   const p = useCards((s) => s.purchases.find((x) => x.id === id));
-  if (!p) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
-  const s = p.source;
-  return (
-    <>
-      <BackRow id="backFromTxDetail" onClick={back} />
-      <div className="center-col" style={{ padding: "6px 8px 0" }}><div className="tx-ic tx-ic-lg out"><Raw html={WICON.card} /></div></div>
-      <div className="step-title mono" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px" }}><Grey>{fmtSource(p.amount, s)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{p.merchant}</p>
-      <div className="info-card" id="txDetail">
-        <DetailRow label="Status" value="Approved" />
-        <DetailRow label="Date" value={formatTxDate(p.at)} />
-        <DetailRow label="Merchant" value={p.merchant} />
-        {s.k === "cash" ? <DetailRow label="Currency" value={s.cur} /> : <><DetailRow label="Asset" value={s.asset} /><DetailRow label="Network" value={s.net} /></>}
-        <DetailRow label="Card" value={`${p.cardName} ••• ${p.last4}`} />
-        <ReferenceRow refText={p.ref} />
-      </div>
-    </>
-  );
+  if (!p) return <TxNotFound />;
+  return <TxDetailView dir="out" amount={fmtSource(p.amount, p.source)} title={p.merchant} f={cardPurchaseFields(p)} receipt={cardPurchaseReceipt(p)} />;
 }

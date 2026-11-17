@@ -1,4 +1,4 @@
-import type { PayoutRecipient } from "@/lib/mock-api";
+import { FIRST_PAYMENT_HOLD_USD_CENTS, type PayoutRecipient } from "@/lib/mock-api";
 import { SEND_FEE, externalSendFee } from "@/lib/fees";
 import { cvFeeText, cvFmt, cvParse, cvQuote, cvRateText, cvType, cvUsdPer } from "../convert/convertMath";
 import { NGN_VA } from "../ngn/useNgn";
@@ -9,8 +9,8 @@ import { targetKeyFor } from "./sources";
  * One summary of a send, for any kind of recipient, read by the amount, review, done and status screens.
  * Fees (lib/fees.ts), in the target, on top of the amount: ₦25.00 to a Nigerian bank; $6.00 to a US bank or a debit
  * card; 6.00 in the coin to a stablecoin wallet; EUR, GBP and GHS banks $6.00 at the demo rate (to confirm); free to
- * a Poket user, end to end. A send that converts also pays the conversion fee, out of the amount. Arrival: NGN banks "Usually within seconds" (with the
- * first-payment hold); US banks "1 to 3 business days"; UK banks within minutes; debit cards and Poket users
+ * a CentryLink user, end to end. A send that converts also pays the conversion fee, out of the amount. Arrival: NGN banks "Usually within seconds" (with the
+ * first-payment hold); US banks "1 to 3 business days"; UK banks within minutes; debit cards and CentryLink users
  * instantly; stablecoin wallets about a minute.
  */
 export type SendSummary = {
@@ -35,7 +35,7 @@ export type SendSummary = {
   eta: string;
   /** The USD value of what leaves the source (sourceTotal), in cents, unrounded: what step-up is judged on. */
   usdOut: number;
-  /** A Poket user paid from card-funded USD: their money keeps the FIAT-ONLY tag. */
+  /** A CentryLink user paid from card-funded USD: their money keeps the FIAT-ONLY tag. */
   tag?: "FIAT-ONLY";
 };
 
@@ -48,7 +48,6 @@ export function sendSummary(r: PayoutRecipient, payFrom: string, payCents: numbe
   const src = cvParse(payFrom), tgt = cvParse(targetKey);
   const converting = !!cvType(src, tgt);
   const ngnBank = kind === "bank" && r.currency === "NGN";
-  const firstPayment = kind === "bank" && !r.paidBefore;
   const usBank = kind === "bank" && r.currency === "USD";
 
   // The send's own fee, in the target's units
@@ -56,7 +55,7 @@ export function sendSummary(r: PayoutRecipient, payFrom: string, payCents: numbe
   const feeTarget = kind === "poket" ? 0 : kind === "card" ? SEND_FEE.USD : externalSendFee(tgt);
   const sendFeeText = feeTarget === 0 ? "Free"
     : tgt.k === "coin" ? cvFmt(feeTarget, tgt) : fmtCurrency(feeTarget, tgt.k === "cash" ? tgt.cur : "USD");
-  // A Poket user is free end to end: naira that converts to USD on receipt pays no conversion fee either
+  // A CentryLink user is free end to end: naira that converts to USD on receipt pays no conversion fee either
   const q = converting ? cvQuote(payFrom, targetKey, payCents, jitter, kind === "poket") : null;
   // A send that converts: the conversion's fee (in the source), then the send's (in the target), when it has one
   const feeText = q && q.fee ? (feeTarget ? `${cvFeeText(q)} + ${sendFeeText}` : cvFeeText(q)) : sendFeeText;
@@ -72,13 +71,16 @@ export function sendSummary(r: PayoutRecipient, payFrom: string, payCents: numbe
     : kind === "bank" ? "Within minutes"
     : kind === "card" || kind === "poket" ? "Instantly"
     : "About 1 minute";
-  // A first payment to any bank account is scheduled: it sends after [hold] (ngn.mdc, applied to every bank)
+  // One rule for every recipient: a first payment of $500 or more (USD value leaving the balance) to a new recipient
+  // is scheduled, and sends after [hold]. Your own accounts (in your verified name) never are.
+  const usdOut = sourceTotal * cvUsdPer(src);
+  const firstPayment = !r.isSelf && !r.paidBefore && usdOut >= FIRST_PAYMENT_HOLD_USD_CENTS;
   const arrival = firstPayment ? `After ${HOLD_PLACEHOLDER}` : eta;
   const tag = kind === "poket" && src.k === "cash" && src.bucket === "fiat" ? "FIAT-ONLY" as const : undefined;
 
   return {
     kind, targetKey, converting, theyGetText: cvFmt(cents, tgt), feeTarget, feeText,
     ...(q ? { youSendText: cvFmt(payCents, src), rateText: cvRateText(src, tgt, jitter, false) } : {}),
-    sourceTotal, totalText, arrival, firstPayment, eta, usdOut: sourceTotal * cvUsdPer(src), ...(tag ? { tag } : {}),
+    sourceTotal, totalText, arrival, firstPayment, eta, usdOut, ...(tag ? { tag } : {}),
   };
 }

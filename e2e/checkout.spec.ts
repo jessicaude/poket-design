@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 /** Checkout on the Ilé Living demo, following the prototype’s flow. */
 
@@ -28,8 +28,8 @@ test("a new user signs up, adds a card and pays", async ({ page }) => {
   await widget.getByRole("button", { name: /^Card/ }).click();
   await widget.locator("#cNum").fill("4242424242424242");
   await expect(widget.locator("#cNum")).toHaveValue("4242 4242 4242 4242");
-  await widget.locator("#cExp").fill("122029");
-  await expect(widget.locator("#cExp")).toHaveValue("12 / 2029");
+  await widget.locator("#cExp").fill("1229");
+  await expect(widget.locator("#cExp")).toHaveValue("12 / 29");
   await widget.locator("#cCvc").fill("123");
   await widget.locator("#cZip").fill("10001");
   await widget.locator("#cGo").click();
@@ -59,6 +59,29 @@ test("an existing email logs in instead of signing up", async ({ page }) => {
   await widget.locator("#idInput").fill("ada@osun.co");
   await expect(widget.getByText("This email already has a Poket account.")).toBeVisible();
   await widget.getByRole("button", { name: "Continue to log in" }).click();
+  await enterCode(page);
+  await expect(widget.getByRole("heading", { name: "Pay $23.40 to Ilé Living" })).toBeVisible();
+  await expect(widget).toContainText("Signed in as a••••a@osun.co");
+});
+
+test("Use phone: a known number logs in; Edit and Resend on the code", async ({ page }) => {
+  await page.goto("/demo/ile-living");
+  await page.locator("#payWithPoket").click();
+  const widget = page.getByTestId("checkout-widget");
+  await widget.locator("#idSwitch").click();
+  await expect(widget.getByRole("heading", { name: "Verify your phone number" })).toBeVisible();
+  await expect(widget.locator("#idDialBtn")).toHaveText(/\+234/);
+  await widget.locator("#idInput").fill("8031234567");
+  await expect(widget.locator("#idInput")).toHaveValue("803 123 4567");
+  await expect(widget.locator("#suKnownT")).toHaveText("This number already has a Poket account.");
+  await widget.getByRole("button", { name: "Continue to log in" }).click();
+  await expect(widget.locator(".id-val")).toHaveText("+234 ••• ••• 4567");
+  await widget.locator("#otpResend").click();
+  await expect(widget.locator("#otpResend")).toHaveText("Code sent");
+  // Edit: back to the number, then on again
+  await widget.locator("#idEdit").click();
+  await expect(widget.locator("#idInput")).toHaveValue("803 123 4567");
+  await widget.locator("#suGo").click();
   await enterCode(page);
   await expect(widget.getByRole("heading", { name: "Pay $23.40 to Ilé Living" })).toBeVisible();
   await expect(widget).toContainText("Signed in as a••••a@osun.co");
@@ -98,6 +121,6 @@ test("Amex formats 4-6-5 and asks for a 4-digit CVC", async ({ page }) => {
   await widget.locator("#cNum").fill("378282246310005");
   await expect(widget.locator("#cNum")).toHaveValue("3782 822463 10005");
   await expect(widget.locator("#cCvc")).toHaveAttribute("placeholder", "1234");
-  await widget.locator("#cExp").fill("012024");
+  await widget.locator("#cExp").fill("0124");
   await expect(widget.getByText("This card has expired. Use a card that’s still valid.")).toBeVisible();
 });

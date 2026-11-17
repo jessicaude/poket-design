@@ -15,7 +15,7 @@ export async function recoverFromDowntime() {
   for (const amount of useNairaPartner.getState().takeQueued()) {
     // WGT-11: each is its own record, marked delayed
     const c = creditNgn({ kind: "delayed", amount, from: DEMO_ACCOUNT_SENDER });
-    notify("delayedTransferReceived", { amount: formatNairaShort(c.amount), sender: DEMO_ACCOUNT_SENDER.split(" · ")[0] });
+    notify("delayedTransferReceived", { amount: formatNairaShort(c.amount), sender: DEMO_ACCOUNT_SENDER.split(" · ")[0] }, { name: "credit", id: c.id });
   }
   const { list, move } = useWithdrawals.getState();
   for (const w of list.filter((x) => toNigerianBank(x) && x.status === "sending")) await move(w.id, "paid");

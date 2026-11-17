@@ -1,10 +1,10 @@
 "use client";
-import { useKeypadOnDemand } from "../payout/useKeypadOnDemand";
+import { AmountField } from "../AmountField";
 import { withoutCode } from "@/lib/money";
 import { useEffect, useState } from "react";
 import { Raw } from "@/components/ui/Raw";
 import { CHECK_DRAW, CV_CHEV, CV_FLIP, CV_RATE_SWAP, WICON } from "@/lib/icons";
-import { BackRow, Grey, Keypad, SpinButton } from "../payout/parts";
+import { BackRow, Grey, SpinButton } from "../payout/parts";
 import { cashAmount, cashBuckets } from "../useHoldings";
 import {
   CV_QUOTE_SECONDS, LIMIT_PLACEHOLDER, MIN_PLACEHOLDER, NETWORK, belowMinimum, cvAvail, cvBadgeHtml, cvBlockReason, cvFeeLabel, cvFeeText, cvFmt, cvKey, cvName,
@@ -49,8 +49,6 @@ export function ConvertFormScreen() {
   useBalancesTick();
   const { from, to, cents, jitter, ngnCoinsBlocked, close, openPicker, flip, max, key, review, useUsd } = useConvert();
   const q = cvQuote(from, to, cents, jitter);
-  // The keypad shows only while the amount is being typed (useKeypadOnDemand), as in Send
-  const { open: keypad, setOpen: setKeypad, ref: typing } = useKeypadOnDemand();
   const over = q.amt > q.avail;
   const belowMin = !q.noTarget && belowMinimum(q);
   // The fee comes out of the amount: an amount no bigger than it converts to nothing
@@ -68,20 +66,16 @@ export function ConvertFormScreen() {
     <>
       <BackRow id="backHome" label="Wallet" onClick={close} />
       <div className="step-title">Convert</div>
-      <div ref={typing}>
-      <div className="cv-box" id="cvFromBox" style={keypad ? { borderColor: "var(--brand-500)", boxShadow: "0 0 0 3px var(--brand-100)" } : undefined}>
-        <div className="cv-box-top"><span>From</span><span><Grey>{`Available ${cvFmt(q.avail, q.f)}`}</Grey> <button type="button" className="cv-max" id="cvMax" onClick={max}>Max</button></span></div>
-        <div className="cv-box-row">
-          <button type="button" className="cv-pick" id="cvPickFrom" onClick={() => openPicker("from")}>
-            <Raw html={cvBadgeHtml(q.f, 28)} />
-            <span className="cv-pick-name">{cvShort(q.f)}<BucketTag o={q.f} /></span>
-            <Raw html={CV_CHEV} />
-          </button>
-          <span className={`cv-amt mono ${over ? "err" : ""}`} id="cvFromAmt" role="button" tabIndex={0} aria-label="Amount to convert"
-            aria-expanded={keypad} style={{ cursor: "text" }} onClick={() => setKeypad(true)}
-            onKeyDown={(e) => { if (e.key === "Enter") setKeypad(true); }}>{fmtPlain(q.amt)}</span>
-        </div>
-      </div>
+      {/* From (the wallet's amount field); the To box, the rate and the hint between it and its keypad */}
+      <AmountField action={<SpinButton id="cvReview" style={{ marginTop: "8px" }} disabled={!(q.type && q.amt > 0 && !over && !tooSmall && !belowMin && !overLimit && !coinsBlocked)} delay={400} onClick={review}>Review</SpinButton>}
+        id="cvFromBox" label="From" amountId="cvFromAmt" ariaLabel="Amount to convert" text={fmtPlain(q.amt)} error={over}
+        right={<><Grey>{`Available ${cvFmt(q.avail, q.f)}`}</Grey> <button type="button" className="cv-max" id="cvMax" onClick={max}>Max</button></>}
+        chip={<button type="button" className="cv-pick" id="cvPickFrom" onClick={() => openPicker("from")}>
+          <Raw html={cvBadgeHtml(q.f, 28)} />
+          <span className="cv-pick-name">{cvShort(q.f)}<BucketTag o={q.f} /></span>
+          <Raw html={CV_CHEV} />
+        </button>}
+        dataKey="cvkey" keypadId="cvKeypad" doneId="cvKeypadDone" onKey={key}>
       <div className="cv-flip-wrap"><button type="button" className="cv-flip" id="cvFlip" aria-label="Swap from and to" disabled={!!q.noTarget} onClick={flip} dangerouslySetInnerHTML={{ __html: CV_FLIP }} /></div>
       <div className="cv-box">
         <div className="cv-box-top"><span>To</span><span>{q.noTarget ? "" : q.to.k === "coin" ? `Arrives ${NETWORK[q.to.net].eta}` : "Arrives instantly"}</span></div>
@@ -105,16 +99,7 @@ export function ConvertFormScreen() {
           <button type="button" className="btn-secondary" id="cvUseUsd" onClick={useUsd}>Convert to USD</button>
         </div>
       ) : <div className={`cv-hint ${hint ? "err" : ""}`} id="cvHint"><Grey>{hint}</Grey></div>}
-      {keypad && (
-        <div id="cvKeypad" style={{ marginTop: "10px" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "4px" }}>
-            <button type="button" className="cv-max" id="cvKeypadDone" onClick={() => setKeypad(false)}>Done</button>
-          </div>
-          <Keypad dataKey="cvkey" onKey={key} />
-        </div>
-      )}
-      </div>
-      <SpinButton id="cvReview" style={{ marginTop: "8px" }} disabled={!(q.type && q.amt > 0 && !over && !tooSmall && !belowMin && !overLimit && !coinsBlocked)} delay={400} onClick={review}>Review</SpinButton>
+      </AmountField>
     </>
   );
 }
@@ -206,10 +191,10 @@ export function ConvertReviewScreen() {
 }
 
 /**
- * A conversion's rows, the same on review and done: You convert, Rate, Fee, Network (to a coin), then what you get,
- * with its unit ("5.14 USDC").
+ * A conversion's rows, the same on review and done: You convert, Rate, Fee, Network (to a coin), on done the
+ * Confirmation, then last what you get, with its unit ("5.14 USDC").
  */
-function ConvertRows({ f, to, paid, feeLabel, feeText, received }: { f: Side; to: Side; paid: string; feeLabel: string; feeText: string; received: string }) {
+function ConvertRows({ f, to, paid, feeLabel, feeText, received, confirmation }: { f: Side; to: Side; paid: string; feeLabel: string; feeText: string; received: string; confirmation?: string }) {
   const row = (icon: string, label: string, value: React.ReactNode, extra = "") => (
     <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className="r-value mono">{value}</span></div>
   );
@@ -221,6 +206,7 @@ function ConvertRows({ f, to, paid, feeLabel, feeText, received }: { f: Side; to
       {to.k === "coin" && (
         <div className="receipt-row"><span className="r-ic"><Raw html={WICON.globe} /></span><span className="r-label">Network</span><span className="r-value">{to.net} · {NETWORK[to.net].eta}</span></div>
       )}
+      {confirmation && row(WICON.hash, "Confirmation", confirmation)}
       {row(WICON.coins, involvesNgn(f, to) ? "You get" : "You’ll receive", <Grey>{received}</Grey>, "total")}
     </>
   );
@@ -243,9 +229,6 @@ export function ConvertProcessingScreen() {
 export function ConvertDoneScreen() {
   const { result: r, close } = useConvert();
   if (!r) return null;
-  const row = (icon: string, label: string, value: React.ReactNode, extra = "") => (
-    <div className={`receipt-row ${extra}`}><span className="r-ic"><Raw html={icon} /></span><span className="r-label">{label}</span><span className="r-value mono">{value}</span></div>
-  );
   return (
     <>
       <div className="center-col" style={{ paddingBottom: 0 }}>
@@ -255,10 +238,9 @@ export function ConvertDoneScreen() {
         <span className="btn-ghost" id="cvViewTx" role="button" tabIndex={0}
           onClick={() => { close(); useWalletNav.getState().push({ name: "conversion", id: r.id }); }}>View transaction</span>
       </div>
-      {/* The review's rows, then the confirmation reference */}
+      {/* The review's rows with the confirmation reference; what you get stays last */}
       <div className="receipt-card" id="cvDoneCard" style={{ marginTop: "16px" }}>
-        <ConvertRows f={cvParse(r.from)} to={cvParse(r.to)} paid={r.paidText} feeLabel={r.feeLabel} feeText={r.feeText} received={r.receivedText} />
-        {row(WICON.hash, "Confirmation", r.ref)}
+        <ConvertRows f={cvParse(r.from)} to={cvParse(r.to)} paid={r.paidText} feeLabel={r.feeLabel} feeText={r.feeText} received={r.receivedText} confirmation={r.ref} />
       </div>
       <button className="btn-primary" id="cvDone" onClick={close}>Done</button>
     </>

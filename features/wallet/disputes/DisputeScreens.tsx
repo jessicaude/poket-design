@@ -3,20 +3,21 @@ import { withoutCode } from "@/lib/money";
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { Raw } from "@/components/ui/Raw";
-import { CHECK_DRAW } from "@/lib/icons";
 import { WICON } from "@/lib/icons";
 import {
   DESCRIPTION_MAX, DISPUTE_DAYS, DISPUTE_REASONS, DISPUTE_STRIKE_LIMIT, EVIDENCE_LABEL, NEW_DISPUTE, NOT_MINE_REASON, REASON_SHORT,
   addedCount, canRaiseDispute, countDisputeStrike, formButton, releaseNote, dateProblem, disputeStrikes, disputeWindow, fmtLong, maskDate, openDispute, type DisputeForm,
 } from "@/lib/disputes";
 import { useAccount, type Payment, type Refund } from "@/store/account";
+import { maskAccount } from "@/features/auth/identifier";
 import { allRefunds, refundDest, refundLeft, refundNote, refundTitle } from "@/lib/refunds";
 import { fmtCurrency } from "../payout/payoutMath";
 import { BackRow, Grey } from "../payout/parts";
 import { DEMO_TXNS, useWalletHome } from "../home/homeData";
 import { useWalletNav } from "../useWalletNav";
-import { TxFields, paymentFields, paymentStatusChip, refundFields } from "../history/fields";
-import { ShareReceiptButton } from "../receipt/ReceiptSheet";
+import { Tracker, WaitingScreen } from "../WaitingScreen";
+import { paymentFields, paymentStatusChip, refundFields } from "../history/fields";
+import { TxDetailView, TxIcon, TxNotFound } from "../history/TxView";
 import { paymentReceipt, refundReceipt } from "../receipt/receipt";
 
 /**
@@ -45,7 +46,7 @@ export function CheckoutPaymentRow({ p }: { p: Payment }) {
   const chip = paymentStatusChip(p);
   return (
     <div className="tx-row" data-txid={p.id} data-payment={p.id} role="button" tabIndex={0} onClick={() => push({ name: "payment", id: p.id })}>
-      <div className="tx-ic out" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
+      <TxIcon dir="out" />
       <div className="tx-main"><div className="tx-title">{p.merchant}</div><div className="tx-sub">{p.method}{chip.label !== "Completed" && <> · <span className={`va-status${chip.tone ? " " + chip.tone : ""}`} data-status={chip.label}>{chip.label}</span></>}</div></div>
       <div className="tx-amt"><Grey>{"-" + amountText(p)}</Grey></div>
     </div>
@@ -57,35 +58,36 @@ export function RefundRow({ p, r }: { p: Payment; r: Refund }) {
   const push = useWalletNav((s) => s.push);
   return (
     <div className="tx-row" data-txid={r.id} data-refund={r.id} role="button" tabIndex={0} onClick={() => push({ name: "refund", id: r.id })}>
-      <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.activity }} />
+      <TxIcon dir="in" />
       <div className="tx-main"><div className="tx-title">{refundTitle(p, r)}</div><div className="tx-sub">To {refundDest(p, r)}</div></div>
       <div className="tx-amt pos"><Grey>{"+" + fmtCurrency(r.amount, p.currency)}</Grey></div>
     </div>
   );
 }
 
-/** A refund's own receipt (tTxDetail): the amount back, where it went and when it arrives. */
+/** A refund's detail: the shared transaction template, then where it went and when it arrives. */
 export function RefundDetailScreen({ id }: { id: string }) {
-  const back = useWalletNav((s) => s.back);
   // Select the list (a stable value), then find the refund: a selector returning a new object would loop
   const payments = useAccount((s) => s.account?.payments);
   const found = payments && allRefunds(payments).find((x) => x.r.id === id);
-  if (!found) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
+  if (!found) return <TxNotFound />;
   const { p, r } = found;
   return (
-    <>
-      <BackRow id="backFromTxDetail" onClick={back} />
-      <div className="center-col" style={{ padding: "6px 8px 0" }}>
-        <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: p.currency === "NGN" ? WICON.ngFlag : WICON.usFlag }} />
-      </div>
-      <div className="step-title mono" id="refundAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--ok-600)" }}><Grey>{fmtCurrency(r.amount, p.currency)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{refundTitle(p, r)}</p>
-      <div className="info-card" id="txDetail">
-        <TxFields f={refundFields(p, r)} />
-      </div>
-      <ShareReceiptButton receipt={refundReceipt(p, r)} />
+    <TxDetailView dir="in" amount={fmtCurrency(r.amount, p.currency)} title={refundTitle(p, r)} f={refundFields(p, r)} receipt={refundReceipt(p, r)} amountId="refundAmount">
       <div className="alert info" id="refundNote" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{refundNote(p, r)}</span></div>
-    </>
+    </TxDetailView>
+  );
+}
+
+/** A dispute's waiting steps: submitted, under review while it's open, then the decision (refund, release, reversal). */
+export const DISPUTE_STEPS = [{ label: "Submitted" }, { label: "Under review" }, { label: "Decision" }];
+
+/** Where a dispute stands, on its transaction's detail (the demo bar's Resolve buttons complete it). */
+export function DisputeProgress({ resolved }: { resolved: boolean }) {
+  return (
+    <div className="info-card" id="disputeProgress" style={{ marginTop: "14px" }}>
+      <Tracker flat id="disputeTrack" steps={DISPUTE_STEPS} current={resolved ? 3 : 1} />
+    </div>
   );
 }
 
@@ -119,29 +121,20 @@ export function RaiseDispute({ at, merchant, target }: { at: number; merchant: s
   );
 }
 
-/** tTxDetail for a Checkout payment: the currency's flag, the amount, the merchant, Currency / Merchant / Context. */
+/** A Checkout payment's detail: the shared transaction template, then its dispute (held, released, Raise a dispute). */
 export function PaymentDetailScreen({ id }: { id: string }) {
-  const back = useWalletNav((s) => s.back);
   const p = useAccount((s) => s.account?.payments.find((x) => x.id === id));
-  if (!p) return <><BackRow id="backFromTxDetail" onClick={back} /><div className="step-title">Transaction</div><p className="step-sub">Not found.</p></>;
+  if (!p) return <TxNotFound />;
   const at = new Date(p.at).getTime();
   return (
-    <>
-      <BackRow id="backFromTxDetail" onClick={back} />
-      <div className="center-col" style={{ padding: "6px 8px 0" }}>
-        <div className="tx-ic tx-ic-lg tx-ic-real" dangerouslySetInnerHTML={{ __html: p.currency === "NGN" ? WICON.ngFlag : WICON.usFlag }} />
-      </div>
-      <div className="step-title mono" id="paymentAmount" style={{ textAlign: "center", marginTop: "10px", fontSize: "26px", color: "var(--n-900)" }}><Grey>{amountText(p)}</Grey></div>
-      <p className="step-sub" style={{ textAlign: "center", marginBottom: "14px" }}>{p.merchant}</p>
-      <div className="info-card" id="txDetail">
-        <TxFields f={paymentFields(p)}>{p.status === "disputed" && <DisputeRow />}</TxFields>
-      </div>
-      <ShareReceiptButton receipt={paymentReceipt(p)} />
+    <TxDetailView dir="out" amount={amountText(p)} title={p.merchant} f={paymentFields(p)} receipt={paymentReceipt(p)} amountId="paymentAmount"
+      rows={p.status === "disputed" ? <DisputeRow /> : undefined}>
       {/* WGT-12: an open dispute holds what's left of the payment; a released one says why */}
       {p.status === "disputed" && <div className="alert warn" id="disputeHeld" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.alert} /><span>{withoutCode(fmtCurrency(refundLeft(p), p.currency))} held while we review.</span></div>}
+      {p.dispute && <DisputeProgress resolved={!!p.dispute.outcome} />}
       {p.dispute?.outcome === "release" && <div className="alert info" id="disputeReleased" role="note" style={{ marginTop: "14px", marginBottom: 0 }}><Raw html={WICON.info} /><span>{releaseNote(p.merchant)}</span></div>}
       {canRaiseDispute(p) && <RaiseDispute at={at} merchant={p.merchant} target={{ kind: "checkout", id: p.id }} />}
-    </>
+    </TxDetailView>
   );
 }
 
@@ -168,7 +161,7 @@ function WarnBox({ title, body, tone }: { title: string; body: string; tone?: "e
 export function DisputeScreen({ target }: { target: DisputeTarget }) {
   const nav = useWalletNav();
   const t = useDisputeTx(target);
-  const email = useAccount((s) => s.account?.email) || "ada@osun.co";
+  const email = useAccount((s) => (s.account ? s.account.email || maskAccount(s.account) : "")) || "ada@osun.co";
   const [stage, setStage] = useState<"start" | "form" | "review" | "submitting" | "done">("start");
   const [d, setD] = useState<DisputeForm>(NEW_DISPUTE);
   const [dateTouched, setDateTouched] = useState(false);
@@ -314,16 +307,13 @@ export function DisputeScreen({ target }: { target: DisputeTarget }) {
       <div className="step-title" style={{ marginTop: "18px" }}>Submitting dispute&hellip;</div>
     </div>
   );
+  // The dispute's wait: submitted, under review now
   return (
-    <>
-      <div className="center-col" style={{ paddingTop: "30px" }} id="disputeDone">
-        <div className="check-circle"><Raw html={CHECK_DRAW} /></div>
-        <div className="step-title">Dispute submitted</div>
-        <p className="step-sub">If resolved in your favor, funds return to your balance.</p>
-      </div>
+    <WaitingScreen id="disputeDone" icon graphic={WICON.shieldIc} title="Dispute submitted" line="If resolved in your favor, funds return to your balance."
+      steps={DISPUTE_STEPS} current={1}>
       {/* The review's rows */}
-      <div className="info-card" id="disputeDoneRows" style={{ marginTop: "16px" }}>{reviewRows}</div>
+      <div className="info-card" id="disputeDoneRows">{reviewRows}</div>
       <button className="btn-primary" id="extDisputeDone" style={{ marginTop: "18px" }} onClick={() => { nav.home(); useWalletHome.getState().set({ tab: "activity" }); }}>Back to activity</button>
-    </>
+    </WaitingScreen>
   );
 }

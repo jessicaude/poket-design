@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { verifyIdentity } from "./identity";
 
 /** Dedicated NGN account: ngnChoice, ngnRoute, ngnId, ngnChecking, ngnLocked, ngnUnavailable, intro, creating, details. */
 
@@ -21,8 +22,8 @@ async function toIdEntry(page: Page, route = "BVN") {
 test("Tier 1: choose, enter an ID, three mismatches lock the step", async ({ page }) => {
   await openAtTier1(page);
   const body = page.locator("#panelBody");
-  await expect(body.locator(".select-row .t1")).toHaveText(["Temporary account", "Your own NGN account"]);
-  await expect(body.locator("#ngnPickTemp .t2")).toHaveText("For this transfer only, valid 30 minutes [time]");
+  await expect(body.locator(".select-row .t1")).toHaveText(["Single-use account", "Your own NGN account"]);
+  await expect(body.locator("#ngnPickTemp .t2")).toHaveText("Valid for 30 minutes [time]");
   await expect(body.locator("#ngnPickDedicated .t2")).toHaveText("Needs your BVN or NIN");
 
   await page.locator("#ngnPickDedicated").click();
@@ -48,8 +49,9 @@ test("Tier 1: choose, enter an ID, three mismatches lock the step", async ({ pag
   await page.getByRole("button", { name: "Fill a mismatching number" }).click();
   await go.click();
   await expect(title(page)).toHaveText("We couldn’t confirm your ID");
-  await expect(body.locator(".step-sub")).toHaveText("You’ve used all 3 attempts. Contact support to continue. You can still add naira with a temporary account.");
+  await expect(body.locator(".step-sub")).toHaveText("You’ve used all 3 attempts. Contact support to continue. You can still add naira with a single-use account.");
   await expect(body.locator("a.vf-support")).toHaveAttribute("href", "https://poketwallet.com/support");
+  await expect(page.locator("#ngnUseTemp")).toHaveText("Use a single-use account");
   await page.locator("#ngnUseTemp").click();
   await expect(title(page)).toHaveText("Add naira");
 });
@@ -60,11 +62,25 @@ test("a match leads to the account terms, then the NGN account details", async (
   await page.getByRole("button", { name: "Fill a matching number" }).click();
   await page.locator("#ngnIdGo").click();
 
-  // intro: account terms
+  // intro: the same layout as the other currencies (left-aligned, the flag in the title row, rows without icons)
   await expect(title(page)).toHaveText("Get NGN account details");
   const body = page.locator("#panelBody");
-  await expect(body.locator(".receipt-row .r-value")).toHaveText(["Ada Osun", "bank transfer", "Usually within seconds", "0.40% fee, up to ₦5,000.00"]);
-  await expect(body.locator(".consent-row label")).toHaveText("Accept the account terms of Poket’s partner bank, [Partner bank]");
+  await expect(page.locator("#vaIntroFlag svg")).toBeVisible();
+  await expect(body.locator(".convert-visual")).toHaveCount(0);
+  await expect(title(page)).toHaveCSS("text-align", "start");
+  await expect(body.locator(".step-sub").first()).toHaveText("Get paid by employers, clients or your bank. Money lands in your NGN balance.");
+  await expect(body.locator("#vaIntroRows .r-ic")).toHaveCount(0);
+  await expect(body.locator("#vaIntroRows .r-label")).toHaveText(["Name on account", "Bank transfer", "Fee"]);
+  await expect(body.locator("#vaIntroRows .r-value")).toHaveText(["Ada Osun", "Usually within seconds", "0.40%, up to ₦5,000.00"]);
+  // The partner's terms: unticked; the link opens them without ticking the box
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
+  await expect(body.locator(".consent-row label")).toHaveText("I accept [Partner bank]’s account terms");
+  await page.locator("#vaTermsLink").click();
+  await expect(page.locator("#vaTermsTitle")).toHaveText("[Partner bank] account terms");
+  await expect(page.locator("#vaTermsBody")).toHaveText("[Partner bank account terms]");
+  await page.locator("#vaTermsClose").click();
+  await expect(page.locator("#vaTerms")).toHaveCount(0);
+  await expect(page.locator("#vaAgree")).not.toBeChecked();
   await expect(page.locator("#vaCreate")).toBeDisabled();
   await page.locator("#vaAgree").check();
   await page.locator("#vaCreate").click();
@@ -229,19 +245,19 @@ test("NGN balance at Tier 0: verify first (the step-up), then the account choice
   await card.click();
   await expect(title(page)).toHaveText("Verify your identity");
   await expect(page.locator("#panelBody .alert")).toHaveText("Account details are in your verified name, so we need to confirm who you are.");
-  await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the temporary top-up
+  await expect(page.locator("#panelBody")).not.toContainText("Add naira"); // not the single-use account top-up
   // Cancel: back to the balance, still Tier 0
   await page.locator("#stepupCancel").click();
   await expect(page.locator("#balanceAmount")).toBeVisible();
-  // Deposit still tops up by temporary account at Tier 0
+  // Deposit still tops up by single-use account at Tier 0
   await page.locator("#detailDeposit").click();
   await page.locator("#dmBank").click();
   await expect(title(page)).toHaveText("Add naira");
-  // Continue stands in for verification: Tier 1, then the account choice
+  // Identity verification: Tier 1, then the account choice
   await page.evaluate(() => (window as any).__ngn.getState().close()); // eslint-disable-line @typescript-eslint/no-explicit-any
   await expect(page.locator("#balanceAmount")).toBeVisible();
   await card.click();
-  await page.locator("#stepupIntroContinue").click();
+  await verifyIdentity(page); // Tier 0: identity verification first
   await expect(title(page)).toHaveText("Bank transfer");
   expect(await page.evaluate(() => (window as any).__ngn.getState().tier)).toBe(1); // eslint-disable-line @typescript-eslint/no-explicit-any
 });

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
+import { WAITING, expectTrack } from "./waiting";
 import { expectSelfie, passSelfie } from "./selfie";
 
 /**
@@ -41,6 +42,7 @@ test("at or under ₦[step-up]: no selfie check; Flag as unusual asks for one on
   await expect(page.locator("#panelBody .vendor .wait")).toHaveText("Take a short selfie video on your phone. Keep this window open.");
   await page.locator("#demoSelfieFinish").click();
   await expect(title(page)).toHaveText("Checking your ID");
+  await expectTrack(page, "#selfieChecking", ["Submitted", "Checking", "Result"], WAITING);
   await expect(title(page)).toHaveText("Enter your PIN");
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
@@ -83,7 +85,7 @@ test("the 3rd failure holds the send for review (no PIN) and the account shows t
   await expect(page.locator("#heldForReviewNote")).toHaveText("We’re checking this payment. We’ll let you know.");
   expect(await ngn(page)).toMatchObject({ balance: 5000000 - 2502500, reserved: 2502500, attempts: 3 }); // with the ₦25.00 fee
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toHaveText("Held for review");
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toHaveText("Held for review");
   await page.locator("#backFromTxDetail").click();
 
   // Blocked: no money moves (Send, Convert); balances still show

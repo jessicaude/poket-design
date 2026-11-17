@@ -118,7 +118,7 @@ export const cvRate = (f: Side, to: Side, jitter = 1) => (cvUsdPer(f) / cvUsdPer
 
 /** `noTarget`: no To chosen yet (a card-funded source shows "Choose a currency"); `to` then repeats `f`. */
 export type Quote = { noTarget?: boolean; f: Side; to: Side; type: CvType | null; amt: number; fee: number; receive: number; usd: number; spec: { pct: number; flat?: number; label: string }; avail: number };
-/** `free`: no fee (a send to a Poket user that converts on receipt: free end to end). */
+/** `free`: no fee (a send to a CentryLink user that converts on receipt: free end to end). */
 export function cvQuote(from: string, toKey: string, cents: number, jitter: number, free = false): Quote {
   if (!toKey) { const f = cvParse(from); return { noTarget: true, f, to: f, type: null, amt: cents || 0, fee: 0, receive: 0, usd: Math.round((cents || 0) * cvUsdPer(f)), spec: { pct: 0, label: "" }, avail: cvAvail(f) }; }
   const f = cvParse(from), to = cvParse(toKey), type = cvType(f, to);

@@ -10,9 +10,10 @@ import { useAccountLock } from "@/store/lock";
 import { useDemo, type BankTransferAccount, type CardOutcome, type Customer, type IdOutcome, type MerchantAccepts, type OrderCurrency, type OrderSize, type Theme } from "@/store/demo";
 
 /** ID check outcomes: the prototype's pId (passes, declined) and its sign-up outcomes (SIGNUP_OUTCOMES labels). */
-const ID_OUTCOMES: [IdOutcome, string][] = [
+export const ID_OUTCOMES: [IdOutcome, string][] = [
   ["pass", "ID check: Passes"], ["review", "ID check: Manual review"], ["retry", "ID check: Needs retry"],
-  ["declined", "ID check: Declined"], ["under18", "ID check: Under 18 at date of birth"], ["sanctions", "ID check: Sanctions match"],
+  ["declined", "ID check: Declined"], ["under18", "ID check: Under 18 at date of birth"], ["docUnder18", "ID check: ID shows under 18"],
+  ["sanctions", "ID check: Sanctions match"],
 ];
 
 const ACCEPTS: { key: keyof MerchantAccepts; label: string }[] = [

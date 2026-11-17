@@ -6,7 +6,7 @@ import type { Kobo } from "@/lib/money";
  * WGT-13, partner downtime: the naira partner (Nigerian bank rails) is up or down. Shared by the wallet and Checkout
  * (both demo bars have "Naira partner: Up / Down"). While down, naira bank transfers are paused: no deposits by bank
  * transfer or new account details, no sends to Nigerian banks (and no name enquiry), sends already Sending stay
- * Sending, and Checkout's naira bank transfer is marked Paused. Poket users, Convert, cards and balances still work.
+ * Sending, and Checkout's naira bank transfer is marked Paused. CentryLink users, Convert, cards and balances still work.
  */
 type State = {
   down: boolean;

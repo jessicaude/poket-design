@@ -15,20 +15,25 @@ function when(ts: number) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/** The reference's tNotifications. Opening it marks everything read (clears the bell's dot). */
+/**
+ * The reference's tNotifications. Opening it marks everything read (clears the bell's dot). Tapping a notification
+ * opens its transaction's detail; Back returns to the screen the bell was tapped on (the screen under it).
+ */
 export function NotificationsScreen() {
   const list = useNotifications((s) => s.list);
   const markAllRead = useNotifications((s) => s.markAllRead);
   const back = useWalletNav((s) => s.back);
+  const push = useWalletNav((s) => s.push);
   useEffect(() => () => markAllRead(), [markAllRead]);
   return (
     <>
-      <BackRow id="extBackHome" label="Wallet" onClick={back} />
+      <BackRow id="extBackHome" onClick={back} />
       <div className="step-title">Notifications</div>
       {list.length ? (
         <div className="settings-list">
           {list.map((n) => (
-            <div className="settings-row" data-notif={n.id} key={n.id} style={{ alignItems: "flex-start" }}>
+            <div className="settings-row" data-notif={n.id} key={n.id} style={{ alignItems: "flex-start", ...(n.target ? {} : { cursor: "default" }) }}
+              {...(n.target ? { role: "button", tabIndex: 0, onClick: () => push(n.target!), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter") push(n.target!); } } : {})}>
               <span className="settings-row-ic" style={n.read ? { background: "var(--n-100)", color: "var(--txt3)" } : undefined}
                 dangerouslySetInnerHTML={{ __html: sizedIcon(n.type === "payout" ? WICON.bank : WICON.info, 16) }} />
               <div className="settings-row-text">

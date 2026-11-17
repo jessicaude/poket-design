@@ -1,6 +1,7 @@
 import { press } from "./keypad";
-import { expectSelfie } from "./selfie";
-import { test, expect, type Page } from "@playwright/test";
+import { HELD_NGN_BALANCE, HELD_NGN_DIGITS, roomForHeldNaira } from "./held";
+import { expectSelfie, passSelfie } from "./selfie";
+import { test, expect, type Page } from "./fixtures";
 
 /**
  * NGN withdrawal statuses (status screen, activity rows, chips), "₦X on hold", the demo bar’s status actions, and
@@ -13,7 +14,9 @@ const ngn = (page: Page) => page.evaluate(() => {
   const s = (window as any).__ngn.getState(); // eslint-disable-line @typescript-eslint/no-explicit-any
   return { balance: s.ngnBalance as number, reserved: s.ngnReserved as number };
 });
-const chip = (page: Page) => page.locator("#withdrawalStatus .va-status");
+/** The status, only in the detail's Status row (no chip); its tone on the row. */
+const chip = (page: Page) => page.locator('#txDetail [data-label="Status"] > span:last-child');
+const tone = (page: Page) => page.locator('#txDetail [data-label="Status"]');
 const msg = (page: Page) => page.locator("#withdrawalStatusMsg");
 const action = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 
@@ -21,37 +24,41 @@ const action = (page: Page, name: string) => page.getByRole("button", { name, ex
 async function payAndOpen(page: Page, recipient: string, digits: string) {
   await page.goto("/demo/wallet");
   await page.getByLabel("PIN", { exact: true }).selectOption("set");
+  // A first payment of $500 or more to a new account is held (Scheduled): room for ₦800,000.00, and the selfie check
+  const held = digits === HELD_NGN_DIGITS;
+  if (held) await roomForHeldNaira(page);
   await page.locator("#actSend").click();
   await page.locator(`[data-sendrecipient="bank:${recipient.split(":")[1]}"]`).click(); // straight to the amount
   for (const d of digits) await press(page, d);
   await page.locator("#payoutReview").click();
   await page.locator("#payoutAckCheck").check();
   await page.locator("#confirmPayout").click();
+  if (held) await passSelfie(page);
   await page.locator("#panelBody .otp-box").first().click();
   await page.keyboard.type("1234");
   await expect(page.locator("#viewPayoutTx")).toBeVisible();
   await page.locator("#viewPayoutTx").click();
-  await expect(page.locator("#withdrawalStatus")).toBeVisible();
+  await expect(page.locator('#txDetail [data-label="Status"] > span:last-child')).toBeVisible();
 }
 
 test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance screen; the list of held withdrawals", async ({ page }) => {
-  await payAndOpen(page, "other:r6", "500000");
-  await expect(title(page)).toHaveText("₦5,000.00 NGN");
+  await payAndOpen(page, "other:r6", HELD_NGN_DIGITS);
+  await expect(title(page)).toHaveText("₦800,000.00 NGN");
   await expect(page.locator("#panelBody .step-sub").first()).toHaveText("To Ngozi Eze");
   await expect(chip(page)).toHaveText("Scheduled");
-  await expect(chip(page)).toHaveClass(/\bmuted\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "muted");
   await expect(msg(page)).toHaveText("Sends after [hold]");
   await expect(page.locator("#panelBody .info-row")).toContainText(["Status", "Date", "ToGTBank · •••• 6789", "Fee₦25.00 NGN", "Reference"]);
-  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
+  expect(await ngn(page)).toEqual({ balance: 19997500, reserved: 80002500 });
 
   // Home: the NGN row’s subtitle
   await page.locator("#backFromTxDetail").click();
   await page.locator('[data-wallettab="cash"]').click(); // NGN is under the Cash tab
   const row = page.locator('#panelBody [data-holdcur="NGN"][data-holdbucket="open"]');
-  await expect(row.locator(".tx-amt")).toHaveText("₦44,975.00 NGN");
-  await expect(row.locator(".tx-sub")).toHaveText("₦44,975.00 NGN · ₦5,025.00 NGN on hold"); // the amount and its ₦25.00 fee
+  await expect(row.locator(".tx-amt")).toHaveText("₦199,975.00 NGN");
+  await expect(row.locator(".tx-sub")).toHaveText("₦199,975.00 NGN · ₦800,025.00 NGN on hold"); // the amount and its ₦25.00 fee
   await page.locator("#homeOnHold").click();
-  await expect(title(page)).toHaveText("₦5,025.00 NGN on hold");
+  await expect(title(page)).toHaveText("₦800,025.00 NGN on hold");
   await expect(page.locator("#panelBody .step-sub")).toHaveText("This money isn’t in your available balance.");
   await expect(page.locator("#panelBody .tx-row .tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(page.locator("#panelBody .tx-row .va-status")).toHaveText(["Scheduled"]);
@@ -59,31 +66,31 @@ test("Scheduled: 'Sends after [hold]'; ₦X on hold on home and the balance scre
 
   // NGN balance screen: the line under the balance, and the activity row
   await row.locator(".tx-title").click(); // the row’s centre is the "on hold" link
-  await expect(page.locator("#balanceAmount")).toHaveText("₦44,975.00 NGN");
-  await expect(page.locator("#balanceOnHold")).toHaveText("₦5,025.00 NGN on hold ›");
+  await expect(page.locator("#balanceAmount")).toHaveText("₦199,975.00 NGN");
+  await expect(page.locator("#balanceOnHold")).toHaveText("₦800,025.00 NGN on hold ›");
   const activity = page.locator('#panelBody .section-card .tx-row:not([data-txid*="seed"])'); // not Ada’s seeded history
   await expect(activity.locator(".tx-title")).toHaveText(["To Ngozi Eze"]);
   await expect(activity.locator(".tx-sub .va-status")).toHaveText(["Scheduled"]);
   await expect(activity.locator(".tx-sub")).toHaveText(["GTBank · •••• 6789 · Scheduled"]); // the account, then the chip while unfinished
-  await expect(activity.locator(".tx-amt")).toHaveText(["-₦5,000.00 NGN"]);
+  await expect(activity.locator(".tx-amt")).toHaveText(["-₦800,000.00 NGN"]);
   await page.locator("#balanceOnHold").click();
-  await expect(title(page)).toHaveText("₦5,025.00 NGN on hold");
+  await expect(title(page)).toHaveText("₦800,025.00 NGN on hold");
   await page.locator("#panelBody .tx-row").click();
   await expect(chip(page)).toHaveText("Scheduled");
 });
 
 test("Release first-payment hold: Scheduled → Sending → Paid; paid clears the reservation", async ({ page }) => {
-  await payAndOpen(page, "other:r6", "500000");
+  await payAndOpen(page, "other:r6", HELD_NGN_DIGITS);
   await expect(action(page, "Mark paid")).toBeEnabled();
   await expect(action(page, "Reverse")).toBeDisabled();
   await action(page, "Release first-payment hold").click();
   await expect(chip(page)).toHaveText("Sending");
   await expect(msg(page)).toHaveText("Usually within seconds");
-  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 502500 });
+  expect(await ngn(page)).toEqual({ balance: 19997500, reserved: 80002500 });
   await expect(chip(page)).toHaveText("Paid");
-  await expect(chip(page)).not.toHaveClass(/\b(muted|warn|err)\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "ok");
   await expect(msg(page)).toHaveCount(0);
-  expect(await ngn(page)).toEqual({ balance: 4497500, reserved: 0 });
+  expect(await ngn(page)).toEqual({ balance: 19997500, reserved: 0 });
   await expect(action(page, "Release first-payment hold")).toBeDisabled();
   await page.locator("#backFromTxDetail").click();
   await expect(page.locator("#homeOnHold")).toHaveCount(0); // nothing on hold
@@ -104,13 +111,13 @@ test("Held for review keeps the reservation; then Fail releases it to the balanc
   await payAndOpen(page, "self:lb2", "1000000");
   await action(page, "Hold for review").click();
   await expect(chip(page)).toHaveText("Held for review");
-  await expect(chip(page)).toHaveClass(/\bwarn\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "warn");
   await expect(msg(page)).toHaveText("We’re checking this payment. We’ll let you know.");
   await expect(action(page, "Hold for review")).toBeDisabled();
   expect(await ngn(page)).toEqual({ balance: 3997500, reserved: 1002500 });
   await action(page, "Fail").click();
   await expect(chip(page)).toHaveText("Failed");
-  await expect(chip(page)).toHaveClass(/\berr\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "err");
   await expect(msg(page)).toHaveText("The money is back in your balance.");
   await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
   for (const a of ["Release first-payment hold", "Hold for review", "Mark paid", "Fail", "Reverse"]) await expect(action(page, a)).toBeDisabled();
@@ -121,10 +128,11 @@ test("Held for review keeps the reservation; then Fail releases it to the balanc
 });
 
 test("Failed from Scheduled: funds returned", async ({ page }) => {
-  await payAndOpen(page, "other:r6", "250000");
+  await payAndOpen(page, "other:r6", HELD_NGN_DIGITS);
+  await expect(chip(page)).toHaveText("Scheduled");
   await action(page, "Fail").click();
   await expect(chip(page)).toHaveText("Failed");
-  await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
+  await expect.poll(() => ngn(page)).toEqual({ balance: HELD_NGN_BALANCE, reserved: 0 });
 });
 
 test("Reversed after Paid: funds returned, with a notification", async ({ page }) => {
@@ -134,7 +142,7 @@ test("Reversed after Paid: funds returned, with a notification", async ({ page }
   await expect(page.locator("#openNotifHeader")).toBeHidden();
   await action(page, "Reverse").click();
   await expect(chip(page)).toHaveText("Reversed");
-  await expect(chip(page)).toHaveClass(/\berr\b/);
+  await expect(tone(page)).toHaveAttribute("data-tone", "err");
   await expect(msg(page)).toHaveText("The money is back in your balance.");
   await expect.poll(() => ngn(page)).toEqual({ balance: 5000000, reserved: 0 });
   await expect(page.locator("#toastEl .notice-title")).toHaveText("Transfer reversed");

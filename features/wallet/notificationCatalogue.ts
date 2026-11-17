@@ -1,4 +1,5 @@
 import { useNotifications } from "./useNotifications";
+import type { WalletScreen } from "./useWalletNav";
 
 /**
  * Every notification the wallet sends, in one place (docs/notifications.md lists the same, and a test keeps them
@@ -7,8 +8,8 @@ import { useNotifications } from "./useNotifications";
  * (formatNairaShort, withoutCode).
  */
 export const NOTIFICATIONS = {
-  topUpReceived: { type: "info", trigger: "A temporary-account top-up arrives (Deposit, bank transfer)", title: "Transfer received", body: "{amount} added to your NGN balance." },
-  transferReceived: { type: "info", trigger: "A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a Poket user, arrives", title: "Transfer received", body: "{amount} from {sender} added to your {currency} balance." },
+  topUpReceived: { type: "info", trigger: "A single-use account top-up arrives (Deposit, bank transfer)", title: "Transfer received", body: "{amount} added to your NGN balance." },
+  transferReceived: { type: "info", trigger: "A bank transfer to account details (NGN, USD, EUR, GBP, GHS; the amount added, after any deposit fee), or naira from a CentryLink user, arrives", title: "Transfer received", body: "{amount} from {sender} added to your {currency} balance." },
   delayedTransferReceived: { type: "info", trigger: "The naira partner is back: each transfer that arrived while it was down is credited", title: "Transfer received", body: "{amount} from {sender} added to your NGN balance, after a delay." },
   refundReceived: { type: "payout", trigger: "A merchant refunds a naira bank-transfer payment into the NGN balance (not from a dispute)", title: "Refund received", body: "{amount} from {merchant} added to your NGN balance." },
   disputeRefundedToBalance: { type: "payout", trigger: "A dispute is resolved by refund, into the NGN balance (a naira bank transfer)", title: "Dispute resolved", body: "{amount} from {merchant} added to your NGN balance." },
@@ -32,7 +33,7 @@ export function fillBody(key: NotificationKey, vars: Record<string, string>): st
 /** The notification as sent: its title and filled body. */
 export const notificationFor = (key: NotificationKey, vars: Record<string, string>) => ({ type: NOTIFICATIONS[key].type, title: NOTIFICATIONS[key].title, desc: fillBody(key, vars) });
 
-/** Send a notification from the catalogue. The only way the wallet sends one. */
-export function notify(key: NotificationKey, vars: Record<string, string>) {
-  useNotifications.getState().add(notificationFor(key, vars));
+/** Send a notification from the catalogue. The only way the wallet sends one. `target`: its transaction's detail. */
+export function notify(key: NotificationKey, vars: Record<string, string>, target?: WalletScreen) {
+  useNotifications.getState().add({ ...notificationFor(key, vars), ...(target ? { target } : {}) });
 }

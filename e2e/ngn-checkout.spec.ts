@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "./fixtures";
 
 /**
  * NGN checkout on the Ilé Living demo: the demo bar’s order currency and merchant settings, the naira rails on
@@ -93,16 +93,16 @@ test("NGN order: the naira rails first, then the merchant’s other rails marked
   await expect(widget.getByRole("heading", { name: "Add a card" })).toBeVisible();
   await widget.locator("#cNum").fill("1234");
   await expect(widget).toContainText("We don’t recognise this card. Poket accepts Visa, Mastercard, Amex, Discover and Verve.");
-  await widget.locator("#cNum").fill("5061020000000000");
-  await expect(widget.locator("#cNum")).toHaveValue("5061 0200 0000 0000");
+  await widget.locator("#cNum").fill("5061020000000003");
+  await expect(widget.locator("#cNum")).toHaveValue("5061 0200 0000 0003");
   await expect(widget.locator("#cBrandLbl")).toHaveText("Verve card");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await expect(widget.locator("#cZip")).toHaveCount(0); // naira cards: number, expiry and CVC only
   await expect(widget.locator("#cGo")).toBeDisabled();
   await widget.locator("#cCvc").fill("123");
   await expect(widget.locator("#cGo")).toBeEnabled();
   await widget.locator("#cGo").click();
-  await expect(widget.getByRole("radio", { name: /Verve ••• 0000/ })).toHaveAttribute("aria-checked", "true");
+  await expect(widget.getByRole("radio", { name: /Verve ••• 0003/ })).toHaveAttribute("aria-checked", "true");
   const methods = await page.evaluate(() => (window as any).__account.getState().account.methods); // eslint-disable-line @typescript-eslint/no-explicit-any
   expect(methods.map((m: { currency?: string }) => m.currency)).toEqual(["NGN"]);
 
@@ -148,7 +148,7 @@ test("NGN order: a dollar card (paid in USD, converted) keeps the ZIP code", asy
   const widget = await ngnAddMethod(page);
   await widget.locator('[data-addpm="card"]').click();
   await widget.locator("#cNum").fill("4242424242424242");
-  await widget.locator("#cExp").fill("122029");
+  await widget.locator("#cExp").fill("1229");
   await widget.locator("#cCvc").fill("123");
   await expect(widget.locator("#cZip")).toBeVisible();
   await expect(widget.locator("#cGo")).toBeDisabled();
@@ -184,7 +184,8 @@ test("bank transfer (Dynamic): a one-time account for the exact amount; the tran
   await expect(widget.locator('[data-transfercopy="1"]')).toHaveText("Copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(num);
   await widget.locator('[data-transfercopy="3"]').click();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("Ilé Living via Poket");
+  // The copy is written asynchronously: wait for it
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("Ilé Living via Poket");
 
   await page.locator("#demoTransferArrives").click();
   await expect(widget.getByRole("heading", { name: "Paid ₦36,270.00 to Ilé Living" })).toBeVisible();
@@ -484,7 +485,7 @@ test("$500 rule (Tier 0): a naira total worth under $500 needs no ID check", asy
 test("$500 rule (Tier 0): a naira total worth $500 or more goes to the ID check", async ({ page }) => {
   let widget = await newUserNgnOrder(page, 77500000); // ₦775,000.00 = $500.00
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();
-  await expect(widget.locator("#dGo")).toHaveText("Continue to ID check"); // identity verification (checkout-id.spec.ts)
+  await expect(widget.locator("#dGo")).toHaveText("Continue to ID verification"); // identity verification (checkout-id.spec.ts)
 
   widget = await newUserNgnOrder(page, 155000000); // ₦1,550,000.00 = $1,000
   await expect(widget.getByRole("heading", { name: "Verify your identity" })).toBeVisible();

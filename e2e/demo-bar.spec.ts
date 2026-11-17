@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page } from "./fixtures";
 
 /** Every demo bar control shows its name with its value ("Naira partner: Up", "Name check: Available"). */
 async function options(page: Page) {

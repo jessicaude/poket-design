@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 /** The home page lists the demos: ported ones link to their page with their main flows; the rest are To port. */
 test("home: the demos, what's ported, and the ported ones' flows", async ({ page }) => {

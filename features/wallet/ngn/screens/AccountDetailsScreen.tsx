@@ -5,16 +5,22 @@ import { WICON, sizedIcon } from "@/lib/icons";
 import { useWalletToast } from "../../useWalletToast";
 import { NGN_VA, holderName, useNgn } from "../useNgn";
 import { VaBack } from "./VaBack";
+import { AccountSetup } from "../../deposit/AccountSetup";
 
 /**
  * tVa stage 'details' for NGN: the dedicated account's details, with copy, share, confirmation letter,
  * freeze and close (v.confirmClose). Bindings: data-vacopy, vaShare, vaLetter (vaLetter()), vaFreeze, vaClose*.
+ * While the account is pending (the partner bank's review): "Setting up your NGN account" (AccountSetup), with no card
+ * top-up (naira has none). NGN accounts are ready at once today, so it shows only for one that's pending.
  */
 export function AccountDetailsScreen() {
   const { dedicated, confirmClose, toggleFreeze, askClose, closeDedicated } = useNgn();
   const partnerDown = useNairaPartner((s) => s.down);
   const showNotice = useWalletToast((s) => s.showNotice);
   const [copied, setCopied] = useState<number | null>(null);
+  // Seen pending here: the setup screen stays until its tracker completes, then the details
+  const [waiting, setWaiting] = useState(false);
+  if (dedicated?.status === "pending" && !waiting) setWaiting(true);
 
   useEffect(() => {
     if (copied === null) return;
@@ -23,6 +29,12 @@ export function AccountDetailsScreen() {
   }, [copied]);
 
   if (!dedicated) return <VaBack />;
+  if (dedicated.status === "pending" || waiting) return (
+    <>
+      <VaBack />
+      <AccountSetup cur="NGN" flag={WICON.ngFlag} ready={dedicated.status !== "pending"} onDone={() => setWaiting(false)} />
+    </>
+  );
   const name = holderName();
   const fields: [string, string][] = [["Account name", name], ...NGN_VA.fields(dedicated.num)];
   const frozen = dedicated.status === "frozen";

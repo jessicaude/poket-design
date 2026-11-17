@@ -2,6 +2,7 @@
 import { Raw } from "@/components/ui/Raw";
 import { WICON } from "@/lib/icons";
 import { VendorHandoff } from "@/features/checkout/screens/IdentityScreens";
+import { CheckingIdScreen } from "../../identity/CheckingId";
 import { NGN_MAX_ATTEMPTS, useNgn } from "../../ngn/useNgn";
 import { BackRow } from "../parts";
 import { usePayout } from "../usePayout";
@@ -21,14 +22,9 @@ export function SelfieScreen() {
   );
 }
 
-/** SCREENS['verifying'] (Checkout), in the wallet's classes. */
+/** SCREENS['verifying'] (Checkout), as the wallet's waiting state (identity/CheckingId.tsx). */
 export function SelfieCheckingScreen() {
-  return (
-    <div className="center-col" style={{ paddingTop: "40px" }}>
-      <div className="spinner" />
-      <div className="step-title" style={{ marginTop: "16px" }}>Checking your ID</div>
-    </div>
-  );
+  return <CheckingIdScreen id="selfieChecking" />;
 }
 
 /**

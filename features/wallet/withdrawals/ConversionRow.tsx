@@ -1,6 +1,6 @@
 "use client";
 import type { Conversion } from "@/lib/mock-api";
-import { WICON } from "@/lib/icons";
+import { TxIcon } from "../history/TxView";
 import { Grey } from "../payout/parts";
 import { conversionTitle } from "../convert/useConvert";
 import { useWalletNav } from "../useWalletNav";
@@ -14,7 +14,7 @@ export function ConversionRow({ c }: { c: Conversion }) {
   const open = () => push({ name: "conversion", id: c.id });
   return (
     <div className="tx-row" data-txid={c.id} role="button" tabIndex={0} onClick={open} onKeyDown={(e) => { if (e.key === "Enter") open(); }}>
-      <div className="tx-ic in" dangerouslySetInnerHTML={{ __html: WICON.convert }} />
+      <TxIcon dir="convert" />
       <div className="tx-main"><div className="tx-title">{conversionTitle(c)}</div><div className="tx-sub"><Grey>{`${c.paidText} → ${c.receivedText}`}</Grey></div></div>
       <div className="tx-amt pos"><Grey>{"+" + c.receivedText}</Grey></div>
     </div>
